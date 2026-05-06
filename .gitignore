@@ -19,6 +19,8 @@ env/
 data/avatars/
 data/previews/
 data/uploads/
+data/audio/
+data/tts_cache/
 *.jpg
 *.jpeg
 *.png

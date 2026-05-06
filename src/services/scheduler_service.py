@@ -1,13 +1,13 @@
 """定时任务服务
 
-每日早上 8:00 自动收集昨日资讯
+每日早上 8:30 自动收集资讯并保存到数据库
 """
 import logging
+import json
+import os
 from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from src.services.news_collector_v2 import BilingualNewsCollector
-from src.services.news_ai_calibrator import NewsAICalibrator
 
 logger = logging.getLogger(__name__)
 
@@ -17,18 +17,23 @@ scheduler = AsyncIOScheduler()
 
 async def daily_news_collection():
     """每日资讯收集任务"""
-    logger.info("⏰ 定时任务：开始收集昨日资讯")
-    
+    logger.info("⏰ 定时任务：开始收集资讯")
+
     try:
+        # 动态导入避免循环依赖
+        from src.services.news_collector_v2 import BilingualNewsCollector
+        from src.services.news_ai_calibrator import NewsAICalibrator
+        from src.services.news_database import save_news_to_db
+
         collector = BilingualNewsCollector()
         calibrator = NewsAICalibrator()
-        
+
         # 收集新闻
         news_items = await collector.collect_all()
-        
+
         # 过滤低质量
         filtered = [n for n in news_items if (n.quality.total_100 if n.quality else 0) >= 55]
-        
+
         # 转换为字典
         news_dicts = []
         for item in filtered:
@@ -51,11 +56,33 @@ async def daily_news_collection():
                     'scores': item.quality.scores if item.quality else {}
                 }
             })
-        
-        # AI 校准 (支持降级模式)
+
+        # AI 校准
         calibrated_news, stats = calibrator.batch_calibrate(news_dicts, min_score=55)
 
-        logger.info(f"✅ 资讯收集完成: 通过 {stats['passed']} 条, 舍弃 {stats['discarded']} 条")
+        # 保存到数据库
+        db_count = save_news_to_db(calibrated_news)
+
+        # 同时保存 JSON 文件作为备份
+        output_data = {
+            'lastUpdate': datetime.now().strftime('%Y-%m-%d %H:%M'),
+            'totalCount': len(calibrated_news),
+            'stats': {
+                'A+': len([n for n in calibrated_news if n['quality']['grade'] == 'A+']),
+                'A': len([n for n in calibrated_news if n['quality']['grade'] == 'A']),
+                'B': len([n for n in calibrated_news if n['quality']['grade'] == 'B']),
+                'C': len([n for n in calibrated_news if n['quality']['grade'] == 'C']),
+                'D': len([n for n in calibrated_news if n['quality']['grade'] == 'D'])
+            },
+            'categories': list(set(n['category'] for n in calibrated_news)),
+            'news': calibrated_news
+        }
+
+        json_path = os.path.join(os.path.dirname(__file__), '../../app/data/news.json')
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(output_data, f, ensure_ascii=False, indent=2)
+
+        logger.info(f"✅ 资讯收集完成: 通过 {stats['passed']} 条, 数据库 {db_count} 条")
 
         await collector.close()
 
@@ -69,18 +96,18 @@ def start_scheduler():
     if scheduler.running:
         logger.warning("Scheduler already running")
         return
-    
-    # 每日早上 8:00 执行
+
+    # 每日早上 8:30 执行
     scheduler.add_job(
         daily_news_collection,
-        CronTrigger(hour=8, minute=0),
+        CronTrigger(hour=8, minute=30),
         id="daily_news_collection",
         name="每日资讯收集",
         replace_existing=True
     )
-    
+
     scheduler.start()
-    logger.info("✅ 定时调度器已启动 (每日 08:00)")
+    logger.info("✅ 定时调度器已启动 (每日 08:30)")
 
 
 def stop_scheduler():
