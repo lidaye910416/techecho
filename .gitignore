@@ -23,8 +23,14 @@ data/audio/
 data/tts_cache/
 *.jpg
 *.jpeg
-*.png
 *.gif
+
+# Assets (except TabBar icons)
+app/src/assets/*.png
+!app/src/assets/home*.png
+!app/src/assets/news*.png
+!app/src/assets/mine*.png
+!app/src/assets/category*.png
 *.mp4
 *.mp3
 *.wav

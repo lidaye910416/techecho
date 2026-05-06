@@ -7,9 +7,6 @@ export default defineAppConfig({
   outputRoot: 'dist',
   framework: 'react',
   compiler: 'webpack5',
-  h5: {
-    template: 'public/index.html'
-  },
   pages: [
     'pages/index/index',
     'pages/news/news',
