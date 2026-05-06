@@ -6,5 +6,10 @@
   "workspaces": [
     "app",
     "shared"
-  ]
+  ],
+  "devDependencies": {
+    "@babel/register": "^7.28.6",
+    "webpack": "5.94.0",
+    "webpackbar": "^7.0.0"
+  }
 }

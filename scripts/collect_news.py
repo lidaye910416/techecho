@@ -102,13 +102,20 @@ async def collect_news(category=None, lang=None, limit=None, min_quality=55):
             'news': calibrated_news
         }
 
-        # 保存到 app/data/news.json
+        # 保存到数据库
+        from services.news_database import save_news_to_db
+        db_count = save_news_to_db(calibrated_news)
+        print(f"   已存入数据库: {db_count} 条")
+
+        # 保存到 app/data/news.json (作为备份和前端兼容)
         output_path = os.path.join(os.path.dirname(__file__), '..', 'app', 'data', 'news.json')
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(output_data, f, ensure_ascii=False, indent=2)
 
         print("-" * 50)
-        print(f"✅ 完成! 保存到: {output_path}")
+        print(f"✅ 完成!")
+        print(f"   数据库: {db_count} 条")
+        print(f"   JSON文件: {output_path}")
         print(f"   总计: {len(calibrated_news)} 条新闻")
         print(f"   高质量 (A/B): {len([n for n in calibrated_news if n['quality']['grade'] in ['A+', 'A', 'B']])} 条")
 

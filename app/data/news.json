@@ -1,170 +1,423 @@
 {
-  "lastUpdate": "2026-05-01 22:48",
-  "totalCount": 11,
+  "lastUpdate": "2026-05-06 21:06",
+  "totalCount": 14,
   "stats": {
     "A+": 0,
     "A": 0,
-    "B": 0,
-    "C": 11,
+    "B": 2,
+    "C": 12,
     "D": 0
   },
   "categories": [
+    "tools",
     "product",
     "news",
     "ai"
   ],
   "news": [
     {
-      "id": "dc40453b-c62f-42d1-91a5-14ae48d2a7f9",
-      "title_zh": "闻泰科技*ST背后：安世半导体控制权争夺之鉴",
-      "content_zh": "2025年10月，闻泰科技与安世半导体的控制权争议骤然升温。彼时舆论场充斥着\"硬刚\"、\"自主自救\"、\"不再依赖海外\"等情绪化论调。然而仅半年后，现实给出了截然不同的答案。闻泰科技2025年年报显示，营收312.53亿元，同比大幅下滑，归母净利润巨亏87.48亿元，被实施*ST，退市风险骤然逼近。",
-      "source_zh": "钛媒体",
+      "id": "69d5455c-802b-4407-ba39-64879b6f6d93",
+      "title_zh": "SpaceX拟投550亿美元在得州建设Terafab半导体工厂",
+      "title_en": "",
+      "content_zh": "马斯克旗下的SpaceX计划投资550亿美元在得克萨斯州建设Terafab半导体生产设施，后续阶段完成后总投资额可能升至1190亿美元。格兰姆斯县官网已发布相关公告，项目将显著提升SpaceX在先进芯片制造领域的产能布局。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3797482256325888?f=rss",
       "lang": "zh",
       "category": "news",
-      "published_at": "Fri, 01 May 2026 17:00:50 +0800",
+      "published_at": "2026-05-06 19:25:44  +0800",
+      "created_at": "2026-05-06T20:59:02.342959",
       "quality": {
-        "total_100": 56.5,
-        "grade": "C",
+        "total_100": 67.8,
+        "grade": "B",
+        "scores": {
+          "completeness": 5.0,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 10,
+          "actionability": 6.0,
+          "impact": 5.5,
+          "originality": 5.0
+        },
         "content_refined": true
       }
     },
     {
-      "id": "5cfb269b-0dcd-4092-8e26-32695145d16c",
-      "title_zh": "早报：苹果iOS 27大幅升级照片App，一加realme合并去年我国Token调用量达21100万亿",
-      "content_zh": "Anthropic 新一轮融资在路上，估值或突破 9000 亿美元；Alphabet Q1 净利润暴增 81%，Google Cloud 首破 200 亿美元大关；Azure 增速 40%、AI 狂飙 123%，微软云业务全面提速。",
-      "source_zh": "爱范儿",
-      "lang": "zh",
-      "category": "news",
-      "published_at": "Thu, 30 Apr 2026 00:07:07 +0000",
-      "quality": {
-        "total_100": 57.7,
-        "grade": "C",
-        "content_refined": true
-      }
-    },
-    {
-      "id": "93d3e986-4bb0-449d-bd69-dbcf1fecbe50",
-      "title_zh": "AI与硬件动态：Claude拓展创意生态、蚂蚁大模型开源新版本",
-      "content_zh": "Claude AI正式接入多个创意软件生态，进一步拓展AI应用场景。Framework推出RTX 5070 GPU显卡模块，丰富便携计算设备选择。蚂蚁集团百灵大模型开源Ling-2.6-flash版本，持续推进大模型技术开放共享。",
-      "source_zh": "少数派",
+      "id": "d222b6e7-580e-43f8-93e3-96d60b531273",
+      "title_zh": "卓驭于贝贝：物理AI转型是生存法则的必然选择",
+      "title_en": "",
+      "content_zh": "智能汽车领域，物理AI已成高频词汇。卓驭科技副总裁于贝贝认为，算法厂商向物理AI转型是关乎存亡的生存法则，不上这条技术路线很可能被淘汰。其对手也从传统同行扩展至数字AI跨界巨头和具身智能公司。基于移动基座模型，卓驭正探索订阅分成、动作令牌等新商业形态。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3789475357400068?f=rss",
       "lang": "zh",
       "category": "ai",
-      "published_at": "Thu, 30 Apr 2026 09:16:28 +0800",
+      "published_at": "2026-05-02 21:17:06  +0800",
+      "created_at": "2026-05-06T20:59:02.346463",
       "quality": {
-        "total_100": 57.8,
-        "grade": "C",
+        "total_100": 66.0,
+        "grade": "B",
+        "scores": {
+          "completeness": 6.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 7.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
         "content_refined": true
       }
     },
     {
-      "id": "68c83be0-6654-47e4-98c7-b34cb911747b",
-      "title_zh": "乐道L80汽车、一加Ace 6至尊版等科技新品发布",
-      "content_zh": "乐道L80正式发布，蔚来子品牌加码新能源市场竞争；一加 Ace 6 至尊版同期登场，搭载旗舰级配置。Valve 新一代 Steam 手柄发售，采用全新摇杆设计。中国联通推出「联通魔方」自选服务，支持用户个性化定制通信方案。",
-      "source_zh": "少数派",
-      "lang": "zh",
-      "category": "product",
-      "published_at": "Wed, 29 Apr 2026 08:22:00 +0800",
-      "quality": {
-        "total_100": 58.8,
-        "grade": "C",
-        "content_refined": true
-      }
-    },
-    {
-      "id": "ab9c96a3-c18c-4ff2-b333-b72d5381b4d6",
-      "title_zh": "NVIDIA开发者见面会苏州举办：GPU、大模型与智能体技术全景分享",
-      "content_zh": "NVIDIA企业开发者社区邀请您参加苏州开发者见面会。聚焦GPU开发、大模型推理与Agentic AI智能体技术，全球及本地技术专家将分享从基础设施优化到前沿智能体应用的全链路干货，助力开发者应对复杂全栈挑战。",
-      "source_zh": "Solidot",
+      "id": "b97ae761-85a9-4023-85c7-d491058cd089",
+      "title_zh": "豆包App探索付费订阅，苹果2.5亿美元和解Siri诉讼",
+      "title_en": "",
+      "content_zh": "豆包App将新增付费订阅服务，专注PPT生成、数据分析、影视制作等复杂任务场景，免费版继续服务日常使用。苹果因Siri人工智能功能推迟发布，与股东达成2.5亿美元和解协议。两大科技公司近期在AI产品商业化与合规方面均面临新挑战。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3797041945304327?f=rss",
       "lang": "zh",
       "category": "ai",
-      "published_at": "Thu, 30 Apr 2026 16:21:45 +0800",
-      "quality": {
-        "total_100": 55.0,
-        "grade": "C",
-        "content_refined": true
-      }
-    },
-    {
-      "id": "07de2f46-cd69-419d-9f38-4b1aa7894e5e",
-      "title_zh": "微软开源 86-DOS 1.00 源代码",
-      "content_zh": "2018 年起，微软陆续公开了 MS-DOS 1.25、2.11 及 4.0 源代码。2026 年 4 月，为纪念 86-DOS 1.00 发布 45 周年，微软在 GitHub 上开源了这款操作系统内核及 CHKDSK 等工具源代码，延续了其开源传统。",
-      "source_zh": "Solidot",
-      "lang": "zh",
-      "category": "product",
-      "published_at": "Thu, 30 Apr 2026 15:40:05 +0800",
-      "quality": {
-        "total_100": 56.5,
-        "grade": "C",
-        "content_refined": true
-      }
-    },
-    {
-      "id": "6c49372f-faa0-475d-82c8-2bdc7d73b5e1",
-      "title_zh": "Zed 编辑器发布 1.0 版本：AI 原生编辑器的新里程碑",
-      "content_zh": "Zed 是一款基于 Rust 开发的文本编辑器，现已正式发布 1.0 版本。开发者表示，1.0 版本标志着产品达到关键里程碑，而非意味着完美。该编辑器定位为 AI 原生编辑器，可并行运行多个 AI 智能体，包括 Claude Agent、Codex、OpenCode 和 Cursor。",
-      "source_zh": "Solidot",
-      "lang": "zh",
-      "category": "ai",
-      "published_at": "Wed, 29 Apr 2026 23:36:21 +0800",
-      "quality": {
-        "total_100": 59.0,
-        "grade": "C",
-        "content_refined": true
-      }
-    },
-    {
-      "id": "e427b7a7-b892-4bd2-8430-f53a04ec9660",
-      "title_zh": "追觅发布火箭超跑 固态推进器零百加速0.9秒",
-      "content_zh": "4月27日，追觅科技在旧金山发布Nebula NEXT 01 JET Edition，业内称为“火箭车”。该车搭载双固体火箭助推系统，150毫秒瞬时响应，最大推力100千牛，零百加速仅0.9秒。同时亮相的还有激光雷达DHX1、可量产全固态电池及全线控智能底盘。追觅以技术为核心切入全球高端新能源市场。",
-      "source_zh": "36氪",
-      "lang": "zh",
-      "category": "product",
-      "published_at": "2026-05-01 18:26:42  +0800",
-      "quality": {
-        "total_100": 64.8,
-        "grade": "C",
-        "content_refined": true
-      }
-    },
-    {
-      "id": "d270d43a-37bd-4c15-aa92-5126a123e94f",
-      "title_zh": "天石科丰获数千万元pre-A轮融资，聚焦硫化物固态电解质材料研发",
-      "content_zh": "36氪获悉，天石科丰完成数千万元pre-A轮融资，元禾原点领投，天泓投资跟投。本轮融资将用于产品研发及百吨级产线落地。 天石科丰成立于2022年12月，聚焦硫化物固态电解质粉体材料研发，技术孵化于武汉理工大学和德国吉森大学。",
-      "source_zh": "36氪",
-      "lang": "zh",
-      "category": "news",
-      "published_at": "2026-04-30 19:32:16  +0800",
-      "quality": {
-        "total_100": 64.5,
-        "grade": "C",
-        "content_refined": true
-      }
-    },
-    {
-      "id": "550908ff-50ef-42b9-8cc7-a09f8e220875",
-      "title_zh": "追觅硅谷首秀：从扫地机器人到概念超跑的生态扩张",
-      "content_zh": "2026年4月，追觅在旧金山艺术宫举办为期一周的发布会，成为首家在硅谷拥有专属发布周的科技企业。会上展出智能扫地机、洗地机、空调冰箱等家电，并发布“星空计划”概念超跑Nebula NEXT 01 JET Edition。",
-      "source_zh": "36氪",
-      "lang": "zh",
-      "category": "product",
-      "published_at": "2026-04-30 17:33:41  +0800",
-      "quality": {
-        "total_100": 56.5,
-        "grade": "C",
-        "content_refined": true
-      }
-    },
-    {
-      "id": "8ecfd81e-9c8c-49e0-9177-a38e02937d8d",
-      "title_zh": "科技晚报｜联发科Q1毛利率46.3%；小红书成立AI一级部门；特斯拉Semi量产",
-      "content_zh": "联发科Q1毛利率46.3%，同比降1.8个百分点，EPS 15.17元新台币，营收1491.51亿元新台币。阿里云域名产品5月12日起调价，.icu等后缀续费调整为125元/年。小红书发内部信宣布成立AI一级部门Dots，加大AI投入，柯南出任总裁整合三大业务。特斯拉电动卡车Semi进入量产新阶段。",
-      "source_zh": "36氪",
-      "lang": "zh",
-      "category": "news",
-      "published_at": "2026-04-30 16:53:38  +0800",
+      "published_at": "2026-05-06 07:55:08  +0800",
+      "created_at": "2026-05-06T20:59:02.346117",
       "quality": {
         "total_100": 62.0,
         "grade": "C",
+        "scores": {
+          "completeness": 3.0,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 7.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 7.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "ba342a05-7010-48a7-98bc-c3c9eca396c8",
+      "title_zh": "荣耀联名张雪机车推出冠军手表，庆祝WSBK匈牙利站夺冠",
+      "title_en": "",
+      "content_zh": "在2026 WSBK匈牙利站WorldSSP组别，张雪机车法国车手瓦伦丁·德比斯最后时刻反超夺冠。荣耀CEO李健发文祝贺并宣布，作为张雪机车WSBK首席战略合作品牌，荣耀将推出冠军联名款手表庆祝这一历史性时刻。此前4月荣耀已成为车队首席战略合作品牌，并赠送荣耀WIN系列手机及游戏本。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3792228036615430?f=rss",
+      "lang": "zh",
+      "category": "product",
+      "published_at": "2026-05-02 22:14:23  +0800",
+      "created_at": "2026-05-06T20:59:02.346362",
+      "quality": {
+        "total_100": 61.8,
+        "grade": "C",
+        "scores": {
+          "completeness": 7.5,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 2.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "585874c7-9415-4329-91fa-0912e96efc39",
+      "title_zh": "OpenAI/Google/微软联手推动 K-12 AI 素养课程立法",
+      "title_en": "",
+      "content_zh": "加州议员提出 LIFT AI 法案，获 OpenAI、Google、微软等科技企业支持。法案拟在 K-12 课程中纳入 AI 素养教育，涵盖 AI 使用能力、输出解读及风险防范，并提供教材、教师培训专项资助。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84219",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "Wed, 06 May 2026 14:52:38 +0800",
+      "created_at": "2026-05-06T20:58:31.769946",
+      "quality": {
+        "total_100": 61.0,
+        "grade": "C",
+        "scores": {
+          "completeness": 4.5,
+          "language": 7.5,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 7.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "27678df0-ef9a-472d-8c7e-9dd2f870b719",
+      "title_zh": "苹果2.5亿美元和解AI功能延迟案 覆盖iPhone 15 Pro及以上用户",
+      "title_en": "",
+      "content_zh": "苹果同意支付2.5亿美元和解Apple Intelligence和Siri AI功能延迟诉讼。苹果于2024年6月发布Apple Intelligence，但相关AI功能多次推迟，升级版Siri预计今年晚些时候上线。诉讼指控苹果广告误导消费者。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84220",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "Wed, 06 May 2026 16:10:23 +0800",
+      "created_at": "2026-05-06T20:58:31.769833",
+      "quality": {
+        "total_100": 59.8,
+        "grade": "C",
+        "scores": {
+          "completeness": 4.5,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "dd861bad-0b45-4427-a1b1-8fe7782a457f",
+      "title_zh": "豆包推出付费订阅服务，三档价格覆盖月包年包",
+      "title_en": "",
+      "content_zh": "豆包App在免费版基础上新增付费订阅，推出三档方案：标准版68元/月（688元/年）、加强版200元/月（2048元/年）、专业版500元/月（5088元/年）。付费功能将聚焦复杂任务场景，包括PPT生成、数据分析、影视制作等。免费版继续服务日常使用需求，官方表示相关方案仍在测试中。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3794799114476809?f=rss",
+      "lang": "zh",
+      "category": "product",
+      "published_at": "2026-05-04 17:49:40  +0800",
+      "created_at": "2026-05-06T20:59:02.346299",
+      "quality": {
+        "total_100": 59.8,
+        "grade": "C",
+        "scores": {
+          "completeness": 4.5,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "f7d56446-053a-4a03-9985-1a3dc3d27f7a",
+      "title_zh": "前DLR工程师创立Orthogonal：用AI让硬件开发进入「vibe时代」",
+      "title_en": "",
+      "content_zh": "德国宇航局工程师吉洋创立Orthogonal，推出AI Native云端硬件开发平台ODE。该平台整合工业设计、结构分析、热仿真、电路设计等全流程，用户可通过自然语言直接表达需求，AI自动完成建模、仿真和迭代优化，降低硬件开发门槛，让非专业工程师也能造出复杂硬件产品。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3797224394284033?f=rss",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "2026-05-06 10:57:18  +0800",
+      "created_at": "2026-05-06T20:59:02.345903",
+      "quality": {
+        "total_100": 57.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 3.0,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "5ec266de-8bab-4385-a635-8c86a741cdb7",
+      "title_zh": "Google Pixel 11 系列将推内存缩减版应对供应紧张",
+      "title_en": "",
+      "content_zh": "受全球内存供应紧张影响，Google 计划在 Pixel 11 系列中推出内存缩减版本。Pixel 11 基础版将从 12GB 降至 8GB，Pro 版则新增 12GB 选项。尽管全系仍提供 16GB 版本，但售价预计上调。内存短缺已促使多家手机厂商调整产品定价策略。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84221",
+      "lang": "zh",
+      "category": "product",
+      "published_at": "Wed, 06 May 2026 16:59:17 +0800",
+      "created_at": "2026-05-06T20:58:31.769722",
+      "quality": {
+        "total_100": 56.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 3.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 2.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "5e8f87d5-37d4-438e-98d8-aa89b6239d78",
+      "title_zh": "Notepad++ for Mac 因商标争议被迫更名",
+      "title_en": "",
+      "content_zh": "Notepad++ 原作者侯今吾认为，Letov 维护的 macOS 移植版本使用原名会造成用户误解，以为是官方版本。侯今吾指出此举存在商标侵权风险。Letov 已将项目重命名为 NextPad++ 并更换图标。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84218",
+      "lang": "zh",
+      "category": "tools",
+      "published_at": "Wed, 06 May 2026 14:04:16 +0800",
+      "created_at": "2026-05-06T20:58:31.770054",
+      "quality": {
+        "total_100": 56.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 3.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 2.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "b4ed5363-82cf-47c2-839a-8b1e0df91c2f",
+      "title_zh": "Roku与TCL软件更新致电视变砖 遭用户集体诉讼",
+      "title_en": "",
+      "content_zh": "Roku和TCL合作推出的多款电视在软件更新后出现严重故障。部分Roku Select、Plus系列及TCL 3至6系列电视停止响应或反复重启，甚至完全无法开机。受影响设备多在购买后1-2年内出现问题。两家公司承诺修复，但至今未提供完整解决方案。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84216",
+      "lang": "zh",
+      "category": "product",
+      "published_at": "Tue, 05 May 2026 23:26:10 +0800",
+      "created_at": "2026-05-06T20:58:31.770255",
+      "quality": {
+        "total_100": 56.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 3.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 2.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "5db420af-5e07-46cb-9c84-f44eafd9434e",
+      "title_zh": "微软Edge被曝内存明文存储密码 安全风险引关注",
+      "title_en": "",
+      "content_zh": "安全研究人员发现微软Edge浏览器启动时会将所有保存的密码以明文形式加载到内存中，相比Chrome仅在需要时解密凭证的做法安全性更低。该漏洞增加了共享环境下密码被恶意提取的风险。微软回应称此为设计特性。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84213",
+      "lang": "zh",
+      "category": "product",
+      "published_at": "Tue, 05 May 2026 22:12:37 +0800",
+      "created_at": "2026-05-06T20:58:31.770532",
+      "quality": {
+        "total_100": 56.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 3.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 2.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "40257e0d-e76c-42ca-91fc-d9b056ec34c8",
+      "title_zh": "3亿月活难抵算力成本 国民级AI应用被迫收费",
+      "title_en": "",
+      "content_zh": "拥有3亿月活的国民级AI应用宣布收费，折射出大模型产品面临的商业化困境。高昂的算力成本与用户增长之间的矛盾，考验着每一家AI企业。这一案例或将推动行业加速探索可持续的商业模式。",
+      "content_en": "",
+      "source_zh": "钛媒体",
+      "source_en": "",
+      "source_url": "https://www.tmtpost.com/7978182.html",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "Wed, 06 May 2026 18:04:43 +0800",
+      "created_at": "2026-05-06T20:58:30.504826",
+      "quality": {
+        "total_100": 55.2,
+        "grade": "C",
+        "scores": {
+          "completeness": 0.5,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 6.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "bb5d6b7e-e5e5-412c-a03d-035eff44f0b4",
+      "title_zh": "AI助手竞争加剧：Siri对标ChatGPT，OpenAI推迟上市计划",
+      "title_en": "",
+      "content_zh": "iPhone 17包揽Q1全球最畅销手机前三；曝Siri将推独立App直接对标ChatGPT；OpenAI CFO建议将机器人及硬件部门上市推迟至2027年。苹果砍掉丐版Mac mini，小米18 Ultra将推玄戒O3特别版。鸿蒙智行就零重力座椅夹人事故回应称将优化设计。",
+      "content_en": "",
+      "source_zh": "爱范儿",
+      "source_en": "",
+      "source_url": "https://www.ifanr.com/1664813?utm_source=rss&utm_medium=rss&utm_campaign=",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "Wed, 06 May 2026 00:18:52 +0000",
+      "created_at": "2026-05-06T20:58:30.801606",
+      "quality": {
+        "total_100": 55.2,
+        "grade": "C",
+        "scores": {
+          "completeness": 1.5,
+          "language": 6.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 7.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
         "content_refined": true
       }
     }

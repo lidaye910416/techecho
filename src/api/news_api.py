@@ -1,71 +1,61 @@
 """
 TechEcho Pro - 新闻 API 端点
 
-提供新闻相关的 API 接口 - 从 news.json 读取双语新闻数据
+提供新闻相关的 API 接口 - 从数据库读取新闻数据
 """
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from typing import Optional, List
-import json
+from datetime import datetime, timedelta
+import sys
 import os
-from datetime import datetime
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from services.news_database import (
+    get_news_from_db,
+    get_news_stats,
+    get_news_by_id,
+    mark_as_read as db_mark_as_read
+)
 
 router = APIRouter(prefix="/news", tags=["news"])
-
-DATA_PATH = os.path.join(os.path.dirname(__file__), '../../app/data/news.json')
-
-def load_news_data():
-    """加载新闻数据"""
-    try:
-        with open(DATA_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return None
-    except Exception as e:
-        return None
 
 @router.get("")
 async def get_news_list(
     lang: Optional[str] = Query(None, description="语言筛选: zh, en, both"),
     category: Optional[str] = Query(None, description="分类筛选"),
     date: Optional[str] = Query(None, description="日期筛选: YYYY-MM-DD"),
-    min_quality: Optional[int] = Query(55, description="最低质量分")
+    min_quality: Optional[int] = Query(55, description="最低质量分"),
+    limit: Optional[int] = Query(None, description="限制数量")
 ):
     """获取新闻列表
 
     特殊逻辑: 如果请求今天但没有今天的新闻，自动返回昨天的新闻
     (因为新闻通常在当天上午收集，但内容是昨天的)
     """
-    data = load_news_data()
-    if not data:
-        raise HTTPException(status_code=404, detail="News data not found")
+    news = get_news_from_db(
+        lang=lang,
+        category=category,
+        date=date,
+        min_quality=min_quality,
+        limit=limit
+    )
 
-    news = data.get('news', [])
     today = datetime.now().strftime('%Y-%m-%d')
-    yesterday = (datetime.now() - __import__('datetime').timedelta(days=1)).strftime('%Y-%m-%d')
+    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
 
-    # 日期过滤
-    if date:
-        # 检查请求的日期是否有新闻
-        date_news = [n for n in news if n.get('published_at', '').startswith(date)]
-        if date_news:
-            news = date_news
-        elif date == today and yesterday:
-            # 今天没有新闻，返回昨天的
-            date_news = [n for n in news if n.get('published_at', '').startswith(yesterday)]
-            if date_news:
-                news = date_news
-        else:
-            news = []
-
-    # 过滤
-    if lang:
-        news = [n for n in news if n.get('lang') == lang]
-    if category and category != 'all':
-        news = [n for n in news if n.get('category') == category]
-    if min_quality:
-        news = [n for n in news if n.get('quality', {}).get('total_100', 0) >= min_quality]
+    # 如果请求今天但没有今天的新闻，返回昨天的
+    if date == today and not news:
+        news = get_news_from_db(
+            lang=lang,
+            category=category,
+            date=yesterday,
+            min_quality=min_quality,
+            limit=limit
+        )
 
     return {
         'success': True,
@@ -75,22 +65,13 @@ async def get_news_list(
 
 @router.get("/dates")
 async def get_available_dates():
-    """获取有新闻的日期列表
+    """获取有新闻的日期列表"""
+    stats = get_news_stats()
+    news = get_news_from_db(limit=1000)
 
-    逻辑:
-    - 返回新闻实际发布日期
-    - 如果最新新闻是昨天(非今天), 添加"今天"作为选项
-      (因为新闻通常在当天上午收集, 但内容是昨天的)
-    """
-    data = load_news_data()
-    if not data:
-        return {'success': True, 'data': []}
-
-    # 从 news.json 提取日期
-    news = data.get('news', [])
     dates = set()
     today = datetime.now().strftime('%Y-%m-%d')
-    yesterday = (datetime.now() - __import__('datetime').timedelta(days=1)).strftime('%Y-%m-%d')
+    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
 
     for item in news:
         published_at = item.get('published_at', '')
@@ -111,34 +92,20 @@ async def get_available_dates():
 @router.get("/stats")
 async def get_stats():
     """获取新闻统计"""
-    data = load_news_data()
-    if not data:
-        return JSONResponse({
-            'success': True,
-            'data': {
-                'lastUpdate': None,
-                'totalCount': 0,
-                'stats': {'A+': 0, 'A': 0, 'B': 0, 'C': 0, 'D': 0},
-                'categories': []
-            }
-        })
-
+    stats = get_news_stats()
     return {
         'success': True,
         'data': {
-            'lastUpdate': data.get('lastUpdate'),
-            'totalCount': data.get('totalCount', 0),
-            'stats': data.get('stats', {}),
-            'categories': data.get('categories', [])
+            'lastUpdate': stats.get('lastUpdate'),
+            'totalCount': stats.get('totalCount', 0),
+            'stats': stats.get('stats', {'A+': 0, 'A': 0, 'B': 0, 'C': 0, 'D': 0}),
+            'categories': stats.get('categories', [])
         }
     }
 
 @router.get("/categories")
 async def get_categories():
     """获取资讯分类"""
-    data = load_news_data()
-    categories = data.get('categories', []) if data else []
-
     CATEGORY_MAP = {
         'ai': {'name': 'AI', 'emoji': '🤖'},
         'tools': {'name': '工具', 'emoji': '🔧'},
@@ -146,8 +113,9 @@ async def get_categories():
         'product': {'name': '产品', 'emoji': '💡'}
     }
 
+    stats = get_news_stats()
     result = []
-    for cat in categories:
+    for cat in stats.get('categories', []):
         info = CATEGORY_MAP.get(cat, {'name': cat, 'emoji': '📰'})
         result.append({
             'id': cat,
@@ -163,12 +131,7 @@ async def get_categories():
 @router.get("/{news_id}")
 async def get_news_detail(news_id: str):
     """获取新闻详情"""
-    data = load_news_data()
-    if not data:
-        raise HTTPException(status_code=404, detail="News data not found")
-
-    news = data.get('news', [])
-    item = next((n for n in news if n.get('id') == news_id), None)
+    item = get_news_by_id(news_id)
 
     if not item:
         raise HTTPException(status_code=404, detail="News not found")
@@ -208,5 +171,6 @@ async def read_news_aloud(
 
 @router.put("/{news_id}/read")
 async def mark_as_read(news_id: str):
-    """标记新闻为已读 - 预留接口"""
-    return {"success": True, "message": "Marked as read"}
+    """标记新闻为已读"""
+    success = db_mark_as_read(news_id)
+    return {"success": success, "message": "Marked as read" if success else "News not found"}
