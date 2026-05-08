@@ -28,6 +28,8 @@ class MiniMaxClient:
         self.tts_models = ["speech-2.8-hd", "speech-2.6-hd", "speech-02-hd"]
         # 支持的视频模型 (根据官方文档)
         self.video_models = ["MiniMax-Hailuo-2.3", "MiniMax-Hailuo-2.3-Fast", "I2V-01-Director", "I2V-01-live", "I2V-01"]
+        # 文本对话模型
+        self.chat_model = "abab6.5s-chat"
 
     async def _make_request(
         self,
@@ -269,6 +271,76 @@ class MiniMaxClient:
 
     async def close(self):
         await self.client.aclose()
+
+    # ============ 文本对话 API ============
+
+    async def chat(
+        self,
+        messages: list,
+        model: str = None
+    ) -> Dict[str, Any]:
+        """
+        文本对话 - 使用 MiniMax 对话模型
+
+        API: POST https://api.minimaxi.com/v1/text/chatquery_v2
+        """
+        model = model or self.chat_model
+        logger.info(f"Chat request with model: {model}")
+
+        data = {
+            "model": model,
+            "messages": messages,
+            "stream": False
+        }
+
+        result = await self._make_request("POST", "v1/text/chatquery_v2", data)
+
+        # 解析响应
+        choices = result.get("choices", [])
+        if choices:
+            return {
+                "content": choices[0].get("messages", [{}])[0].get("text", ""),
+                "role": "assistant"
+            }
+
+        # 尝试另一种响应格式
+        choice = result.get("data", {}).get("choices", [{}])[0]
+        if choice:
+            msg = choice.get("messages", [{}])[0]
+            return {
+                "content": msg.get("text", ""),
+                "role": "assistant"
+            }
+
+        return {"content": "", "error": "No response from model"}
+
+    async def analyze_text(
+        self,
+        text: str,
+        analysis_type: str = "summarize"
+    ) -> Dict[str, Any]:
+        """
+        文本分析 - 通用文本分析接口
+
+        Args:
+            text: 待分析文本
+            analysis_type: 分析类型 (summarize/keywords/sentiment)
+        """
+        prompts = {
+            "summarize": f"请为以下新闻生成简洁的中文摘要（100字以内），突出核心信息：\n\n{text}\n\n摘要：",
+            "keywords": f"请从以下新闻中提取5-8个关键词，用逗号分隔：\n\n{text}\n\n关键词：",
+            "sentiment": f"请分析以下新闻的情感倾向，返回JSON格式：\n{{\"sentiment\": \"positive/neutral/negative\", \"score\": -1到1的小数, \"reason\": \"简要原因\"}}\n\n新闻内容：\n{text}\n\n分析结果："
+        }
+
+        prompt = prompts.get(analysis_type, prompts["summarize"])
+
+        result = await self.chat([{"role": "user", "content": prompt}])
+
+        return {
+            "analysis_type": analysis_type,
+            "result": result.get("content", ""),
+            "raw_text": text[:200] + "..." if len(text) > 200 else text
+        }
 
 # 全局客户端实例
 _minimax_client: Optional[MiniMaxClient] = None

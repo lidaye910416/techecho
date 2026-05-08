@@ -1,0 +1,28 @@
+# Ralph Progress Log
+Started: 2026-05-08
+Project: TechEcho Pro - 收藏新闻 AI 分析与语音播报
+
+## Codebase Patterns
+- 后端使用 FastAPI，路由在 src/api/
+- 前端使用 Taro，页面在 app/src/pages/
+- MiniMax 客户端封装在 src/services/minimax_client.py
+- 数据库使用 SQLite，数据服务在 src/services/news_database.py
+
+---
+
+## 2026-05-08 10:05 - US-001 + US-002
+- What was implemented:
+  - 后端 API: POST /api/favorites/analyze (AI 分析)
+  - 后端 API: POST /api/favorites/tts (TTS 语音播报)
+  - 精细化提示词: 角色定义+固定模板+播客风格优化
+  - TTS 配置: 语速 1.15x, voice_id=female-tianmei
+  - 文本预处理: format_for_tts() 增强感染力
+- Files changed:
+  - src/services/minimax_client.py (添加 chat 和 analyze_text 方法)
+  - src/api/favorites_api.py (新建 - 收藏分析 API)
+  - src/api/routes.py (注册新路由)
+- **Learnings for future iterations:**
+  - MiniMax 对话 API 端点: v1/text/chatquery_v2
+  - MiniMax TTS 支持 speed 参数
+  - AI 返回格式可能需要多次尝试才能正确解析
+---

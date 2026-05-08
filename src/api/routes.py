@@ -16,11 +16,15 @@ import os
 
 from src.models.database import get_db
 from src.api.news_api import router as news_api_router
+from src.api.favorites_api import router as favorites_api_router
 
 router = APIRouter(prefix="/api", tags=["api"])
 
 # 注册资讯路由 (JSON数据版)
 router.include_router(news_api_router)
+
+# 注册收藏分析路由
+router.include_router(favorites_api_router)
 
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8001")
 
