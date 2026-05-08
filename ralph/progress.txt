@@ -26,3 +26,18 @@ Project: TechEcho Pro - 收藏新闻 AI 分析与语音播报
   - MiniMax TTS 支持 speed 参数
   - AI 返回格式可能需要多次尝试才能正确解析
 ---
+
+## 2026-05-08 10:30 - US-003 + US-004
+- What was implemented:
+  - H5 前端: app/index.html 添加 AI 分析功能
+  - 分析按钮: 渐变胶囊按钮，loading 状态
+  - 分析结果展示: 核心发现卡片 + 现状扫描 + 趋势研判 + 值得注意 + 主笔手记
+  - 音频播放器: 播放/暂停/跳过15秒/进度条/语速控制/下载
+  - Tab 切换: 收藏页面显示分析区域，其他页面隐藏
+- Files changed:
+  - app/index.html (添加 CSS 样式 + HTML 结构 + JS 逻辑)
+- **Learnings for future iterations:**
+  - index.html 是单页应用，所有逻辑都在一个文件中
+  - 使用 localStorage 存储收藏数据
+  - audio.playbackRate 设置播放速度
+---

@@ -141,8 +141,8 @@
         "  - 无收藏：显示空状态「暂无收藏内容，请先添加收藏」"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "前端分析功能已完成"
     },
     {
       "id": "US-004",
@@ -171,8 +171,8 @@
         "  - 支持后台播放（页面滚动时继续播放）"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "音频播放器组件已完成"
     }
   ]
 }
