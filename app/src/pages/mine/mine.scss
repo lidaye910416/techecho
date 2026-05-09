@@ -1,98 +1,523 @@
+// ============================================
+// 我的 — 对标 H5 settings page + 统一样式
+// ============================================
+
 .mine-page {
   min-height: 100vh;
-  background: #0f0f1a;
-  padding: 20px;
+  background: #09090b;
+  display: flex;
+  flex-direction: column;
 }
 
-.user-info {
-  text-align: center;
-  padding: 40px 0;
+// ===== Header — 对标首页 =====
+.mine-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 12px 16px;
+  background: rgba(9, 9, 11, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.avatar {
-  width: 80px;
-  height: 80px;
-  margin: 0 auto 16px;
-  background: #1a1a2e;
-  border-radius: 50%;
+.mine-header-content {
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.mine-logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mine-logo-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.avatar-icon {
-  font-size: 40px;
-}
-
-.username {
-  display: block;
+.mine-logo-icon-text {
   font-size: 18px;
-  font-weight: 600;
   color: #fff;
-  margin-bottom: 8px;
 }
 
-.user-hint {
-  display: block;
-  font-size: 14px;
-  color: #86868B;
+.mine-logo-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fafafa;
 }
 
-.menu-list {
-  background: #1a1a2e;
-  border-radius: 12px;
-  margin-bottom: 30px;
+// ===== Scroll =====
+.mine-scroll {
+  flex: 1;
 }
 
-.menu-item {
+// ===== 用户区域 =====
+.mine-user-section {
+  padding: 16px;
+}
+
+.mine-user-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 20px;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+.mine-avatar-wrap {
+  margin-bottom: 12px;
+}
+
+.mine-avatar-img {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid #6366f1;
+}
+
+.mine-avatar-placeholder {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #27272a;
   display: flex;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
+  justify-content: center;
 }
 
-.menu-item:last-child {
-  border-bottom: none;
+.mine-avatar-emoji {
+  font-size: 32px;
 }
 
-.menu-icon {
-  font-size: 20px;
-  margin-right: 12px;
-}
-
-.menu-text {
-  flex: 1;
-  font-size: 15px;
-  color: #fff;
-}
-
-.menu-arrow {
-  font-size: 14px;
-  color: #86868B;
-}
-
-.about {
-  text-align: center;
-  padding: 20px;
-}
-
-.about-title {
-  display: block;
-  font-size: 16px;
+.mine-user-name {
+  font-size: 17px;
   font-weight: 600;
-  color: #fff;
+  color: #fafafa;
   margin-bottom: 4px;
 }
 
-.about-version {
-  display: block;
+.mine-user-tag {
   font-size: 12px;
-  color: #86868B;
+  color: #71717a;
+  margin-bottom: 16px;
+}
+
+.mine-user-stats {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.mine-stat-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mine-stat-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fafafa;
+}
+
+.mine-stat-label {
+  font-size: 11px;
+  color: #71717a;
+  margin-top: 2px;
+}
+
+.mine-stat-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mine-logout-btn {
+  padding: 6px 20px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 16px;
+}
+
+.mine-logout-text {
+  font-size: 12px;
+  color: #f87171;
+}
+
+// 未登录
+.mine-login-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+.mine-login-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #27272a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.mine-login-emoji {
+  font-size: 28px;
+}
+
+.mine-login-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fafafa;
+  margin-bottom: 4px;
+}
+
+.mine-login-desc {
+  font-size: 12px;
+  color: #71717a;
+  margin-bottom: 16px;
+}
+
+.mine-wechat-login-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.mine-wx-icon {
+  font-size: 16px;
+}
+
+.mine-wx-text {
+  font-size: 14px;
+  color: #fff;
+}
+
+.mine-login-error {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 8px;
+}
+
+.mine-login-hint {
+  font-size: 10px;
+  color: #52525b;
+  margin-top: 12px;
+}
+
+// ===== 菜单 =====
+.mine-menu-section {
+  padding: 0 16px;
+}
+
+.mine-menu-group {
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.mine-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mine-menu-item:last-child {
+  border-bottom: none;
+}
+
+.mine-menu-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.mine-menu-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mine-menu-text {
+  font-size: 14px;
+  color: #fafafa;
+}
+
+.mine-menu-sub {
+  font-size: 12px;
+  color: #71717a;
+}
+
+.mine-menu-badge {
+  padding: 2px 6px;
+  background: #6366f1;
+  border-radius: 10px;
+}
+
+.mine-badge-text {
+  font-size: 10px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.mine-menu-arrow {
+  font-size: 20px;
+  color: #52525b;
+}
+
+// ===== 子页面导航 =====
+.mine-sub-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #09090b;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mine-sub-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.mine-back-arrow {
+  font-size: 16px;
+  color: #a1a1aa;
+}
+
+.mine-back-label {
+  font-size: 13px;
+  color: #a1a1aa;
+}
+
+.mine-sub-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fafafa;
+}
+
+.mine-sub-content {
+  padding: 16px;
+}
+
+.mine-section-header {
+  margin-bottom: 16px;
+}
+
+.mine-section-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #a1a1aa;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.mine-section-hint {
+  font-size: 12px;
+  color: #71717a;
+}
+
+// ===== 语音网格 — 对标 H5 voice-grid L369-389 =====
+.mine-voice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.mine-voice-card {
+  padding: 12px;
+  background: #27272a;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  text-align: center;
+  position: relative;
+}
+
+.mine-voice-card.selected {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.mine-voice-icon {
+  font-size: 24px;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.mine-voice-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #fafafa;
+  display: block;
+}
+
+.mine-voice-desc {
+  font-size: 10px;
+  color: #71717a;
+  display: block;
+  margin-top: 2px;
+}
+
+.mine-voice-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  background: #6366f1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+}
+
+// ===== 偏好设置 =====
+.mine-pref-card {
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.mine-pref-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.mine-pref-label {
+  font-size: 14px;
+  color: #fafafa;
+}
+
+.mine-pref-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #6366f1;
+}
+
+.mine-pref-desc {
+  font-size: 11px;
+  color: #71717a;
   margin-bottom: 8px;
 }
 
-.about-desc {
-  display: block;
-  font-size: 13px;
-  color: #86868B;
+.mine-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mine-slider-min,
+.mine-slider-max {
+  font-size: 11px;
+  color: #71717a;
+  width: 24px;
+  text-align: center;
+}
+
+.mine-pref-slider {
+  flex: 1;
+}
+
+.mine-pref-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mine-pref-info {
+  flex: 1;
+}
+
+// ===== 关于 =====
+.mine-about-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px;
+  margin-top: 8px;
+}
+
+.mine-about-logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.mine-about-logo-icon {
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mine-about-logo-icon-text {
+  font-size: 14px;
+  color: #fff;
+}
+
+.mine-about-logo-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: #a1a1aa;
+}
+
+.mine-about-version {
+  font-size: 11px;
+  color: #52525b;
+  margin-bottom: 4px;
+}
+
+.mine-about-desc {
+  font-size: 11px;
+  color: #52525b;
+  margin-bottom: 2px;
+}
+
+.mine-about-copy {
+  font-size: 10px;
+  color: #3f3f46;
+}
+
+// ===== 底部安全区 =====
+.mine-safe-bottom {
+  height: 80px;
 }

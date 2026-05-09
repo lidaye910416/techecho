@@ -1,206 +1,857 @@
-.index-page {
+/**
+ * 首页样式 — 完整对标 H5 (index.html)
+ */
+
+// ============ 变量 ============
+
+$bg: #09090b;
+$bg-secondary: #18181b;
+$bg-card: #27272a;
+$bg-elevated: #3f3f46;
+$text-primary: #fafafa;
+$text-secondary: #a1a1aa;
+$text-muted: #71717a;
+$accent: #6366f1;
+$accent-hover: #818cf8;
+$border: rgba(255, 255, 255, 0.08);
+
+// ============ 页面 ============
+
+.idx-page {
   min-height: 100vh;
-  background: #0f0f1a;
-  padding: 20px;
-  padding-bottom: 100px;
+  background: $bg;
+  color: $text-primary;
+  
+  &.light-theme {
+    $bg: #ffffff;
+    $bg-secondary: #f4f4f5;
+    $bg-card: #e4e4e7;
+    $bg-elevated: #d4d4d8;
+    $text-primary: #09090b;
+    $text-secondary: #52525b;
+    $text-muted: #71717a;
+    $border: rgba(0, 0, 0, 0.08);
+  }
 }
 
-.header {
-  text-align: center;
-  padding: 40px 0;
+// ============ Header ============
+
+.idx-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 12px 16px;
+  background: rgba($bg, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid $border;
 }
 
-.title {
-  display: block;
-  font-size: 36px;
-  font-weight: bold;
-  color: #fff;
-}
-
-.subtitle {
-  display: block;
-  font-size: 14px;
-  color: #86868B;
-  margin-top: 8px;
-}
-
-.section {
-  margin-bottom: 30px;
-}
-
-.section-header {
+.idx-header-content {
+  max-width: 600px;
+  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  gap: 12px;
 }
 
-.section-title {
+.idx-logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.idx-logo-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, $accent, #8b5cf6);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.idx-logo-icon-text {
+  font-size: 16px;
+}
+
+.idx-logo-text {
   font-size: 18px;
+  font-weight: 700;
+}
+
+.idx-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+// 语言切换
+.idx-lang-toggle {
+  display: flex;
+  gap: 2px;
+  background: $bg-card;
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid $border;
+}
+
+.idx-lang-btn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
   font-weight: 600;
-  color: #fff;
+  color: $text-muted;
+  
+  &.active {
+    background: $accent;
+    color: white;
+  }
 }
 
-.section-more {
-  font-size: 14px;
-  color: #007AFF;
+// 刷新按钮
+.idx-refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: $bg-card;
+  border: 1px solid $border;
+  border-radius: 6px;
+  color: $text-muted;
 }
 
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: #86868B;
+.idx-refresh-icon {
+  font-size: 16px;
 }
 
-.news-scroll {
+// ============ Filters ============
+
+.idx-filters {
+  background: $bg;
+  border-bottom: 1px solid $border;
+}
+
+// 日期选择器
+.idx-date-picker {
+  position: relative;
+  overflow: hidden;
+  height: 48px;
+}
+
+.idx-date-track {
+  height: 100%;
   white-space: nowrap;
 }
 
-.news-card {
-  display: inline-block;
-  width: 280px;
-  margin-right: 16px;
-  padding: 16px;
-  background: #1a1a2e;
-  border-radius: 12px;
-  vertical-align: top;
+.idx-date-inner {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 50%;
 }
 
-.news-title {
-  display: block;
+.idx-date-item {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 55px;
+  height: 34px;
+  margin: 0 4px;
+  border-radius: 6px;
+  background: transparent;
+  opacity: 0.2;
+  transition: all 0.2s ease;
+  
+  &.center-item {
+    opacity: 1;
+    transform: scale(1.2);
+    
+    .idx-date-value {
+      color: $accent;
+      font-weight: 700;
+    }
+    
+    .idx-date-label {
+      color: $accent;
+    }
+  }
+}
+
+.idx-date-label {
+  font-size: 8px;
+  font-weight: 500;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.idx-date-value {
   font-size: 14px;
-  color: #fff;
+  font-weight: 600;
+  color: $text-secondary;
+}
+
+// 渐变边缘
+.idx-date-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  pointer-events: none;
+  
+  &--left {
+    left: 0;
+    background: linear-gradient(90deg, $bg, transparent);
+  }
+  
+  &--right {
+    right: 0;
+    background: linear-gradient(-90deg, $bg, transparent);
+  }
+}
+
+// 分类 Chips
+.idx-cat-row {
+  padding: 8px 16px;
+}
+
+.idx-cat-scroll {
+  white-space: nowrap;
+}
+
+.idx-cat-inner {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.idx-cat-chip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: $bg-secondary;
+  border: 1px solid $border;
+  border-radius: 16px;
+  color: $text-muted;
+  font-size: 12px;
+  font-weight: 500;
+  
+  &.active {
+    background: $accent;
+    border-color: $accent;
+    color: white;
+  }
+}
+
+.idx-cat-emoji {
+  font-size: 12px;
+}
+
+.idx-cat-name {
+  font-size: 12px;
+}
+
+// 统计栏
+.idx-stats {
+  padding: 8px 16px;
+  font-size: 11px;
+  color: $text-muted;
+}
+
+.idx-stats-num {
+  color: $text-secondary;
+}
+
+// ============ Feed ============
+
+.idx-feed {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 16px 16px 100px;
+  height: calc(100vh - 200px);
+}
+
+// ============ 卡片 ============
+
+.idx-card {
+  background: $bg-secondary;
+  border: 1px solid $border;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  
+  &:active {
+    border-color: $text-muted;
+  }
+}
+
+.idx-card-hd {
+  padding: 14px 14px 0;
+  display: flex;
+  gap: 12px;
+}
+
+.idx-card-emoji {
+  width: 40px;
+  height: 40px;
+  background: $bg-card;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.idx-card-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.idx-card-tags {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.idx-tag {
+  display: inline-flex;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  
+  &--zh {
+    background: rgba(249, 115, 22, 0.2);
+    color: #f97316;
+  }
+  
+  &--en {
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+  }
+  
+  &--cat {
+    background: rgba($accent, 0.2);
+    color: #a5b4fc;
+  }
+}
+
+.idx-card-source-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.idx-card-source {
+  font-size: 12px;
+  color: $text-muted;
+}
+
+.idx-card-source-link {
+  font-size: 12px;
+  color: $accent;
+}
+
+.idx-card-bd {
+  padding: 12px 14px;
+}
+
+.idx-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.idx-card-summary {
+  font-size: 13px;
   line-height: 1.5;
+  color: $text-secondary;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
-.news-meta {
+.idx-card-ft {
   display: flex;
   justify-content: space-between;
-  margin-top: 12px;
-  font-size: 12px;
-  color: #86868B;
+  align-items: center;
+  padding: 10px 14px;
+  background: $bg;
+  border-top: 1px solid $border;
 }
 
-.quick-actions {
+.idx-card-date {
+  font-size: 11px;
+  color: $text-muted;
+}
+
+.idx-card-actions {
   display: flex;
+  gap: 6px;
+}
+
+.idx-act-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: $bg-card;
+  border: 1px solid $border;
+  border-radius: 6px;
+  color: $text-muted;
+  font-size: 11px;
+  font-weight: 500;
+  
+  &.idx-act-btn--active {
+    background: $accent;
+    border-color: $accent;
+    color: white;
+  }
+}
+
+.idx-act-text {
+  font-size: 11px;
+}
+
+// ============ Loading ============
+
+.idx-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
   gap: 12px;
+  color: $text-muted;
 }
 
-.action-card {
-  flex: 1;
-  position: relative;
-  padding: 20px 12px;
-  background: #1a1a2e;
-  border-radius: 12px;
-  text-align: center;
+.idx-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid $border;
+  border-top-color: $accent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
-.action-icon {
-  display: block;
-  font-size: 32px;
-  margin-bottom: 8px;
-}
-
-.action-text {
-  display: block;
+.idx-loading-text {
   font-size: 13px;
-  color: #fff;
 }
 
-.action-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  padding: 2px 6px;
-  background: rgba(245, 158, 11, 0.2);
-  color: #FF9500;
-  font-size: 10px;
-  border-radius: 4px;
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
-.category-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
+// ============ Empty ============
 
-.category-item {
-  padding: 16px 8px;
-  background: #1a1a2e;
-  border-radius: 12px;
+.idx-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
   text-align: center;
 }
 
-.category-emoji {
-  display: block;
-  font-size: 28px;
-  margin-bottom: 8px;
+.idx-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
 }
 
-.category-name {
-  display: block;
-  font-size: 12px;
-  color: #fff;
-}
-
-// 统计信息区域
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-
-.stat-item {
-  padding: 16px 8px;
-  background: #1a1a2e;
-  border-radius: 12px;
-  text-align: center;
-}
-
-.stat-value {
-  display: block;
-  font-size: 20px;
-  font-weight: bold;
-  color: #6366f1;
+.idx-empty-title {
+  font-size: 16px;
+  font-weight: 600;
   margin-bottom: 4px;
 }
 
-.stat-label {
-  display: block;
-  font-size: 11px;
-  color: #86868B;
+.idx-empty-desc {
+  font-size: 13px;
+  color: $text-muted;
 }
 
-// 新闻卡片中的质量等级
-.news-grade {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+.idx-retry-btn {
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: $accent;
+  border-radius: 16px;
+  color: white;
+  font-size: 13px;
+}
+
+// ============ 详情弹窗 ============
+
+.idx-detail-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.idx-modal-content {
+  width: 100%;
+  max-width: 600px;
+  max-height: 85vh;
+  background: $bg-secondary;
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.idx-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid $border;
+}
+
+.idx-modal-title {
+  font-size: 16px;
   font-weight: 600;
 }
 
-.news-grade.grade-a, .news-grade.grade-aplus {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
+.idx-modal-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $bg-card;
+  border: none;
+  border-radius: 8px;
+  color: $text-muted;
 }
 
-.news-grade.grade-b {
-  background: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
+.idx-modal-body {
+  padding: 0;
+  max-height: calc(85vh - 60px);
 }
 
-.news-grade.grade-c {
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
+.idx-detail-card {
+  background: $bg-secondary;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid $border;
 }
 
-.news-grade.grade-d {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+.idx-detail-header {
+  padding: 20px;
+  border-bottom: 1px solid $border;
+  background: linear-gradient(145deg, $bg-secondary, rgba($accent, 0.03));
+}
+
+.idx-detail-title {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  color: $text-primary;
+}
+
+.idx-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.idx-detail-source {
+  font-size: 13px;
+  font-weight: 600;
+  color: #a5b4fc;
+}
+
+.idx-detail-date {
+  font-size: 13px;
+  color: $text-muted;
+}
+
+.idx-detail-content {
+  padding: 16px 20px;
+}
+
+.idx-detail-text {
+  font-size: 14px;
+  line-height: 1.8;
+  color: $text-secondary;
+  white-space: pre-wrap;
+}
+
+.idx-detail-source-link {
+  background: rgba($accent, 0.05);
+  border-radius: 10px;
+  padding: 14px;
+  margin: 0 20px 16px;
+  border: 1px solid rgba($accent, 0.1);
+}
+
+.idx-detail-link-label {
+  font-size: 11px;
+  color: $text-muted;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.idx-detail-link-url {
+  font-size: 13px;
+  color: $accent;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.idx-detail-actions {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  background: $bg;
+  border-top: 1px solid $border;
+}
+
+.idx-detail-action {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 8px;
+  border-radius: 10px;
+  border: 1px solid $border;
+  background: $bg-secondary;
+  
+  &.primary {
+    background: linear-gradient(135deg, $accent 0%, #8b5cf6 100%);
+    border: none;
+    box-shadow: 0 4px 12px rgba($accent, 0.3);
+    
+    .idx-detail-action-text {
+      color: white;
+    }
+  }
+}
+
+.idx-detail-action-icon {
+  font-size: 18px;
+}
+
+.idx-detail-action-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+// ============ 报告视图 ============
+
+.idx-report-view {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  background: $bg;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.idx-report-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid $border;
+  padding-top: calc(12px + env(safe-area-inset-top));
+}
+
+.idx-report-back,
+.idx-report-close {
+  font-size: 13px;
+  color: $text-secondary;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.idx-report-badge {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-weight: 600;
+  background: rgba($accent, 0.15);
+  color: #818cf8;
+}
+
+.idx-report-meta {
+  font-size: 12px;
+  color: $text-muted;
+  margin-bottom: 20px;
+  padding: 0 16px;
+  
+  strong {
+    color: $text-secondary;
+    font-weight: 600;
+  }
+}
+
+.idx-report-body {
+  padding: 0 16px 100px;
+  height: calc(100vh - 120px);
+}
+
+.idx-report-article {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.rp-title-line {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: $text-primary;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.rp-summary {
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  background: $bg-secondary;
+  border-radius: 10px;
+  border-left: 3px solid $accent;
+  font-size: 14px;
+  color: $text-secondary;
+  line-height: 1.8;
+}
+
+.rp-para {
+  margin-bottom: 16px;
+  text-indent: 2em;
+  line-height: 1.85;
+  font-size: 15px;
+}
+
+.rp-conclusion {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid $border;
+  font-style: italic;
+  color: $text-secondary;
+}
+
+// 播放器
+.idx-report-player {
+  max-width: 680px;
+  margin: 16px auto 0;
+  background: $bg-secondary;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.idx-player-progress {
+  height: 4px;
+  background: $bg-elevated;
+  border-radius: 2px;
+  margin-bottom: 4px;
+}
+
+.idx-player-progress-fill {
+  height: 100%;
+  background: $accent;
+  border-radius: 2px;
+  width: 0%;
+}
+
+.idx-player-time {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: $text-muted;
+}
+
+// 操作栏
+.idx-report-actions {
+  position: sticky;
+  bottom: 64px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 680px;
+  margin: 12px auto 0;
+  padding: 10px 0;
+}
+
+.idx-ra-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 18px;
+  background: $accent;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  
+  &.loading {
+    opacity: 0.7;
+  }
+  
+  &--play {
+    padding: 8px 14px;
+  }
+  
+  &--disabled {
+    background: $bg-elevated;
+    color: $text-muted;
+    cursor: not-allowed;
+  }
+}
+
+.idx-ra-speed {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 14px;
+  background: $bg-secondary;
+  color: $text-secondary;
+  font-size: 11px;
+  
+  &.active {
+    background: $accent;
+    color: white;
+  }
+}
+
+// ============ Safe Bottom ============
+
+.idx-safe-bottom {
+  height: calc(60px + env(safe-area-inset-bottom));
 }

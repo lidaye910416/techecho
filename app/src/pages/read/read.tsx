@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { View, Text, Audio, navigator } from '@tarojs/components'
+import Taro from '@tarojs/taro'
 import { getNewsDetail, readNewsAloud, markAsRead, NewsItem, getDisplayTitle } from '../../api'
 import './read.scss'
 
@@ -239,7 +240,7 @@ export default function Read() {
         <View className="action-btn primary" onClick={handleReadAloud}>
           <Text className="action-icon">{audioUrl ? (isPlaying ? '⏸️' : '▶️') : '🔊'}</Text>
           <Text className="action-text">
-            {isGenerating ? '生成中...' : audioUrl ? (isPlaying ? '暂停' : '朗读')}
+            {isGenerating ? '生成中...' : (audioUrl ? (isPlaying ? '暂停' : '朗读') : '生成语音')}
           </Text>
         </View>
 
