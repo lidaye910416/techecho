@@ -152,28 +152,30 @@ class NewsAICalibrator:
 正文: {content[:800]}
 来源: {source}
 
-我们只关注以下科技领域:
-- AI/人工智能: 大模型、ChatGPT、机器学习、AIGC、Agent
-- 开发工具: GitHub、API、编程框架、DevOps、云计算服务
-- 数字产业: 半导体、芯片、云计算、自动驾驶、新能源汽车
-- 科技产品: 软件发布、App更新、版本发布
+我们只关注以下科技领域（产业数字化 + 数字产业化 + AI）:
+- AI/人工智能: 大模型、ChatGPT、AIGC、Agent、机器学习、AI应用落地
+- 开发工具/云计算: GitHub、API、编程框架、DevOps、云服务、SaaS
+- 半导体/芯片: 制程工艺、芯片设计、EDA、算力基础设施
+- 科技产品: 软件发布、App更新、SaaS产品迭代
 
 必须过滤掉以下领域:
-- 农业/环境/能源政策(如燃煤/水产养殖)
-- 游戏/娱乐/影视/音乐
-- 金融/银行/保险/股票
-- 医疗健康/药品
+- 智能汽车/新能源汽车/自动驾驶 (广告性质重，不收录)
+- 游戏/娱乐/影视/音乐/体育
+- 金融/银行/保险/股票/IPO/融资财报分析
+- 医疗健康/药品/生物技术
 - 房产/教育(非AI数字化)
-- 泛生活方式/消费
+- 农业/环境/能源政策
+- 泛消费/生活方式/食品
 
 任务:
 1. 判断是否属于关注的科技领域
 2. 如是，分类为: ai/tools/news/product
 3. 如否，action设为discard
-4. 如通过，润色标题(15-30字)和正文(≤150字，句子边界结束)
+4. 如通过，润色标题(15-30字)和正文(100-150字，完整句子收尾)
+   ⚠️ 正文必须控制在100-150字之间，不能少于100字，保证信息密度
 
 返回JSON:
-{{"is_related":true/false,"category":"ai/tools/news/product","action":"pass/discard","reason":"理由","title":"润色标题","content":"润色正文(≤150字)"}}"""
+{{"is_related":true/false,"category":"ai/tools/news/product","action":"pass/discard","reason":"理由","title":"润色标题","content":"润色正文(100-150字)"}}"""
 
     def _call_minimax(self, prompt: str, max_tokens: int = 800) -> Optional[str]:
         """调用 MiniMax API"""

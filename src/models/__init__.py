@@ -1,3 +1,4 @@
-from src.models.database import Base, engine, get_db, SessionLocal, init_db
+# 数据模型 — 使用 dataclass + 原生 SQLite
+from src.models.news_bilingual import NewsItem, QualityScore
 
-__all__ = ["Base", "engine", "get_db", "SessionLocal", "init_db"]
+__all__ = ["NewsItem", "QualityScore"]

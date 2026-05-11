@@ -6,7 +6,7 @@
 
 from fastapi import APIRouter, HTTPException, Body
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
 import json
 import logging
 
@@ -27,92 +27,57 @@ class AnalyzeRequest(BaseModel):
 class TTSRequest(BaseModel):
     """TTS 请求"""
     text: str
+    voice: Optional[str] = None  # 'voice1'|'voice2'|'voice3'|'voice4'，默认 voice3
 
 
 # ============ 精细化提示词 ============
 
-ANALYSIS_PROMPT = """你是一位资深科技媒体主笔，有10年科技行业报道经验。
-你的语言风格：专业但不晦涩，犀利但有温度，善于用比喻和案例让复杂技术变得易懂。
+SYSTEM_PROMPT = """你是一位资深科技行业分析师，有10年行业研究经验。你擅长从新闻中提炼趋势、发现关联、给出有数据支撑的判断。
 
-请根据以下新闻内容，按照固定模板输出分析报告：
+请根据提供的新闻撰写一份科技分析报告。要求：
 
-## 一句话总结
-用一句话概括这批新闻的核心主题，15-25个字，类似新闻标题风格。
-格式：【核心发现】xxxxxxxxxxxxxxxx
+【报告结构 — 自然段落，不用任何标签】
+第一行：报告标题（10-20字），概括核心发现
+空行后：一段摘要（2-3句话），概述报告要点
+空行后：2-4段现状分析，每段引用新闻中的具体产品或事件作为论据
+空行后：1-2段趋势预判，给出未来1-3个月走向
+空行后：一段风险提示（可选），指出潜在问题但不制造焦虑
+最后一段：结语，一句话收尾
 
-## 现状扫描
-2-3段，每段3-5句话。分析当前科技领域的实际情况，引用具体新闻佐证。
-要求：
-- 段落开头用【数据说话】或【热点追踪】或【产品动态】等标签开头
-- 穿插具体数字和案例
-- 语气自信但留有余地，用「似乎」「可能」「值得关注」等词汇
-- 避免绝对化表达
+【风格要求】
+- 专业但不晦涩，信息密度高
+- 引用新闻中具体数据、产品名称、公司名称作为论据
+- 措辞克制：使用「似乎」「可能」「值得关注」「数据表明」
+- 避免绝对化表达，保持分析师的客观
 
-## 趋势研判
-2-3段，每段3-5句话。预测未来1-3个月的走向。
-要求：
-- 段落开头用【行业风向】或【技术前沿】或【市场信号】等标签开头
-- 给出具体的时间节点和预期
-- 用「预计」「可能」「或将」等词汇
-- 解释为什么会有这个趋势
+【格式要求 — 严格遵守】
+- 纯文本段落，用空行分隔
+- 禁止使用 ## 标题、**加粗**、- 列表、1.编号
+- 禁止使用【】标签括号
+- 标题独占第一行
 
-## 值得注意的问题
-2-3段，每段2-4句话。指出潜在风险和挑战。
-要求：
-- 段落开头用【风险提示】或【隐忧观察】或【待解难题】等标签开头
-- 指出问题但不制造焦虑
-- 提供角度而非答案
-- 用「需要关注」「警惕」「审视」等词汇
+【字数】全文 300-800 字
 
-## 收尾金句
-一句话作为结尾，20-30个字，有洞察力，给人思考空间。
-格式：【主笔手记】xxxxxxxxxxxxxxxx
-
-【播客风格优化】
-- 句子长度控制在15-25字，适合口语朗读
-- 使用停顿标记：适当使用「...」「、」「；」
-- 避免长句复合句，多用短句和断句
-- 适当使用连接词：不过、而且、另外、说到...这一点
-- 语气词自然融入：说起来、你看、其实、不得不说
-
-现在开始分析以下新闻：
-"""
+只输出报告正文，不要说"好的""以下是"等开场白。"""
 
 
 def format_for_tts(text: str) -> str:
     """
     将分析文本格式化为适合 TTS 朗读的形式
-
-    增强感染力：
-    1. 添加自然停顿
-    2. 语气优化
-    3. 重点强调
+    增强感染力：添加自然停顿、语气优化
     """
-    # 移除 Markdown 格式标记
-    text = text.replace("【核心发现】", "核心发现：")
-    text = text.replace("【数据说话】", "")
-    text = text.replace("【热点追踪】", "")
-    text = text.replace("【产品动态】", "")
-    text = text.replace("【行业风向】", "")
-    text = text.replace("【技术前沿】", "")
-    text = text.replace("【市场信号】", "")
-    text = text.replace("【风险提示】", "")
-    text = text.replace("【隐忧观察】", "")
-    text = text.replace("【待解难题】", "")
-    text = text.replace("【主笔手记】", "主笔手记：")
+    import re
+    # 清理可能的 Markdown 残留
+    text = re.sub(r'^#+\s.*$', '', text, flags=re.MULTILINE)
+    text = re.sub(r'【[^】]*】', '', text)
 
-    # 规范化标题格式
-    text = text.replace("## 一句话总结", "")
-    text = text.replace("## 现状扫描", "")
-    text = text.replace("## 趋势研判", "")
-    text = text.replace("## 值得注意的问题", "")
-    text = text.replace("## 收尾金句", "")
+    # 句号后添加自然停顿
+    text = text.replace('。', '。...')
+    text = text.replace('？', '？...')
+    text = text.replace('！', '！...')
 
-    # 添加自然停顿和语气优化
-    # 在段落之间添加停顿
-    text = text.replace("。", "。...")
-
-    return text
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
 
 
 @router.post("/analyze")
@@ -133,12 +98,17 @@ async def analyze_favorites(request: AnalyzeRequest):
         raise HTTPException(status_code=500, detail="MINIMAX_API_KEY 未配置，请先配置环境变量")
 
     # 获取收藏的新闻数据
-    # TODO: 从数据库或缓存获取收藏的新闻
-    # 目前暂时返回示例数据
     from src.services.news_database import get_news_from_db
 
-    # 获取新闻（模拟获取收藏的新闻）
-    news_list = get_news_from_db(limit=request.limit or 10)
+    # 先拉取足够多的新闻，再用 news_ids 过滤
+    # 使用较大的 limit 确保覆盖收藏列表中的低分新闻
+    fetch_limit = max(200, (request.limit or 50) * 10)
+    news_list = get_news_from_db(limit=fetch_limit)
+    if request.news_ids:
+        news_ids_set = set(request.news_ids)
+        news_list = [n for n in news_list if n.get('id') in news_ids_set]
+        # 限制分析数量
+        news_list = news_list[:20]
 
     if not news_list:
         return {
@@ -171,12 +141,29 @@ async def analyze_favorites(request: AnalyzeRequest):
     try:
         client = get_minimax_client()
 
-        # 调用 AI 分析
-        prompt = ANALYSIS_PROMPT + "\n" + full_content
-        logger.info(f"Analyzing {len(news_list)} news items")
+        # 先检查文本 API 是否可用
+        text_api_status = await client.check_text_api_status()
+
+        if not text_api_status.get("available"):
+            # 降级方案：使用规则生成分析
+            logger.warning("文本对话 API 不可用，使用规则生成分析")
+            raw_text = generate_rule_based_analysis(news_list)
+
+            return {
+                "success": True,
+                "data": {
+                    "raw_text": raw_text,
+                    "news_count": len(news_list),
+                    "mode": "rule_based"
+                }
+            }
+
+        # 调用 AI 分析 - system 消息放指令，user 消息只放数据
+        logger.info(f"Analyzing {len(news_list)} news items with AI")
 
         result = await client.chat([
-            {"role": "user", "content": prompt}
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": "请根据以下新闻撰写一篇播报文稿：\n\n" + full_content}
         ])
 
         analysis_text = result.get("content", "")
@@ -184,56 +171,109 @@ async def analyze_favorites(request: AnalyzeRequest):
         if not analysis_text:
             raise Exception("AI 返回为空")
 
-        # 解析分析结果
-        # 提取各个部分
-        sections = {
-            "core_finding": "",
-            "current_status": "",
-            "trend_prediction": "",
-            "problems_summary": "",
-            "final_thought": ""
-        }
+        # 强力清理：移除模型可能回显的指令文本
+        import re
+        # 移除 <think>...</think> 推理过程（M2.7 等推理模型会输出）
+        analysis_text = re.sub(r'<think>.*?</think>', '', analysis_text, flags=re.DOTALL)
+        # 移除【】标签
+        analysis_text = re.sub(r'【[^】]*】', '', analysis_text)
+        # 移除 ## 标题行
+        analysis_text = re.sub(r'^#{1,4}\s.*$', '', analysis_text, flags=re.MULTILINE)
+        # 移除列表符号行（以 - + * • · 开头）
+        analysis_text = re.sub(r'^[\s]*[-+*•·]\s.*$', '', analysis_text, flags=re.MULTILINE)
+        # 移除编号行（1. 2. 等）
+        analysis_text = re.sub(r'^[\s]*\d+[\.、）)]\s.*$', '', analysis_text, flags=re.MULTILINE)
+        # 移除常见开场白
+        analysis_text = re.sub(r'^(好的|以下是|下面|现在开始|让我).*$', '', analysis_text, flags=re.MULTILINE)
+        # 移除只含标点/空格的短行
+        analysis_text = re.sub(r'^[\s\.,;:!?，。；：！？…—\-\(\)（）""''、]{1,10}$', '', analysis_text, flags=re.MULTILINE)
+        # 合并多余空行
+        analysis_text = re.sub(r'\n{3,}', '\n\n', analysis_text)
+        analysis_text = analysis_text.strip()
 
-        # 简单解析（按固定格式）
-        lines = analysis_text.split("\n")
-        current_section = None
-
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-
-            if "核心发现" in line:
-                current_section = "core_finding"
-                sections["core_finding"] = line.replace("【核心发现】", "").replace("核心发现", "")
-            elif "现状扫描" in line and "现状" in line:
-                current_section = "current_status"
-            elif "趋势研判" in line and "趋势" in line:
-                current_section = "trend_prediction"
-            elif "值得注意" in line or "问题总结" in line:
-                current_section = "problems_summary"
-            elif "主笔手记" in line:
-                current_section = "final_thought"
-                sections["final_thought"] = line.replace("【主笔手记】", "").replace("主笔手记", "")
-            elif current_section and line:
-                # 追加到当前部分
-                if sections[current_section]:
-                    sections[current_section] += "\n" + line
-                else:
-                    sections[current_section] = line
+        # 如果清理后为空，说明模型回复质量太差，降级
+        if len(analysis_text) < 50:
+            logger.warning("AI 返回内容过短或清理后为空，使用规则降级")
+            raw_text = generate_rule_based_analysis(news_list)
+            return {
+                "success": True,
+                "data": {
+                    "raw_text": raw_text,
+                    "news_count": len(news_list),
+                    "mode": "rule_based"
+                }
+            }
 
         return {
             "success": True,
             "data": {
-                "analysis": sections,
                 "raw_text": analysis_text,
-                "news_count": len(news_list)
+                "news_count": len(news_list),
+                "mode": "ai"
             }
         }
 
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
         raise HTTPException(status_code=504, detail=f"AI 分析失败: {str(e)}，请重试")
+
+
+def generate_rule_based_analysis(news_list: List[Dict]) -> str:
+    """基于规则生成分析报告（当 AI API 不可用时的降级方案）"""
+
+    total = len(news_list)
+    ai_count = sum(1 for n in news_list if 'ai' in (n.get('category') or '').lower() or
+                   'ai' in (n.get('title_zh') or '').lower())
+    tech_count = sum(1 for n in news_list if 'tech' in (n.get('category') or '').lower())
+
+    sample_titles = []
+    for news in news_list[:3]:
+        title = news.get('title_zh') or news.get('title_en', '')
+        if title:
+            sample_titles.append(title[:35])
+    title_samples = "、".join(sample_titles) if sample_titles else "多项科技动态"
+
+    lines = []
+
+    # 标题行
+    if ai_count > 0:
+        lines.append(f"AI 技术加速渗透：从{total}条资讯看行业演变")
+    else:
+        lines.append(f"科技行业周度观察：{total}条资讯中的趋势信号")
+
+    # 摘要段
+    lines.append(f"本期收录{total}条科技资讯，覆盖人工智能、消费电子等领域。其中{title_samples}等话题值得重点关注，反映出行业正在经历新一轮技术迭代。")
+
+    # 现状分析
+    lines.append(f"从具体动态来看，{total}条新闻反映出科技行业多个细分方向同步推进。AI领域持续高热，各大科技巨头纷纷加码技术研发和产品落地，行业竞争正进入白热化阶段。")
+    lines.append(f"与此同时，消费电子、新能源汽车等领域的创新步伐也未见放缓，部分企业开始探索跨领域技术融合的可能性，这或许预示着新一轮产业变革正在酝酿。")
+
+    # 趋势预判
+    lines.append(f"展望未来一到三个月，AI技术的落地速度预计将进一步加快。多模态能力可能成为下一个竞争焦点，端侧AI的普及或许会带来全新的应用场景。对于从业者而言，这是值得密切关注的信号。")
+
+    # 风险提示
+    lines.append(f"然而也需要冷静看待当前热度。AI监管政策尚不明朗，技术发展与伦理规范的平衡需要持续关注。部分细分领域可能存在一定泡沫风险，需要理性审视。")
+
+    # 结语
+    lines.append("科技浪潮滚滚向前，唯有持续学习方能不被时代抛下。")
+
+    return "\n\n".join(lines)
+
+
+def format_analysis_for_tts(text: str) -> str:
+    """将分析文本格式化为适合 TTS 朗读的形式（简化版）"""
+    # 清理可能的 Markdown 残留
+    import re
+    text = re.sub(r'^#+\s.*$', '', text, flags=re.MULTILINE)
+    text = re.sub(r'【[^】]*】', '', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    # 句号后添加短暂停顿
+    text = text.replace('。', '。...')
+    text = text.replace('？', '？...')
+    text = text.replace('！', '！...')
+
+    return text.strip()
 
 
 @router.post("/tts")
@@ -243,6 +283,7 @@ async def text_to_speech(request: TTSRequest):
 
     请求体:
     - text: 要转换的文本
+    - voice: 可选，语音风格 ('voice1'|'voice2'|'voice3'|'voice4')，默认 voice3
 
     响应:
     - success: 是否成功
@@ -265,14 +306,23 @@ async def text_to_speech(request: TTSRequest):
         formatted_text = formatted_text[:2500]
         logger.warning("Text truncated to 2500 characters")
 
+    # 根据用户选择的语音风格获取 MiniMax voice_id 和 speed
+    from src.services.voice_config import VOICE_STYLES
+    default_voice = "voice3"  # 轻御·对谈
+    voice = request.voice if request.voice and request.voice in VOICE_STYLES else default_voice
+    style = VOICE_STYLES.get(voice, VOICE_STYLES[default_voice])
+    voice_id = style["minimax"]
+    speed = style.get("speed", 1.0)
+    logger.info(f"TTS voice: {voice} → minimax={voice_id}, speed={speed}")
+
     try:
         client = get_minimax_client()
 
         # 调用 TTS
         result = await client.text_to_speech(
             text=formatted_text,
-            voice_id="female-tianmei",
-            speed=1.15  # 播客语速
+            voice_id=voice_id,
+            speed=speed
         )
 
         audio_url = result.get("data", {}).get("audio_url", "")

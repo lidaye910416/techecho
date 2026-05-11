@@ -3,8 +3,6 @@
 每日早上 8:30 自动收集资讯并保存到数据库
 """
 import logging
-import json
-import os
 from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -60,29 +58,22 @@ async def daily_news_collection():
         # AI 校准
         calibrated_news, stats = calibrator.batch_calibrate(news_dicts, min_score=55)
 
-        # 保存到数据库
+        # 保存到数据库（前端通过 /api/news 接口读取）
         db_count = save_news_to_db(calibrated_news)
 
-        # 同时保存 JSON 文件作为备份
-        output_data = {
-            'lastUpdate': datetime.now().strftime('%Y-%m-%d %H:%M'),
-            'totalCount': len(calibrated_news),
-            'stats': {
-                'A+': len([n for n in calibrated_news if n['quality']['grade'] == 'A+']),
-                'A': len([n for n in calibrated_news if n['quality']['grade'] == 'A']),
-                'B': len([n for n in calibrated_news if n['quality']['grade'] == 'B']),
-                'C': len([n for n in calibrated_news if n['quality']['grade'] == 'C']),
-                'D': len([n for n in calibrated_news if n['quality']['grade'] == 'D'])
-            },
-            'categories': list(set(n['category'] for n in calibrated_news)),
-            'news': calibrated_news
-        }
+        logger.info(f"✅ 资讯收集完成: 通过 {stats['passed']} 条, 写入数据库 {db_count} 条")
 
-        json_path = os.path.join(os.path.dirname(__file__), '../../app/data/news.json')
-        with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(output_data, f, ensure_ascii=False, indent=2)
-
-        logger.info(f"✅ 资讯收集完成: 通过 {stats['passed']} 条, 数据库 {db_count} 条")
+        # TTS 预生成（采集后自动为每条新闻生成语音缓存）
+        try:
+            from src.services.tts_pregen import pre_generate_tts_for_news
+            logger.info("🎙️ 开始 TTS 预生成...")
+            tts_stats = await pre_generate_tts_for_news(calibrated_news)
+            logger.info(
+                f"🎙️ TTS 预生成完成: 成功 {tts_stats['success']}, "
+                f"跳过 {tts_stats['skipped']}, 失败 {tts_stats['failed']}"
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ TTS 预生成失败（不阻断流程）: {e}")
 
         await collector.close()
 

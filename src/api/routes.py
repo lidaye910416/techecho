@@ -8,15 +8,13 @@ TechEcho Pro - API 路由
 - 语言服务
 """
 
-from fastapi import APIRouter, Depends, Body, Query
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from fastapi import APIRouter, Body
 from typing import Optional
 import os
 
-from src.models.database import get_db
 from src.api.news_api import router as news_api_router
 from src.api.favorites_api import router as favorites_api_router
+from src.api.auth_api import router as auth_api_router
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -26,37 +24,10 @@ router.include_router(news_api_router)
 # 注册收藏分析路由
 router.include_router(favorites_api_router)
 
+# 注册微信认证路由
+router.include_router(auth_api_router)
+
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8001")
-
-# ============ Request Models ============
-class UserCreate(BaseModel):
-    username: str
-    email: str
-    password: str
-
-class UserLogin(BaseModel):
-    username: str
-    password: str
-
-# ============ User Endpoints ============
-@router.post("/users/register")
-def register(user_data: UserCreate, db: Session = Depends(get_db)):
-    from src.services.user_service import create_user
-    try:
-        user = create_user(db, user_data.username, user_data.email, user_data.password)
-        return {"id": user.id, "username": user.username, "email": user.email, "credits": user.credits}
-    except Exception as e:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail=str(e))
-
-@router.post("/users/login")
-def login(login_data: UserLogin, db: Session = Depends(get_db)):
-    from src.services.user_service import authenticate_user
-    user = authenticate_user(db, login_data.username, login_data.password)
-    if not user:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    return {"user_id": user.id, "username": user.username, "credits": user.credits}
 
 # ============ Voice Endpoints ============
 @router.get("/voices")

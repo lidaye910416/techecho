@@ -37,9 +37,18 @@ def init_news_table():
             quality_grade VARCHAR(5),
             quality_scores TEXT,
             is_read BOOLEAN DEFAULT 0,
-            is_favorited BOOLEAN DEFAULT 0
+            is_favorited BOOLEAN DEFAULT 0,
+            audio_url TEXT DEFAULT NULL
         )
     ''')
+
+    # 兼容迁移：如果旧表没有 audio_url 列，自动添加
+    try:
+        cursor.execute("ALTER TABLE news_items ADD COLUMN audio_url TEXT DEFAULT NULL")
+        conn.commit()
+    except Exception:
+        pass  # 列已存在，忽略
+
     conn.commit()
     conn.close()
 
@@ -146,8 +155,14 @@ def get_news_from_db(
                 'scores': json.loads(row['quality_scores']) if row['quality_scores'] else {}
             },
             'is_read': bool(row['is_read']),
-            'is_favorited': bool(row['is_favorited'])
+            'is_favorited': bool(row['is_favorited']),
+            'audio_url': row['audio_url'] if 'audio_url' in row.keys() else None
         }
+        # 附加 audio 字段（前端兼容格式）
+        if item.get('audio_url'):
+            item['audio'] = {'voice3': item['audio_url']}
+        else:
+            item['audio'] = {}
         news_list.append(item)
     
     return news_list
@@ -195,6 +210,7 @@ def get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
     if not row:
         return None
     
+    audio_url = row['audio_url'] if 'audio_url' in row.keys() else None
     return {
         'id': row['id'],
         'title_zh': row['title_zh'],
@@ -214,7 +230,9 @@ def get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
             'scores': json.loads(row['quality_scores']) if row['quality_scores'] else {}
         },
         'is_read': bool(row['is_read']),
-        'is_favorited': bool(row['is_favorited'])
+        'is_favorited': bool(row['is_favorited']),
+        'audio_url': audio_url,
+        'audio': {'voice3': audio_url} if audio_url else {}
     }
 
 def mark_as_read(news_id: str) -> bool:
@@ -226,6 +244,42 @@ def mark_as_read(news_id: str) -> bool:
     conn.commit()
     conn.close()
     return affected > 0
+
+
+def save_news_audio(news_id: str, audio_url: str) -> bool:
+    """保存新闻的预生成 TTS 音频 URL"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE news_items SET audio_url = ? WHERE id = ?", (audio_url, news_id))
+    affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return affected > 0
+
+
+def get_news_without_audio(limit: int = 50) -> List[Dict[str, Any]]:
+    """获取没有预生成音频的新闻（用于批量补生成）"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT * FROM news_items WHERE (audio_url IS NULL OR audio_url = '') ORDER BY quality_score DESC LIMIT ?",
+        (limit,)
+    )
+    rows = cursor.fetchall()
+    conn.close()
+
+    news_list = []
+    for row in rows:
+        item = {
+            'id': row['id'],
+            'title_zh': row['title_zh'],
+            'title_en': row['title_en'],
+            'content_zh': row['content_zh'],
+            'content_en': row['content_en'],
+            'lang': row['lang'],
+        }
+        news_list.append(item)
+    return news_list
 
 # 初始化表
 init_news_table()

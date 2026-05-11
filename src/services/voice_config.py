@@ -7,36 +7,44 @@
 from typing import Dict, List, Optional, Callable
 
 
-# ===== 语音风格定义 (工作流使用的 4 种声音) =====
+# ===== 语音风格定义 (播客风格四声线模板) =====
 
 VOICE_STYLES: Dict[str, Dict] = {
-    "voice1": {
-        "name": "晓晓-女声",
-        "minimax": "female-tianmei",
-        "edge": "zh-CN-XiaoxiaoNeural",
-        "azure": "zh-CN-XiaoxiaoNeural",
+    "voice3": {
+        "name": "温婉女声",
+        "minimax": "female-yujie",
+        "edge": "zh-CN-XiaoyiNeural",
+        "azure": "zh-CN-XiaoyiNeural",
         "gender": "female",
+        "speed": 1.0,
+        "desc": "知性柔和，适合行业洞察",
     },
-    "voice2": {
-        "name": "云希-男声",
+    "voice1": {
+        "name": "沉稳男声",
         "minimax": "male-qn-qingse",
         "edge": "zh-CN-YunxiNeural",
         "azure": "zh-CN-YunxiNeural",
         "gender": "male",
+        "speed": 0.95,
+        "desc": "低音磁性，适合深度长文",
     },
-    "voice3": {
-        "name": "晓伊-女声",
-        "minimax": "female-yizhi",
-        "edge": "zh-CN-XiaoyiNeural",
-        "azure": "zh-CN-XiaoyiNeural",
-        "gender": "female",
-    },
-    "voice4": {
-        "name": "云扬-男声",
-        "minimax": "male-tx-jingxin",
+    "voice2": {
+        "name": "清朗男声",
+        "minimax": "male-qn-jingying",
         "edge": "zh-CN-YunyangNeural",
         "azure": "zh-CN-YunyangNeural",
         "gender": "male",
+        "speed": 1.05,
+        "desc": "明亮有力，适合科技快讯",
+    },
+    "voice4": {
+        "name": "清新女声",
+        "minimax": "female-tianmei",
+        "edge": "zh-CN-XiaoxiaoNeural",
+        "azure": "zh-CN-XiaoxiaoNeural",
+        "gender": "female",
+        "speed": 1.1,
+        "desc": "甜美自然，适合轻松播报",
     },
 }
 
@@ -44,15 +52,17 @@ VOICE_STYLES: Dict[str, Dict] = {
 # ===== MiniMax 系统语音 =====
 
 MINIMAX_VOICES: List[Dict] = [
+    # 男声
+    {"id": "male-qn-qingse", "name": "青叔·播报 (男)", "gender": "male", "age": "young", "available": True},
+    {"id": "male-qn-jingying", "name": "少年·解读 (男)", "gender": "male", "age": "young", "available": True},
+    {"id": "male-qn-shuanglang", "name": "青年爽朗 (男)", "gender": "male", "age": "young", "available": True},
+    {"id": "male-qn-wenrou", "name": "青年温柔 (男)", "gender": "male", "age": "young", "available": True},
+    # 女声
     {"id": "female-tianmei", "name": "甜美女声", "gender": "female", "age": "young", "available": True},
     {"id": "female-shaonv", "name": "少女声", "gender": "female", "age": "young", "available": True},
     {"id": "female-yujie", "name": "御姐女声", "gender": "female", "age": "adult", "available": True},
     {"id": "female-chengshu", "name": "成熟女声", "gender": "female", "age": "middle", "available": True},
-    {"id": "male-tianmei", "name": "甜美男声", "gender": "male", "age": "young", "available": False},
-    {"id": "male-shaonv", "name": "少年男声", "gender": "male", "age": "young", "available": False},
-    {"id": "male-yujie", "name": "御姐男声", "gender": "male", "age": "adult", "available": False},
     {"id": "male-qn", "name": "青年男声", "gender": "male", "age": "young", "available": False},
-    {"id": "male-chengshu", "name": "成熟男声", "gender": "male", "age": "middle", "available": False},
 ]
 
 
@@ -97,12 +107,12 @@ class VoiceConfigService:
 
     def apply_preset(self, preset_name: str) -> Dict:
         presets = {
-            "professional_female": {"voice_id": "female-tianmei", "speed": 1.0, "emotion": "professional"},
-            "professional_male": {"voice_id": "female-tianmei", "speed": 1.0, "emotion": "professional"},
-            "friendly_female": {"voice_id": "female-shaonv", "speed": 1.1, "emotion": "friendly"},
-            "friendly_male": {"voice_id": "female-shaonv", "speed": 1.1, "emotion": "friendly"},
-            "energetic_female": {"voice_id": "female-yujie", "speed": 1.2, "emotion": "energetic"},
-            "calm_male": {"voice_id": "female-chengshu", "speed": 0.9, "emotion": "calm"}
+            "professional_female": {"voice_id": "female-yujie", "speed": 1.0},
+            "professional_male": {"voice_id": "male-qn-qingse", "speed": 0.95},
+            "friendly_female": {"voice_id": "female-tianmei", "speed": 1.1},
+            "friendly_male": {"voice_id": "male-qn-jingying", "speed": 1.05},
+            "energetic_female": {"voice_id": "female-yujie", "speed": 1.15},
+            "calm_male": {"voice_id": "male-qn-qingse", "speed": 0.9},
         }
         return presets.get(preset_name, presets["professional_female"])
 

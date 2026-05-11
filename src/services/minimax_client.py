@@ -20,16 +20,18 @@ class MiniMaxClient:
 
         # MiniMax 官方系统 Voice ID
         self.available_voices = [
+            # 男声
+            "male-qn-qingse", "male-qn-jingying", "male-qn-shuanglang", "male-qn-wenrou",
+            # 女声
             "female-tianmei", "female-shaonv", "female-yujie", "female-chengshu",
-            "male-tianmei", "male-shaonv", "male-yujie", "male-qn", "male-chengshu"
         ]
 
         # 支持的 TTS 模型 (按优先级)
         self.tts_models = ["speech-2.8-hd", "speech-2.6-hd", "speech-02-hd"]
         # 支持的视频模型 (根据官方文档)
         self.video_models = ["MiniMax-Hailuo-2.3", "MiniMax-Hailuo-2.3-Fast", "I2V-01-Director", "I2V-01-live", "I2V-01"]
-        # 文本对话模型
-        self.chat_model = "abab6.5s-chat"
+        # 文本对话模型（M2.5 非推理模型，输出干净无 <think> 标签）
+        self.chat_model = "MiniMax-M2.5"
 
     async def _make_request(
         self,
@@ -282,37 +284,91 @@ class MiniMaxClient:
         """
         文本对话 - 使用 MiniMax 对话模型
 
-        API: POST https://api.minimaxi.com/v1/text/chatquery_v2
+        API: POST https://api.minimaxi.com/v1/chat/completions (OpenAI 兼容)
         """
         model = model or self.chat_model
         logger.info(f"Chat request with model: {model}")
 
-        data = {
-            "model": model,
-            "messages": messages,
-            "stream": False
+        # 尝试多个文本对话模型 (按优先级)
+        # 注意：MiniMax-M2.7 是推理模型，输出包含 <think> 标签，不适合直接使用
+        # 优先使用 MiniMax-M2.5（非推理模型）获得干净输出
+        text_models = model and [model] or [
+            "MiniMax-M2.5",
+            "abab6.5s-chat",
+            "MiniMax-M2.7",
+        ]
+
+        for text_model in text_models:
+            try:
+                data = {
+                    "model": text_model,
+                    "messages": messages,
+                    "stream": False
+                }
+
+                result = await self._make_request("POST", "v1/chat/completions", data)
+
+                # OpenAI 兼容格式: choices[0].message.content
+                choices = result.get("choices", [])
+                if choices:
+                    msg = choices[0].get("message", {})
+                    content = msg.get("content", "")
+                    if content:
+                        return {
+                            "content": content,
+                            "role": "assistant",
+                            "model": text_model
+                        }
+
+                # 兼容 BaseResp 格式
+                if result.get("base_resp", {}).get("status_code", -1) != 0:
+                    continue
+
+            except Exception as e:
+                error_str = str(e)
+                if any(kw in error_str for kw in ["not support model", "2061", "invalid model"]):
+                    logger.warning(f"Model {text_model} not supported, trying next...")
+                    continue
+                else:
+                    raise
+
+        raise Exception("所有文本对话模型都不可用")
+
+    async def check_text_api_status(self) -> Dict[str, Any]:
+        """检查文本对话 API 状态"""
+        status = {
+            "available": False,
+            "models": [],
+            "error": None
         }
 
-        result = await self._make_request("POST", "v1/text/chatquery_v2", data)
+        text_models = [
+            "MiniMax-M2.7",
+            "MiniMax-M2.5",
+        ]
 
-        # 解析响应
-        choices = result.get("choices", [])
-        if choices:
-            return {
-                "content": choices[0].get("messages", [{}])[0].get("text", ""),
-                "role": "assistant"
-            }
+        for model in text_models:
+            try:
+                result = await self._make_request("POST", "v1/chat/completions", {
+                    "model": model,
+                    "messages": [{"role": "user", "content": "Hi"}],
+                    "stream": False,
+                    "max_tokens": 10
+                })
+                choices = result.get("choices", [])
+                if choices and choices[0].get("message", {}).get("content"):
+                    status["available"] = True
+                    status["models"].append(model)
+                elif result.get("base_resp", {}).get("status_code") == 0:
+                    status["available"] = True
+                    status["models"].append(model)
+            except Exception as e:
+                error_str = str(e)
+                if any(kw in error_str for kw in ["not support model", "2061", "invalid model"]):
+                    continue
+                status["error"] = error_str
 
-        # 尝试另一种响应格式
-        choice = result.get("data", {}).get("choices", [{}])[0]
-        if choice:
-            msg = choice.get("messages", [{}])[0]
-            return {
-                "content": msg.get("text", ""),
-                "role": "assistant"
-            }
-
-        return {"content": "", "error": "No response from model"}
+        return status
 
     async def analyze_text(
         self,

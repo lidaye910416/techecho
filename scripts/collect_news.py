@@ -107,6 +107,15 @@ async def collect_news(category=None, lang=None, limit=None, min_quality=55):
         db_count = save_news_to_db(calibrated_news)
         print(f"   已存入数据库: {db_count} 条")
 
+        # TTS 预生成（采集后自动为每条新闻生成语音缓存）
+        try:
+            from services.tts_pregen import pre_generate_tts_for_news
+            print("\n[5/5] TTS 语音预生成...")
+            tts_stats = await pre_generate_tts_for_news(calibrated_news)
+            print(f"   TTS 预生成完成: 成功 {tts_stats['success']}, 跳过 {tts_stats['skipped']}, 失败 {tts_stats['failed']}")
+        except Exception as e:
+            print(f"   ⚠️ TTS 预生成失败（不阻断流程）: {e}")
+
         # 保存到 app/data/news.json (作为备份和前端兼容)
         output_path = os.path.join(os.path.dirname(__file__), '..', 'app', 'data', 'news.json')
         with open(output_path, 'w', encoding='utf-8') as f:
