@@ -2,7 +2,6 @@ export default defineAppConfig({
   pages: [
     'pages/index/index',
     'pages/news/news',
-    'pages/read/read',
     'pages/mine/mine',
   ],
   window: {
