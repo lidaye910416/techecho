@@ -1,16 +1,9 @@
 import { useState, useEffect } from 'react'
-import { View, Text, Audio, navigator } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
+import Taro from '@tarojs/taro'
 import { getNewsDetail, readNewsAloud, markAsRead, NewsItem, getDisplayTitle } from '../../api'
+import { useTheme } from '../../hooks/useTheme'
 import './read.scss'
-
-// shadcn-ui 风格的颜色系统
-const GRADE_COLORS = {
-  'A+': { bg: 'rgba(34, 197, 94, 0.15)', text: '#22c55e', border: 'rgba(34, 197, 94, 0.3)' },
-  'A': { bg: 'rgba(34, 197, 94, 0.15)', text: '#22c55e', border: 'rgba(34, 197, 94, 0.3)' },
-  'B': { bg: 'rgba(59, 130, 246, 0.15)', text: '#3b82f6', border: 'rgba(59, 130, 246, 0.3)' },
-  'C': { bg: 'rgba(245, 158, 11, 0.15)', text: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' },
-  'D': { bg: 'rgba(239, 68, 68, 0.15)', text: '#ef4444', border: 'rgba(239, 68, 68, 0.3)' },
-}
 
 const CATEGORY_LABELS: Record<string, string> = {
   ai: '人工智能',
@@ -20,6 +13,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 
 export default function Read() {
+  const { darkMode } = useTheme()
+  // navigationStyle: 'custom' — 自定义导航栏，需手动适配状态栏高度
+  const statusBarHeight = (Taro.getSystemInfoSync?.().statusBarHeight || 20) as number
+  const headerPaddingTop = `${statusBarHeight + 8}px`
   const [news, setNews] = useState<NewsItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
@@ -108,9 +105,6 @@ export default function Read() {
   const summary = news.summary_zh || news.summary_en || ''
   const content = news.content_zh || news.content_en || ''
   const source = news.source_zh || news.source_en || ''
-  const grade = news.quality?.grade || 'D'
-  const score = news.quality?.total_100 || 0
-  const gradeColors = GRADE_COLORS[grade as keyof typeof GRADE_COLORS] || GRADE_COLORS['D']
   const categoryLabel = CATEGORY_LABELS[news.category] || news.category
 
   // 处理内容显示（限制字数）
@@ -121,9 +115,9 @@ export default function Read() {
     : content.slice(0, maxContentLength) + '...'
 
   return (
-    <View className="read-page">
+    <View className={`read-page${darkMode ? '' : ' read-light'}`}>
       {/* 顶部导航栏 */}
-      <View className="navbar">
+      <View className="navbar" style={{ paddingTop: headerPaddingTop }}>
         <View className="navbar-back" onClick={handleBack}>
           <Text className="back-icon">←</Text>
           <Text className="back-text">返回</Text>
@@ -158,40 +152,6 @@ export default function Read() {
               <Text className="source-name">{source}</Text>
             </View>
             <Text className="pub-date">{news.published_at?.slice(0, 16)}</Text>
-          </View>
-        </View>
-
-        {/* 质量评分卡片 */}
-        <View className="quality-card" style={{
-          borderColor: gradeColors.border,
-          backgroundColor: gradeColors.bg
-        }}>
-          <View className="quality-header">
-            <View className="grade-badge" style={{
-              backgroundColor: gradeColors.bg,
-              borderColor: gradeColors.border
-            }}>
-              <Text className="grade-text" style={{ color: gradeColors.text }}>{grade}</Text>
-            </View>
-            <Text className="quality-title">AI 质量评分</Text>
-            <Text className="quality-score">{score}</Text>
-            <Text className="quality-unit">分</Text>
-          </View>
-          <View className="quality-bars">
-            {news.quality?.scores && Object.entries(news.quality.scores).slice(0, 4).map(([key, value]) => (
-              <View key={key} className="quality-bar-item">
-                <View className="bar-label">
-                  <Text className="bar-key">{key}</Text>
-                  <Text className="bar-value">{value}</Text>
-                </View>
-                <View className="bar-track">
-                  <View className="bar-fill" style={{
-                    width: `${(value / 10) * 100}%`,
-                    backgroundColor: gradeColors.text
-                  }} />
-                </View>
-              </View>
-            ))}
           </View>
         </View>
 
@@ -239,7 +199,7 @@ export default function Read() {
         <View className="action-btn primary" onClick={handleReadAloud}>
           <Text className="action-icon">{audioUrl ? (isPlaying ? '⏸️' : '▶️') : '🔊'}</Text>
           <Text className="action-text">
-            {isGenerating ? '生成中...' : audioUrl ? (isPlaying ? '暂停' : '朗读')}
+            {isGenerating ? '生成中...' : (audioUrl ? (isPlaying ? '暂停' : '朗读') : '生成语音')}
           </Text>
         </View>
 

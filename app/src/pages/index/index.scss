@@ -1,206 +1,744 @@
-.index-page {
+// ============================================
+// 首页 — 对标 H5 index.html L9-328
+// 设计语言：深色主题，max-width:600px 居中
+// ============================================
+
+.idx-page {
+  background: #09090b;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
-  background: #0f0f1a;
-  padding: 20px;
-  padding-bottom: 100px;
 }
 
-.header {
-  text-align: center;
-  padding: 40px 0;
+// ===== Header — 对标 H5 L46-77 =====
+.idx-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 0 16px 10px; // top padding handled by inline style (12px default navBar mode)
+  background: rgba(9, 9, 11, 0.85);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.title {
-  display: block;
-  font-size: 36px;
-  font-weight: bold;
-  color: #fff;
-}
-
-.subtitle {
-  display: block;
-  font-size: 14px;
-  color: #86868B;
-  margin-top: 8px;
-}
-
-.section {
-  margin-bottom: 30px;
-}
-
-.section-header {
+.idx-header-content {
+  max-width: 600px;
+  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  gap: 12px;
 }
 
-.section-title {
+// Logo — 对标 H5 L67-76
+.idx-logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.idx-logo-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.idx-logo-icon-text {
   font-size: 18px;
-  font-weight: 600;
   color: #fff;
 }
 
-.section-more {
+.idx-logo-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fafafa;
+}
+
+// Header Actions — 对标 H5 L77
+.idx-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+// Refresh Button — 对标 H5 L903-908
+.idx-refresh-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #27272a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+.idx-refresh-icon {
+  font-size: 18px;
+  color: #a1a1aa;
+  font-weight: 700;
+}
+
+// ===== Filters Container =====
+.idx-filters {
+  flex-shrink: 0;
+}
+
+// ===== Date Picker — 对标 H5 L118-217 (ScrollView + 毛玻璃) =====
+.idx-date-picker {
+  position: relative;
+  height: 48px; // 对标 H5 L117
+  background: #09090b;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+// 渐变遮罩 — 对标 H5 ::before L133-151
+.idx-date-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(90deg,
+    #09090b 0%,
+    #09090b 25%,
+    rgba(99, 102, 241, 0.05) 40%,
+    rgba(99, 102, 241, 0.08) 50%,
+    rgba(99, 102, 241, 0.05) 60%,
+    #09090b 75%,
+    #09090b 100%
+  );
+  z-index: 10;
+  pointer-events: none;
+}
+
+// 中心高亮 — 对标 H5 ::after L153-166
+.idx-date-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 65px;
+  height: 36px;
+  transform: translate(-50%, -50%);
+  background: rgba(99, 102, 241, 0.08); // 对标 H5 L162
+  border-radius: 8px;
+  z-index: 11;
+  pointer-events: none;
+}
+
+// 滚动轨道 — 对标 H5 .date-picker-track L120-129
+// 添加 scroll-snap 实现档位吸附（WeChat 8.0+ 支持）
+.idx-date-track {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  scroll-snap-type: x mandatory;
+  -webkit-scroll-snap-type: x mandatory;
+}
+
+// 内层 flex 容器 — 使用显式 spacer 元素替代百分比 padding
+.idx-date-inner {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+// 日期项 — 对标 H5 .date-item L168-215
+.idx-date-item {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 72px;         // 固定宽度，确保滚动档位一致性
+  height: 34px;
+  margin: 0 2px;       // 收紧间距，增加可见档位
+  border-radius: 6px;     // 对标 H5 L179
+  background: transparent; // 对标 H5 L180
+  transition: all 0.2s ease; // 对标 H5 L183
+  opacity: 0.2;            // 对标 H5 L184 — 默认淡化
+  // CSS scroll-snap 档位吸附
+  scroll-snap-align: center;
+  -webkit-scroll-snap-align: center;
+}
+
+// 选中项 — 对标 H5 .date-item.center-item L187-199
+.idx-date-item--active {
+  opacity: 1;
+  transform: scale(1.2);  // 对标 H5 L189
+}
+
+// 标签 — 对标 H5 .date-label L201-207
+.idx-date-label {
+  font-size: 8px;
+  font-weight: 500;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.idx-date-item--active .idx-date-label {
+  color: #6366f1;  // 对标 H5 L198
+}
+
+// 值 — 对标 H5 .date-value L209-213
+.idx-date-value {
   font-size: 14px;
-  color: #007AFF;
+  font-weight: 600;
+  color: #a1a1aa;
 }
 
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: #86868B;
+.idx-date-item--active .idx-date-value {
+  color: #6366f1;   // 对标 H5 L193
+  font-weight: 700;  // 对标 H5 L194
 }
 
-.news-scroll {
+// ===== Category Chips — 对标 H5 L220-246 =====
+.idx-cat-row {
+  padding: 0;
+  background: #09090b;
+}
+
+.idx-cat-scroll {
   white-space: nowrap;
 }
 
-.news-card {
-  display: inline-block;
-  width: 280px;
-  margin-right: 16px;
-  padding: 16px;
-  background: #1a1a2e;
-  border-radius: 12px;
-  vertical-align: top;
+.idx-cat-inner {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px;
 }
 
-.news-title {
-  display: block;
+.idx-cat-chip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 72px;          // 统一最小宽度，避免中英文混排宽度不一致
+  padding: 6px 12px;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  color: #71717a;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.idx-cat-chip--active {
+  background: #6366f1;
+  border-color: #6366f1;
+}
+
+.idx-cat-emoji {
   font-size: 14px;
-  color: #fff;
-  line-height: 1.5;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
 }
 
-.news-meta {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 12px;
+.idx-cat-name {
   font-size: 12px;
-  color: #86868B;
+  font-weight: 500;
+  color: #71717a;
 }
 
-.quick-actions {
+.idx-cat-chip--active .idx-cat-name {
+  color: #fff;
+}
+
+// ===== Stats Bar — 对标 H5 L924-926 =====
+.idx-stats {
   display: flex;
-  gap: 12px;
+  gap: 16px;
+  padding: 6px 16px 6px;
 }
 
-.action-card {
-  flex: 1;
-  position: relative;
-  padding: 20px 12px;
-  background: #1a1a2e;
-  border-radius: 12px;
-  text-align: center;
-}
-
-.action-icon {
-  display: block;
-  font-size: 32px;
-  margin-bottom: 8px;
-}
-
-.action-text {
-  display: block;
-  font-size: 13px;
-  color: #fff;
-}
-
-.action-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  padding: 2px 6px;
-  background: rgba(245, 158, 11, 0.2);
-  color: #FF9500;
-  font-size: 10px;
-  border-radius: 4px;
-}
-
-.category-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-
-.category-item {
-  padding: 16px 8px;
-  background: #1a1a2e;
-  border-radius: 12px;
-  text-align: center;
-}
-
-.category-emoji {
-  display: block;
-  font-size: 28px;
-  margin-bottom: 8px;
-}
-
-.category-name {
-  display: block;
-  font-size: 12px;
-  color: #fff;
-}
-
-// 统计信息区域
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-
-.stat-item {
-  padding: 16px 8px;
-  background: #1a1a2e;
-  border-radius: 12px;
-  text-align: center;
-}
-
-.stat-value {
-  display: block;
-  font-size: 20px;
-  font-weight: bold;
-  color: #6366f1;
-  margin-bottom: 4px;
-}
-
-.stat-label {
-  display: block;
+.idx-stats-text {
   font-size: 11px;
-  color: #86868B;
+  color: #71717a;
 }
 
-// 新闻卡片中的质量等级
-.news-grade {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+.idx-stats-num {
+  color: #a1a1aa;
   font-weight: 600;
 }
 
-.news-grade.grade-a, .news-grade.grade-aplus {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
+// ===== Feed — 对标 H5 L249 =====
+.idx-feed {
+  flex: 1;
+  overflow-y: auto;
 }
 
-.news-grade.grade-b {
+// Feed 内卡片容器居中（对标 H5 max-width:600px）
+.idx-feed-inner {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 8px 16px 16px;
+}
+
+// 统计栏居中
+.idx-stats-inner {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+// Date picker 居中
+.idx-date-picker-inner {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+// ===== Card — 对标 H5 L252-259 =====
+.idx-card {
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+// Card Header — 对标 H5 L262-289
+.idx-card-hd {
+  padding: 14px 14px 0;
+  display: flex;
+  gap: 12px;
+}
+
+.idx-card-emoji {
+  width: 40px;
+  height: 40px;
+  background: #27272a;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.idx-card-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.idx-card-tags {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.idx-tag {
+  display: inline-flex;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+// 对标 H5 L283-285
+.idx-tag--zh {
+  background: rgba(249, 115, 22, 0.2);
+  color: #f97316;
+}
+
+.idx-tag--en {
   background: rgba(59, 130, 246, 0.2);
   color: #3b82f6;
 }
 
-.news-grade.grade-c {
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
+.idx-tag--cat {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
 }
 
-.news-grade.grade-d {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+// 来源行 — 对标 H5 L287-289
+.idx-card-source-row {
+  display: flex;
+  align-items: center;
+}
+
+.idx-card-source {
+  font-size: 12px;
+  color: #71717a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.idx-card-source-link {
+  font-size: 12px;
+  color: #71717a;
+  flex-shrink: 0;
+}
+
+// Card Body — 对标 H5 L290-295
+.idx-card-bd {
+  padding: 12px 14px;
+}
+
+.idx-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 6px;
+  color: #fafafa;
+  display: block;
+}
+
+.idx-card-summary {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #a1a1aa;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// Card Footer — 对标 H5 L297-327
+.idx-card-ft {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #09090b;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.idx-card-date {
+  font-size: 11px;
+  color: #71717a;
+}
+
+.idx-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.idx-act-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: #27272a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+}
+
+.idx-act-btn--active {
+  background: #6366f1;
+  border-color: #6366f1;
+}
+
+.idx-act-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: #a1a1aa;
+}
+
+.idx-act-btn--active .idx-act-text {
+  color: #fff;
+}
+
+// ===== Loading — 对标 H5 L947 =====
+.idx-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 12px;
+}
+
+.idx-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: idx-spin 0.8s linear infinite;
+}
+
+@keyframes idx-spin {
+  to { transform: rotate(360deg); }
+}
+
+.idx-loading-text {
+  font-size: 13px;
+  color: #71717a;
+}
+
+// ===== Empty State — 对标 H5 L1597-1601 =====
+.idx-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.idx-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.idx-empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fafafa;
+  margin-bottom: 4px;
+}
+
+.idx-empty-desc {
+  font-size: 13px;
+  color: #71717a;
+  margin-bottom: 12px;
+}
+
+// Retry Button
+.idx-retry-btn {
+  background: #6366f1;
+  border-radius: 8px;
+  margin-top: 8px;
+  padding: 8px 20px;
+}
+
+.idx-retry-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+}
+
+// ===== Detail Bottom Sheet — 对标 H5 modal L486-531 =====
+.idx-detail-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.idx-detail-sheet {
+  width: 100%;
+  max-width: 600px;
+  max-height: 85vh;
+  background: #18181b;
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: idx-slide-up 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@keyframes idx-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.idx-detail-handle {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+.idx-detail-handle-bar {
+  width: 36px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.idx-detail-hd {
+  padding: 12px 20px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.idx-detail-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fafafa;
+  line-height: 1.4;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.idx-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.idx-detail-source {
+  font-size: 13px;
+  color: #a5b4fc;
+  font-weight: 600;
+}
+
+.idx-detail-date {
+  font-size: 12px;
+  color: #71717a;
+}
+
+.idx-detail-body {
+  flex: 1;
+  padding: 16px 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.idx-detail-content {
+  font-size: 14px;
+  color: #d4d4d8;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  display: block;
+}
+
+.idx-detail-link {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: 8px;
+  border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.idx-detail-link-label {
+  font-size: 11px;
+  color: #71717a;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.idx-detail-link-url {
+  font-size: 12px;
+  color: #818cf8;
+  word-break: break-all;
+  display: block;
+}
+
+.idx-detail-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #18181b;
+}
+
+.idx-detail-act {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 0;
+  background: #27272a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  font-size: 12px;
+  color: #a1a1aa;
+}
+
+.idx-detail-act--active {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+}
+
+.idx-detail-act--primary {
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+}
+
+// ===== Safe Bottom =====
+.idx-safe-bottom {
+  height: 80px;
+}
+
+// ===== Light Theme — 对标 H5 body.light-theme L26-35 =====
+.idx-light {
+  // Root
+  &, .idx-page { background: #ffffff; }
+
+  // Header
+  .idx-header { background: rgba(255, 255, 255, 0.85); }
+  .idx-logo-text { color: #09090b; }
+  .idx-refresh-btn { background: #e4e4e7; border-color: rgba(0,0,0,.08); }
+  .idx-refresh-icon { color: #52525b; }
+
+  // Date picker
+  .idx-date-picker { background: #ffffff; border-bottom-color: rgba(0,0,0,.06); }
+  .idx-date-overlay {
+    background: linear-gradient(90deg,
+      #ffffff 0%, #ffffff 25%,
+      rgba(99,102,241,.05) 40%, rgba(99,102,241,.08) 50%,
+      rgba(99,102,241,.05) 60%, #ffffff 75%, #ffffff 100%
+    );
+  }
+  .idx-date-item { opacity: 0.2; }
+
+  // Category
+  .idx-cat-row { background: #ffffff; }
+  .idx-cat-chip { background: #f4f4f5; border-color: rgba(0,0,0,.08); color: #71717a; }
+  .idx-cat-name { color: #71717a; }
+
+  // Stats
+  .idx-stats-text { color: #71717a; }
+  .idx-stats-num { color: #52525b; }
+
+  // Cards
+  .idx-card { background: #f4f4f5; border-color: rgba(0,0,0,.08); }
+  .idx-card-emoji { background: #e4e4e7; }
+  .idx-card-source { color: #71717a; }
+  .idx-card-source-link { color: #71717a; }
+  .idx-card-title { color: #09090b; }
+  .idx-card-summary { color: #52525b; }
+  .idx-card-ft { background: #ffffff; border-top-color: rgba(0,0,0,.08); }
+  .idx-card-date { color: #71717a; }
+
+  // Action buttons
+  .idx-act-btn { background: #e4e4e7; border-color: rgba(0,0,0,.08); }
+  .idx-act-text { color: #52525b; }
+  .idx-act-btn--active { background: #6366f1; border-color: #6366f1; }
+  .idx-act-btn--active .idx-act-text { color: #fff; }
+
+  // Empty/Loading
+  .idx-empty-title { color: #09090b; }
+  .idx-empty-desc { color: #71717a; }
+  .idx-loading-text { color: #71717a; }
+
+  // Detail modal
+  .idx-detail-overlay { background: rgba(0, 0, 0, 0.3); }
+  .idx-detail-sheet {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+  .idx-detail-handle-bar { background: rgba(0, 0, 0, 0.15); }
+  .idx-detail-hd { border-bottom-color: rgba(0, 0, 0, 0.08); }
+  .idx-detail-title { color: #09090b; }
+  .idx-detail-source { color: #6366f1; }
+  .idx-detail-date { color: #71717a; }
+  .idx-detail-content { color: #3f3f46; }
+  .idx-detail-link { background: rgba(99, 102, 241, 0.05); border-color: rgba(99, 102, 241, 0.1); }
+  .idx-detail-link-label { color: #71717a; }
+  .idx-detail-link-url { color: #6366f1; }
+  .idx-detail-act { background: #f4f4f5; border-color: rgba(0, 0, 0, 0.08); color: #52525b; }
+  .idx-detail-act--active { background: #6366f1; border-color: #6366f1; color: #fff; }
+  .idx-detail-act--primary { background: linear-gradient(135deg, #6366f1, #818cf8); color: #fff; }
+  .idx-detail-actions {
+    background: #ffffff;
+    border-top-color: rgba(0, 0, 0, 0.08);
+  }
 }

@@ -1,153 +1,624 @@
-import { useState, useEffect } from 'react'
+/**
+ * 首页 — 对标 H5 首页 (localhost:8080, index.html L885-911, L913-927, L1533-1642)
+ *
+ * 功能：
+ * - 渐变色 Logo 头部 + 刷新按钮
+ * - 毛玻璃日期滚动选择器（对标 H5 frosted glass date picker）
+ * - 分类 Chip 横向滚动
+ * - 统计栏（共 N 条）
+ * - 新闻卡片（Emoji + 语言标签 + 分类标签 + 来源 ↗ + 标题 + 摘要 + 日期 + 朗读/收藏）
+ * - 点击卡片进入详情
+ * - 朗读（MiniMax TTS + InnerAudioContext）
+ * - 收藏（Storage 持久化）
+ * - 质量阈值过滤
+ */
+
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
-import { getNewsList, getNewsStats, NewsItem, getDisplayTitle, getDisplaySource } from '../../api'
+import Taro from '@tarojs/taro'
+import {
+  getNewsList,
+  ttsSpeak,
+  NewsItem,
+  getDisplayTitle,
+  getDisplaySummary,
+  getDisplaySource,
+  CATEGORY_EMOJIS,
+  CATEGORY_NAMES,
+  getDateFilters,
+  DateFilterOption,
+  isInDateRange,
+} from '../../api'
+import { t } from '../../i18n'
+import { useTheme } from '../../hooks/useTheme'
 import './index.scss'
 
-// 分类配置
-const CATEGORIES = [
+// ============ 常量 ============
+
+const ALL_CATEGORIES = [
   { id: 'all', name: '推荐', emoji: '✨' },
   { id: 'ai', name: 'AI', emoji: '🤖' },
   { id: 'tools', name: '工具', emoji: '🔧' },
   { id: 'news', name: '动态', emoji: '📰' },
-  { id: 'product', name: '产品', emoji: '💡' }
+  { id: 'product', name: '产品', emoji: '💡' },
 ]
 
-const CATEGORY_EMOJIS: Record<string, string> = {
-  ai: '🤖',
-  tools: '🔧',
-  news: '📰',
-  product: '💡'
-}
+const FAV_STORAGE_KEY = 'techecho_favorites'
+const SETTINGS_STORAGE_KEY = 'techecho_settings'
+const ANALYSIS_STATE_KEY = 'techecho_analysis_state'
+
+// ============ 组件 ============
 
 export default function Index() {
-  const [news, setNews] = useState<NewsItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState<{ lastUpdate: string; totalCount: number; stats: Record<string, number> } | null>(null)
+  const { darkMode } = useTheme()
 
-  useEffect(() => {
-    loadData()
+  // 数据
+  const [allNews, setAllNews] = useState<NewsItem[]>([])
+  const [filteredNews, setFilteredNews] = useState<NewsItem[]>([])
+  const [favorites, setFavorites] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  // 筛选
+  const [currentCategory, setCurrentCategory] = useState('all')
+  const [currentDateFilter, setCurrentDateFilter] = useState('today')
+
+  // 设置
+  const [threshold, setThreshold] = useState(55)
+  const [voice] = useState('voice3')
+
+  // 播放
+  const [speakingId, setSpeakingId] = useState<string | null>(null)
+  const [audioCtx, setAudioCtx] = useState<Taro.InnerAudioContext | null>(null)
+
+  // 下拉刷新
+  const [refreshing, setRefreshing] = useState(false)
+
+  // 详情底部弹出卡片（对标 H5 modal slideUp）
+  const [detailItem, setDetailItem] = useState<NewsItem | null>(null)
+
+  // ===== 日期选择器 — 计算式档位吸附 =====
+  // 每个日期项 72px + 2×2px margin = 76px 固定步长
+  // 左右各一个 spacer(halfScreen-38) 确保首尾项可居中
+  // 项 i 的理想 scrollLeft = i * 76
+
+  const ITEM_WIDTH = 76
+  const TODAY_INDEX = 6 // day6..yesterday(5) + today(6)
+
+  const dateOptions = useMemo<DateFilterOption[]>(() => {
+    return getDateFilters({
+      today: t('dateToday'),
+      yesterday: t('dateYesterday'),
+      week: t('dateWeek'),
+      month: t('dateMonth'),
+    })
   }, [])
 
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      // 加载统计信息
-      const statsRes = await getNewsStats()
-      if (statsRes.success) {
-        setStats(statsRes.data)
-      }
+  // 建立 key → index 映射
+  const dateIndexMap = useMemo(() => {
+    const m = new Map<string, number>()
+    dateOptions.forEach((opt, i) => m.set(opt.key, i))
+    return m
+  }, [dateOptions])
 
-      // 加载最新资讯
-      const newsRes = await getNewsList({ limit: 10 })
-      if (newsRes.success && Array.isArray(newsRes.data)) {
-        setNews(newsRes.data)
+  // 半屏宽度（用于 spacer 计算）
+  const [halfScreen, setHalfScreen] = useState(187)
+  useEffect(() => {
+    try {
+      const sys = Taro.getSystemInfoSync()
+      setHalfScreen(Math.floor(sys.windowWidth / 2))
+    } catch (_) {}
+  }, [])
+
+  // 程序化滚动标记（防止吸附与程序化互相触发）
+  const progScrolling = useRef(false)
+
+  // 计算并执行吸附
+  const snapToNearest = useCallback((currentLeft: number) => {
+    const nearestIndex = Math.round(currentLeft / ITEM_WIDTH)
+    const clampedIndex = Math.max(0, Math.min(nearestIndex, dateOptions.length - 1))
+    const snapLeft = clampedIndex * ITEM_WIDTH
+    const optKey = dateOptions[clampedIndex]?.key
+
+    if (optKey && optKey !== currentDateFilter) {
+      setCurrentDateFilter(optKey)
+    }
+
+    const diff = snapLeft - currentLeft
+    if (Math.abs(diff) > 3) {
+      latestScrollLeft.current = snapLeft
+      progScrolling.current = true
+      setScrollState({ left: snapLeft, ver: Date.now() })
+      setTimeout(() => { progScrolling.current = false }, 500)
+    }
+  }, [currentDateFilter, dateOptions])
+
+  // scrollState：通过受控 scrollLeft 驱动 ScrollView
+  const [scrollState, setScrollState] = useState({ left: TODAY_INDEX * ITEM_WIDTH, ver: 1 })
+
+  // 点击日期项 → 立即更新筛选 + 程序化居中
+  const scrollToDate = useCallback((key: string) => {
+    setCurrentDateFilter(key)
+    const idx = dateIndexMap.get(key)
+    if (idx === undefined) return
+    const targetLeft = idx * ITEM_WIDTH
+
+    latestScrollLeft.current = targetLeft
+    progScrolling.current = true
+    setScrollState({ left: targetLeft, ver: Date.now() })
+    setTimeout(() => { progScrolling.current = false }, 500)
+  }, [dateIndexMap])
+
+  // 手动滑动 → 实时更新筛选 + 松手后吸附
+  const scrollEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const latestScrollLeft = useRef(TODAY_INDEX * ITEM_WIDTH)
+
+  const handleDateScroll = useCallback((e: any) => {
+    const left = e?.detail?.scrollLeft
+    if (typeof left !== 'number') return
+    latestScrollLeft.current = left
+
+    if (progScrolling.current) return
+
+    // 实时更新日期筛选（轻量）
+    const nearestIndex = Math.round(left / ITEM_WIDTH)
+    const clampedIndex = Math.max(0, Math.min(nearestIndex, dateOptions.length - 1))
+    const optKey = dateOptions[clampedIndex]?.key
+    if (optKey && optKey !== currentDateFilter) {
+      setCurrentDateFilter(optKey)
+    }
+
+    // 松手 200ms 后吸附到档位
+    if (scrollEndTimer.current) clearTimeout(scrollEndTimer.current)
+    scrollEndTimer.current = setTimeout(() => {
+      snapToNearest(latestScrollLeft.current)
+    }, 200)
+  }, [currentDateFilter, dateOptions, snapToNearest])
+
+  // ============ 初始化 ============
+
+  useEffect(() => {
+    loadSettings()
+    loadFavorites()
+    loadNews()
+  }, [])
+
+  useEffect(() => {
+    filterNews()
+  }, [allNews, currentCategory, currentDateFilter, threshold, favorites])
+
+  // ============ 数据加载 ============
+
+  const loadSettings = () => {
+    try {
+      const raw = Taro.getStorageSync(SETTINGS_STORAGE_KEY)
+      if (raw) {
+        const s = JSON.parse(raw)
+        if (s.threshold !== undefined) setThreshold(s.threshold)
       }
-    } catch (e) {
-      console.error('Load data failed:', e)
+    } catch (_) { /* default */ }
+  }
+
+  const loadFavorites = () => {
+    try {
+      const raw = Taro.getStorageSync(FAV_STORAGE_KEY)
+      setFavorites(raw ? JSON.parse(raw) : [])
+    } catch (_) { setFavorites([]) }
+  }
+
+  const loadNews = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await getNewsList({ limit: 500 })
+      if (res.success && Array.isArray(res.data)) {
+        setAllNews(res.data)
+      } else {
+        setError(t('dataError'))
+      }
+    } catch (e: any) {
+      console.error('Load news failed:', e)
+      setError(e?.message || t('loadFailed'))
     }
     setLoading(false)
   }
 
-  const handleNewsClick = (item: NewsItem) => {
-    // 跳转到资讯详情页
-    Taro.navigateTo({
-      url: `/pages/read/read?id=${item.id}`
+  // ============ 下拉刷新 ============
+
+  const onRefresherRefresh = async () => {
+    setRefreshing(true)
+    await loadNews()
+    setRefreshing(false)
+  }
+
+  // ============ 筛选 ============
+
+  const filterNews = () => {
+    const result = allNews.filter((item) => {
+      if (currentCategory !== 'all' && item.category !== currentCategory) return false
+      const dateStr = item.published_at || item.created_at
+      if (!isInDateRange(dateStr, currentDateFilter)) return false
+      if (item.quality && item.quality.total_100 < threshold) return false
+      return true
+    })
+    setFilteredNews(result)
+  }
+
+  // ============ 朗读 ============
+
+  const handleSpeak = async (item: NewsItem, e?: any) => {
+    if (e) e.stopPropagation?.()
+
+    if (speakingId === item.id) {
+      if (audioCtx) { audioCtx.stop(); audioCtx.destroy(); setAudioCtx(null) }
+      setSpeakingId(null)
+      Taro.showToast({ title: t('stopped'), icon: 'none', duration: 1500 })
+      return
+    }
+
+    if (audioCtx) { audioCtx.stop(); audioCtx.destroy(); setAudioCtx(null) }
+
+    Taro.showToast({ title: t('speakGen'), icon: 'loading', duration: 10000 })
+
+    try {
+      const preGenAudio = item.audio?.[voice]
+      if (preGenAudio) {
+        Taro.hideToast()
+        playAudio(item.id, preGenAudio)
+        return
+      }
+
+      const text = (item.summary_zh || item.content_zh || item.title_zh || '').slice(0, 800)
+      const ttsRes = await ttsSpeak(text, voice)
+      Taro.hideToast()
+
+      if (ttsRes.success && ttsRes.data?.audio_url) {
+        playAudio(item.id, ttsRes.data.audio_url)
+      } else {
+        Taro.showToast({ title: t('speakFailed'), icon: 'none' })
+      }
+    } catch (e) {
+      console.error('TTS failed:', e)
+      Taro.hideToast()
+      Taro.showToast({ title: t('speakUnavail'), icon: 'none' })
+    }
+  }
+
+  const playAudio = (newsId: string, url: string) => {
+    const ctx = Taro.createInnerAudioContext()
+    ctx.src = url
+    ctx.autoplay = true
+    ctx.onPlay(() => { setSpeakingId(newsId); setAudioCtx(ctx) })
+    ctx.onEnded(() => { setSpeakingId(null); setAudioCtx(null); ctx.destroy() })
+    ctx.onStop(() => { setSpeakingId(null); setAudioCtx(null); ctx.destroy() })
+    ctx.onError((err) => {
+      console.error('Audio play error:', err)
+      setSpeakingId(null); setAudioCtx(null); ctx.destroy()
+      Taro.showToast({ title: t('playFailed'), icon: 'none' })
     })
   }
 
+  // ============ 收藏 ============
+
+  const toggleFavorite = (id: string, e?: any) => {
+    if (e) e.stopPropagation?.()
+
+    const idx = favorites.indexOf(id)
+    let updated: string[]
+    if (idx === -1) {
+      updated = [...favorites, id]
+      Taro.showToast({ title: t('addedFav'), icon: 'success', duration: 1500 })
+    } else {
+      updated = favorites.filter((fid) => fid !== id)
+      Taro.showToast({ title: t('removedFav'), icon: 'none', duration: 1500 })
+    }
+    setFavorites(updated)
+    Taro.setStorageSync(FAV_STORAGE_KEY, JSON.stringify(updated))
+
+    // 对标 H5 clearAnalysisState
+    try { Taro.removeStorageSync(ANALYSIS_STATE_KEY) } catch (_) { /* ignore */ }
+  }
+
+  // ============ 导航 — 底部弹出卡片（对标 H5 modal slideUp）============
+
+  const openDetail = (item: NewsItem) => {
+    setDetailItem(item)
+  }
+
+  const closeDetail = () => {
+    setDetailItem(null)
+  }
+
+  // ============ 格式化 ============
+
+  const parseDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr)
+      const m = d.getMonth() + 1
+      const day = d.getDate()
+      return `${m}月${day}日`
+    } catch (_) { return dateStr.slice(0, 10) }
+  }
+
+  // ===== 系统信息 =====
+  // navigationStyle: 'custom' — 自定义导航栏，需手动适配状态栏高度
+  const statusBarHeight = (Taro.getSystemInfoSync?.().statusBarHeight || 20) as number
+  const headerPaddingTop = `${statusBarHeight + 8}px`
+
+  // 微信小程序 TabBar 页面无需返回按钮
+  // 刷新通过下拉刷新实现（refresherEnabled），无需额外按钮
+
+  // 微信胶囊按钮位置（保留用于其他扩展）
+  let menuButtonRight = 0
+  try {
+    const menuBtn = Taro.getMenuButtonBoundingClientRect()
+    if (menuBtn) {
+      const systemInfo = Taro.getSystemInfoSync()
+      menuButtonRight = systemInfo.windowWidth - (menuBtn.left || 0) + 8
+    }
+  } catch (_) { /* 降级：不处理 */ }
+
+  // ============ 渲染 ============
+
+  const isFav = (id: string) => favorites.indexOf(id) !== -1
+  const isSpeaking = (id: string) => speakingId === id
+
   return (
-    <View className="index-page">
-      {/* 头部 */}
-      <View className="header">
-        <Text className="title">🎙️ Tech Echo</Text>
-        <Text className="subtitle">科技资讯，有声播报</Text>
+    <View className={`idx-page${darkMode ? '' : ' idx-light'}`}>
+      {/* ===== Header — 对标 H5 L885-911 =====
+          微信 TabBar 首页：无需返回/刷新按钮，下拉刷新即可 */}
+      <View className="idx-header" style={{ paddingTop: headerPaddingTop }}>
+        <View className="idx-header-content">
+          {/* Logo — 对标 H5 SVG gradient icon + 科技回声 */}
+          <View className="idx-logo-wrap">
+            <View className="idx-logo-icon">
+              <Text className="idx-logo-icon-text">🎙</Text>
+            </View>
+            <Text className="idx-logo-text">{t('appName')}</Text>
+          </View>
+        </View>
       </View>
 
-      {/* 今日资讯 */}
-      <View className="section">
-        <View className="section-header">
-          <Text className="section-title">📰 今日资讯</Text>
-          <Text className="section-more">更多 →</Text>
+      {/* ===== Filters — 对标 H5 L913-927 ===== */}
+      <View className="idx-filters">
+
+        {/* 日期选择器 — 对标 H5 date-picker-wrapper L110-217 */}
+        <View className="idx-date-picker">
+          {/* 渐变遮罩 overlay — 对标 H5 ::before L133-151 */}
+          <View className="idx-date-overlay" />
+          {/* 中心高亮 glow — 对标 H5 ::after L153-166 */}
+          <View className="idx-date-glow" />
+          <ScrollView
+            scrollX
+            className="idx-date-track"
+            showScrollbar={false}
+            scrollWithAnimation
+            enhanced
+            scrollLeft={scrollState.ver > 0 ? scrollState.left : undefined}
+            onScroll={handleDateScroll}
+          >
+            {/* 内层 flex 容器 — 显式 spacer 替代百分比 padding */}
+            <View className="idx-date-inner">
+              {/* 首部 spacer — 确保第一项能滚动到中心 */}
+              <View style={{ width: `${halfScreen - 38}px`, flexShrink: 0 }} />
+              {dateOptions.map((opt) => {
+                const active = currentDateFilter === opt.key
+                return (
+                  <View
+                    key={opt.key}
+                    id={`date-${opt.key}`}
+                    data-key={opt.key}
+                    className={`idx-date-item${active ? ' idx-date-item--active' : ''}`}
+                    onClick={() => scrollToDate(opt.key)}
+                  >
+                    {opt.dayLabel ? (
+                      <Text className="idx-date-label">{opt.dayLabel}</Text>
+                    ) : (
+                      <Text className="idx-date-label">&nbsp;</Text>
+                    )}
+                    <Text className="idx-date-value">{opt.value}</Text>
+                  </View>
+                )
+              })}
+              {/* 尾部 spacer — 确保最后一项能滚动到中心 */}
+              <View style={{ width: `${halfScreen - 38}px`, flexShrink: 0 }} />
+            </View>
+          </ScrollView>
         </View>
 
+        {/* 分类 Chips — 对标 H5 category-scroll */}
+        <View className="idx-cat-row">
+          <ScrollView scrollX className="idx-cat-scroll" showScrollbar={false}>
+            <View className="idx-cat-inner">
+              {ALL_CATEGORIES.map((cat) => (
+                <View
+                  key={cat.id}
+                  className={`idx-cat-chip ${currentCategory === cat.id ? 'idx-cat-chip--active' : ''}`}
+                  onClick={() => setCurrentCategory(cat.id)}
+                >
+                  <Text className="idx-cat-emoji">{cat.emoji}</Text>
+                  <Text className="idx-cat-name">{cat.name}</Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+
+        {/* 统计栏 — 对标 H5 stats-bar */}
+        <View className="idx-stats">
+          <View className="idx-stats-inner">
+            <Text className="idx-stats-text">
+              共 <Text className="idx-stats-num">{filteredNews.length}</Text> 条
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* ===== Feed — 对标 H5 L946-948 ===== */}
+      <ScrollView
+        scrollY
+        className="idx-feed"
+        refresherEnabled
+        refresherTriggered={refreshing}
+        onRefresherRefresh={onRefresherRefresh}
+      >
+        <View className="idx-feed-inner">
         {loading ? (
-          <View className="loading">加载中...</View>
+          <View className="idx-loading">
+            <View className="idx-loading-spinner" />
+            <Text className="idx-loading-text">{t('loading')}</Text>
+          </View>
+        ) : error ? (
+          <View className="idx-empty">
+            <Text className="idx-empty-icon">⚠️</Text>
+            <Text className="idx-empty-title">{t('loadFailed')}</Text>
+            <Text className="idx-empty-desc">{error}</Text>
+            <View className="idx-retry-btn" onClick={loadNews}>
+              <Text className="idx-retry-text">{t('retry')}</Text>
+            </View>
+          </View>
+        ) : filteredNews.length === 0 ? (
+          <View className="idx-empty">
+            <Text className="idx-empty-icon">📭</Text>
+            <Text className="idx-empty-title">{t('emptyTitle')}</Text>
+            <Text className="idx-empty-desc">{t('emptyText')}</Text>
+          </View>
         ) : (
-          <ScrollView scrollX className="news-scroll">
-            {news.slice(0, 5).map(item => (
+          filteredNews.map((item) => {
+            const emoji = CATEGORY_EMOJIS[item.category] || '📰'
+            const catName = CATEGORY_NAMES[item.category] || item.category
+            const title = getDisplayTitle(item)
+            const summary = getDisplaySummary(item)
+            const source = getDisplaySource(item)
+            const dateStr = item.published_at || item.created_at || ''
+            const shortDate = parseDate(dateStr)
+            const isChinese = item.lang === 'zh' || (!item.lang && (item.title_zh || item.content_zh))
+            const fav = isFav(item.id)
+            const speak = isSpeaking(item.id)
+
+            return (
               <View
                 key={item.id}
-                className="news-card"
-                onClick={() => handleNewsClick(item)}
+                className="idx-card"
+                onClick={() => openDetail(item)}
               >
-                <Text className="news-title">{getDisplayTitle(item)}</Text>
-                <View className="news-meta">
-                  <Text className="news-source">{getDisplaySource(item)}</Text>
-                  <Text className="news-grade">
-                    {item.quality?.grade || ''} {item.quality?.total_100 || 0}分
-                  </Text>
+                {/* Card Header — 对标 H5 L1617-1626 */}
+                <View className="idx-card-hd">
+                  <View className="idx-card-emoji">
+                    <Text>{emoji}</Text>
+                  </View>
+                  <View className="idx-card-meta">
+                    <View className="idx-card-tags">
+                      {isChinese ? (
+                        <Text className="idx-tag idx-tag--zh">中文</Text>
+                      ) : (
+                        <Text className="idx-tag idx-tag--en">EN</Text>
+                      )}
+                      <Text className="idx-tag idx-tag--cat">{catName}</Text>
+                    </View>
+                    {/* 来源 — 对标 H5 source-link with ↗ */}
+                    <View className="idx-card-source-row">
+                      <Text className="idx-card-source">{source}</Text>
+                      {item.source_url && <Text className="idx-card-source-link"> ↗</Text>}
+                    </View>
+                  </View>
+                </View>
+
+                {/* Card Body — 对标 H5 L1627-1630 */}
+                <View className="idx-card-bd">
+                  <Text className="idx-card-title">{title}</Text>
+                  <Text className="idx-card-summary">{summary}</Text>
+                </View>
+
+                {/* Card Footer — 对标 H5 L1631-1641 */}
+                <View className="idx-card-ft">
+                  <Text className="idx-card-date">{shortDate}</Text>
+                  <View className="idx-card-actions">
+                    <View
+                      className={`idx-act-btn ${speak ? 'idx-act-btn--active' : ''}`}
+                      onClick={(e: any) => handleSpeak(item, e)}
+                    >
+                      <Text className="idx-act-text">
+                        {speak ? t('stopSpeaking') : '🔊 ' + t('speak')}
+                      </Text>
+                    </View>
+                    <View
+                      className={`idx-act-btn ${fav ? 'idx-act-btn--active' : ''}`}
+                      onClick={(e: any) => toggleFavorite(item.id, e)}
+                    >
+                      <Text className="idx-act-text">
+                        {fav ? t('favorited') : '🤍 ' + t('favorite')}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
               </View>
-            ))}
-          </ScrollView>
+            )
+          })
         )}
-      </View>
+        <View className="idx-safe-bottom" />
+        </View>
+      </ScrollView>
 
-      {/* 快捷入口 */}
-      <View className="section">
-        <View className="section-header">
-          <Text className="section-title">🚀 快捷功能</Text>
-        </View>
-        <View className="quick-actions">
-          <View className="action-card" onClick={() => Taro.switchTab({ url: '/pages/news/news' })}>
-            <Text className="action-icon">📋</Text>
-            <Text className="action-text">浏览资讯</Text>
-          </View>
-          <View className="action-card">
-            <Text className="action-icon">🔊</Text>
-            <Text className="action-text">语音播报</Text>
-          </View>
-          <View className="action-card">
-            <Text className="action-icon">🎬</Text>
-            <Text className="action-text">数字人播报</Text>
-            <Text className="action-badge">开发中</Text>
-          </View>
-        </View>
-      </View>
+      {/* ===== 详情底部弹出卡片 — 对标 H5 modal slideUp L486-531 ===== */}
+      {detailItem && (
+        <View className="idx-detail-overlay" onClick={closeDetail} catchMove>
+          <View
+            className="idx-detail-sheet"
+            onClick={(e: any) => e.stopPropagation()}
+          >
+            {/* 拖拽指示条 */}
+            <View className="idx-detail-handle">
+              <View className="idx-detail-handle-bar" />
+            </View>
 
-      {/* 分类 */}
-      <View className="section">
-        <View className="section-header">
-          <Text className="section-title">📂 分类浏览</Text>
-        </View>
-        <View className="category-grid">
-          {CATEGORIES.filter(c => c.id !== 'all').map(cat => (
-            <View key={cat.id} className="category-item">
-              <Text className="category-emoji">{CATEGORY_EMOJIS[cat.id] || cat.emoji}</Text>
-              <Text className="category-name">{cat.name}</Text>
+            {/* 头部 */}
+            <View className="idx-detail-hd">
+              <Text className="idx-detail-title">{getDisplayTitle(detailItem)}</Text>
+              <View className="idx-detail-meta">
+                <Text className="idx-detail-source">{getDisplaySource(detailItem)}</Text>
+                <Text className="idx-detail-date">{parseDate(detailItem.published_at || detailItem.created_at || '')}</Text>
+              </View>
             </View>
-          ))}
-        </View>
-      </View>
 
-      {/* 统计信息 */}
-      {stats && (
-        <View className="section">
-          <View className="section-header">
-            <Text className="section-title">📊 数据统计</Text>
-          </View>
-          <View className="stats-grid">
-            <View className="stat-item">
-              <Text className="stat-value">{stats.totalCount}</Text>
-              <Text className="stat-label">总资讯</Text>
+            {/* 正文 — 可滚动 */}
+            <View className="idx-detail-body">
+              <Text className="idx-detail-content">
+                {detailItem.content_zh || detailItem.content_en || detailItem.summary_zh || detailItem.summary_en || '暂无内容'}
+              </Text>
+
+              {/* 原文链接 */}
+              {detailItem.source_url && (
+                <View className="idx-detail-link" onClick={() => {
+                  Taro.setClipboardData({ data: detailItem.source_url! })
+                  Taro.showToast({ title: '链接已复制', icon: 'success' })
+                }}>
+                  <Text className="idx-detail-link-label">📎 原文链接</Text>
+                  <Text className="idx-detail-link-url">{detailItem.source_url}</Text>
+                </View>
+              )}
             </View>
-            <View className="stat-item">
-              <Text className="stat-value">{stats.stats['A'] + stats.stats['A+'] || 0}</Text>
-              <Text className="stat-label">优质(A/B)</Text>
-            </View>
-            <View className="stat-item">
-              <Text className="stat-value">{stats.lastUpdate?.slice(0, 10) || '-'}</Text>
-              <Text className="stat-label">更新时间</Text>
+
+            {/* 底部操作栏 */}
+            <View className="idx-detail-actions">
+              <View
+                className={`idx-detail-act ${isSpeaking(detailItem.id) ? 'idx-detail-act--active' : ''}`}
+                onClick={(e: any) => handleSpeak(detailItem, e)}
+              >
+                <Text>{isSpeaking(detailItem.id) ? '⏸️' : '🔊'}</Text>
+                <Text>{isSpeaking(detailItem.id) ? t('stopSpeaking') : t('speak')}</Text>
+              </View>
+              <View
+                className={`idx-detail-act ${isFav(detailItem.id) ? 'idx-detail-act--active' : ''}`}
+                onClick={(e: any) => toggleFavorite(detailItem.id, e)}
+              >
+                <Text>{isFav(detailItem.id) ? '❤️' : '🤍'}</Text>
+                <Text>{isFav(detailItem.id) ? t('favorited') : t('favorite')}</Text>
+              </View>
+              <View className="idx-detail-act idx-detail-act--primary" onClick={closeDetail}>
+                <Text>✓</Text>
+                <Text>已读</Text>
+              </View>
             </View>
           </View>
         </View>

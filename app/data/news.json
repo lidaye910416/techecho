@@ -1,0 +1,482 @@
+{
+  "lastUpdate": "2026-05-09 08:56",
+  "totalCount": 16,
+  "stats": {
+    "A+": 0,
+    "A": 0,
+    "B": 4,
+    "C": 12,
+    "D": 0
+  },
+  "categories": [
+    "ai",
+    "tools",
+    "news"
+  ],
+  "news": [
+    {
+      "id": "bc748e4c-f1db-4103-af6d-6909d7f52b0b",
+      "title_zh": "三部门联合部署智能体规范应用与创新发展",
+      "title_en": "",
+      "content_zh": "工业和信息化部等三部门联合部署智能体规范应用，明确创新发展方向，推动AI产业健康有序发展。",
+      "content_en": "",
+      "source_zh": "钛媒体",
+      "source_en": "",
+      "source_url": "https://www.tmtpost.com/7976970.html",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "Sat, 09 May 2026 07:20:00 +0800",
+      "created_at": "2026-05-09T08:49:55.354608",
+      "quality": {
+        "total_100": 71.0,
+        "grade": "B",
+        "scores": {
+          "completeness": 8.0,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 7.5,
+          "actionability": 6.0,
+          "impact": 5.0,
+          "originality": 7.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "0c6d8f56-6bf9-42e2-b3ae-a269c6f63a1f",
+      "title_zh": "AI录音笔厂商Plaud估值达20亿美元 获腾讯投资",
+      "title_en": "",
+      "content_zh": "硬氪独家获悉，AI卡片录音笔公司Plaud已于2025年年中获得腾讯融资，估值从10亿美元涨至约20亿美元。同时，Plaud正推进与腾讯会议间的硬件合作，但双方均表示消息不实。2024年Plaud营收约5600万美金，利润率近20%；2025年营收增长约3倍。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3799129165863937?f=rss",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "2026-05-08 09:31:04  +0800",
+      "created_at": "2026-05-09T08:50:27.447966",
+      "quality": {
+        "total_100": 70.5,
+        "grade": "B",
+        "scores": {
+          "completeness": 5.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 10,
+          "actionability": 6.0,
+          "impact": 5.0,
+          "originality": 7.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "4693162f-872b-4662-84f3-2e4e55d58f15",
+      "title_zh": "纯锂新能源完成Pre-A+轮融资 全固态电池实现规模化量产",
+      "title_en": "",
+      "content_zh": "纯锂新能源完成数千万元Pre-A+轮融资，由亦庄国投投资。公司成立于2022年，聚焦全固态电池研发，通过自研复合电解质及超临界包覆工艺解决固固接触难题。2025年推出第一代固态电池，平均失重率0.023%，已通过CNAS GB/T36276-2018安全认证。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3800022823951363?f=rss",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "2026-05-08 10:25:30  +0800",
+      "created_at": "2026-05-09T08:50:27.447665",
+      "quality": {
+        "total_100": 66.2,
+        "grade": "B",
+        "scores": {
+          "completeness": 7.5,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 7.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "c126d33e-e548-4432-8014-39fb4229d2c7",
+      "title_zh": "问界M6卡位25万级新能源SUV市场 争夺年轻家庭用户",
+      "title_en": "",
+      "content_zh": "问界M6以25.98万元起售，定位中大型新能源SUV，瞄准25-35岁城市年轻群体。终端数据显示，M6购车人群中35岁以下占比超70%，女性客户达35%，品牌成功实现年轻化转型。纯电版与增程版形成五五开均衡格局，iPhone用户占比35%，说明非华为生态用户吸引力显著提升。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3800183520091398?f=rss",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "2026-05-08 13:18:58  +0800",
+      "created_at": "2026-05-09T08:50:27.447157",
+      "quality": {
+        "total_100": 66.0,
+        "grade": "B",
+        "scores": {
+          "completeness": 6.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 7.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "a070efb1-dbd2-49d9-9593-b3831e6519cf",
+      "title_zh": "AI日报｜OpenAI发布实时音频模型，Anthropic估值破万亿，谷歌试水AI面试",
+      "title_en": "",
+      "content_zh": "OpenAI发布三款实时音频模型，开启AI智能体实时交互新范式。Anthropic估值突破1.2万亿美元反超OpenAI，Claude 3技术优势重塑行业格局。谷歌试点AI辅助工程师面试，允许候选人使用Gemini模型，反映AI时代工作流变革。",
+      "content_en": "",
+      "source_zh": "钛媒体",
+      "source_en": "",
+      "source_url": "https://www.tmtpost.com/7981637.html",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "Sat, 09 May 2026 08:12:55 +0800",
+      "created_at": "2026-05-09T08:49:55.353240",
+      "quality": {
+        "total_100": 64.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 4.5,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 7.5,
+          "actionability": 5.0,
+          "impact": 5.5,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "09936ce4-d2c8-4212-945d-fab15cca319c",
+      "title_zh": "清华系AI Infra厂商获数亿元融资，GPU为核心重构计算架构",
+      "title_en": "",
+      "content_zh": "容芯致远完成天使轮数亿元融资，由北京绿色能源和低碳产业基金与赛富投资基金领投。公司创始人石旭毕业于清华大学电子工程系，提出以GPU为核心的AGC（AI computer system with the GPU as its Core）架构。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3799984046333186?f=rss",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "2026-05-08 09:45:14  +0800",
+      "created_at": "2026-05-09T08:50:27.447832",
+      "quality": {
+        "total_100": 64.2,
+        "grade": "C",
+        "scores": {
+          "completeness": 4.5,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 7.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 7.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "9a15af66-ac3d-4ba6-bb80-8b9168eb5e1c",
+      "title_zh": "AI视频Agent产品：大厂碾压前能否摆脱「赚快钱」宿命？",
+      "title_en": "",
+      "content_zh": "字节跳动Seedance、快手可灵等大模型加速迭代，AI视频Agent产品迎来增长红利。业内人士透露，头部工具平台月算力成本超百万元，某平台年广告投放达800万元，上线一年的产品全球用户已破千万，ARR达2000万美金。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3786528811572481?f=rss",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "2026-05-07 19:31:32  +0800",
+      "created_at": "2026-05-09T08:50:27.448400",
+      "quality": {
+        "total_100": 63.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 6.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "c5d49b48-fc19-4664-b380-5405d7672aa6",
+      "title_zh": "小红书成立AI一级部门Dots，整合模型研发到产品全链路",
+      "title_en": "",
+      "content_zh": "小红书于4月30日宣布成立AI一级部门Dots，由原Hi Lab升级而来，下设模型研发、基础设施、工程、产品四大部门，“点点”等核心AI产品纳入该体系。Dots向新任总裁柯南汇报，旨在建立从模型到产品的完整技术体系。多年深陷增长瓶颈的小红书，试图借助AI突破社区商业化困局。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3799028783439111?f=rss",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "2026-05-08 12:38:43  +0800",
+      "created_at": "2026-05-09T08:50:27.447476",
+      "quality": {
+        "total_100": 61.2,
+        "grade": "C",
+        "scores": {
+          "completeness": 4.5,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "d0f29dbc-e457-4434-a4ab-f09cecb59e27",
+      "title_zh": "AI热潮反噬主板市场 2026年四大厂商销量集体下滑",
+      "title_en": "",
+      "content_zh": "AI热潮推高内存等核心部件价格，导致消费者推迟电脑升级。2026年上半年，华硕主板出货量预计仅500万块，全年可能跌破千万，同比降33%。技嘉、微星预测分别降至900万块和840万块，降幅22%和24%。华擎受影响最大，预计从430万块骤降至270万块，降幅37%。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84238",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "Fri, 08 May 2026 00:24:40 +0800",
+      "created_at": "2026-05-09T08:49:56.819817",
+      "quality": {
+        "total_100": 60.8,
+        "grade": "C",
+        "scores": {
+          "completeness": 2.0,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 7.5,
+          "actionability": 6.0,
+          "impact": 5.5,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "639ec618-66c8-470e-b6e6-8f3076c0da42",
+      "title_zh": "腾讯百度入股机器人灵巧手公司，宇树推全球首个机器人应用商店",
+      "title_en": "",
+      "content_zh": "天眼查App显示，腾讯、百度入股上海临界点创新智能科技公司，该公司由智元机器人灵巧手业务拆分成立，专注于机器人末端执行器研发。同时，宇树科技正式开放全球首个人形机器人任务动作应用商店UniStore，推动人形机器人应用生态发展。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3799089350712324?f=rss",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "2026-05-07 18:47:09  +0800",
+      "created_at": "2026-05-09T08:50:27.448554",
+      "quality": {
+        "total_100": 59.8,
+        "grade": "C",
+        "scores": {
+          "completeness": 4.5,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "6a14203f-e724-41ae-ab3f-be6fb78a594a",
+      "title_zh": "PHP项目弃用PHP许可证，全面切换至BSD许可",
+      "title_en": "",
+      "content_zh": "PHP项目正式宣布淘汰PHP许可证，切换至3-Clause BSD License。PHP许可证因限制“PHP”名称使用而与GPL不兼容，且修改需获得每位创始成员书面同意。Zend Engine作为PHP核心组件，其母公司Zend Technologies已于2019年被Perforce Software收购，后者已同意此次许可证变更。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84240",
+      "lang": "zh",
+      "category": "tools",
+      "published_at": "Fri, 08 May 2026 13:57:06 +0800",
+      "created_at": "2026-05-09T08:49:56.819625",
+      "quality": {
+        "total_100": 58.8,
+        "grade": "C",
+        "scores": {
+          "completeness": 4.5,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 2.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "e534082f-b737-46ae-9228-39bd2659d803",
+      "title_zh": "英伟达 RTX 5090 冲击密码安全：六成 MD5 密码一小时可破解",
+      "title_en": "",
+      "content_zh": "卡巴斯基研究人员发现，英伟达 RTX 5090 显卡可在 1 小时内破解六成 MD5 哈希密码，48% 的密码甚至 1 分钟内即可破解。研究人员分析了逾 2 亿个泄露密码，发现攻击者可利用常见模式优化破解算法，显著缩短密码猜测时间。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84242",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "Fri, 08 May 2026 14:55:13 +0800",
+      "created_at": "2026-05-09T08:49:56.819395",
+      "quality": {
+        "total_100": 58.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 2.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 2.5,
+          "actionability": 6.0,
+          "impact": 5.0,
+          "originality": 7.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "aece7a0f-df97-4ef7-8632-6c9eebd3e9df",
+      "title_zh": "维新宇航完成数千万元天使+轮融资，7座3吨级eVTOL将于7月首飞",
+      "title_en": "",
+      "content_zh": "维新宇航完成数千万元天使+轮融资，专注7座3吨级纯电复合翼eVTOL研发。其主力机型Vector 5已于3月底完成框架机首飞，计划7月进行全尺寸样机首飞，载货版预计2027年底完成适航取证。二代11座eCTOL机型也在同步推进中。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3800495686163721?f=rss",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "2026-05-08 18:25:58  +0800",
+      "created_at": "2026-05-09T08:50:27.446972",
+      "quality": {
+        "total_100": 57.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 4.5,
+          "language": 6.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.5,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "a3b296cf-6526-4fd6-9090-1c9c2c092339",
+      "title_zh": "高通发布骁龙6 Gen 5/4 Gen 5平台，Google将停运Project Mariner",
+      "title_en": "",
+      "content_zh": "高通发布骁龙6 Gen 5与骁龙4 Gen 5移动平台，面向中端与入门市场，搭载增强AI能力。Google宣布将于下月停运AI Agent项目Project Mariner，该项目曾尝试自动化网页任务。同期，Google还发布了Fitbit Air健康追踪设备，采用无袖带血压监测设计。",
+      "content_en": "",
+      "source_zh": "少数派",
+      "source_en": "",
+      "source_url": "https://sspai.com/post/109489",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "Fri, 08 May 2026 08:51:39 +0800",
+      "created_at": "2026-05-09T08:49:56.607947",
+      "quality": {
+        "total_100": 56.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 3.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 2.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "27839a9f-8f17-47c2-b499-4eb2a0073fcd",
+      "title_zh": "AI时代冲击：Cloudflare裁员五分之一员工应对业务重组",
+      "title_en": "",
+      "content_zh": "Cloudflare因AI工具快速普及宣布裁员逾1100人，占员工总数的20%。CEO Matthew Prince在致员工信中表示，公司正在重新构想每个团队和职能部门的运作方式，以适应智能体AI时代。到2025年底，Cloudflare共有5156名全职员工，此次裁员规模约为五分之一。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84241",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "Fri, 08 May 2026 14:17:34 +0800",
+      "created_at": "2026-05-09T08:49:56.819531",
+      "quality": {
+        "total_100": 56.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 3.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 2.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "9d886a27-9416-497b-b4e7-22e9e091405f",
+      "title_zh": "灵珠AI日均token消耗破50亿：深度用户构建应用护城河",
+      "title_en": "",
+      "content_zh": "灵珠AI用户基数虽远小于大模型公司和互联网平台，但人均token消耗量处于相当高的水平，深度用户正成为其独特护城河。",
+      "content_en": "",
+      "source_zh": "钛媒体",
+      "source_en": "",
+      "source_url": "https://www.tmtpost.com/7981423.html",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "Fri, 08 May 2026 19:58:12 +0800",
+      "created_at": "2026-05-09T08:49:55.354768",
+      "quality": {
+        "total_100": 55.2,
+        "grade": "C",
+        "scores": {
+          "completeness": 1.5,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    }
+  ]
+}

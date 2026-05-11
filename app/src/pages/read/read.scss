@@ -2,7 +2,6 @@
 // 基于现代、干净、注重可读性的设计语言
 
 .read-page {
-  min-height: 100vh;
   background: #09090b;
   display: flex;
   flex-direction: column;
@@ -16,8 +15,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 12rpx 16rpx 10rpx;
   background: rgba(9, 9, 11, 0.8);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -358,6 +358,7 @@
   padding: 16px;
   padding-bottom: calc(16px + env(safe-area-inset-bottom));
   background: rgba(9, 9, 11, 0.95);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -405,4 +406,48 @@
 
 .action-btn.secondary .action-text {
   color: #a1a1aa;
+}
+
+// ===== Light Theme =====
+.read-light {
+  &, .read-page { background: #ffffff; }
+
+  .navbar {
+    background: rgba(255, 255, 255, 0.85);
+    border-bottom-color: rgba(0, 0, 0, 0.06);
+  }
+  .back-icon, .back-text { color: #52525b; }
+  .share-btn { background: #e4e4e7; }
+
+  .header-card {
+    background: #f4f4f5;
+    border-color: rgba(0, 0, 0, 0.06);
+  }
+  .article-title { color: #09090b; }
+  .pub-date { color: #71717a; }
+
+  .summary-card, .content-card {
+    background: #f4f4f5;
+    border-color: rgba(0, 0, 0, 0.06);
+  }
+  .card-title { color: #09090b; }
+  .summary-text, .content-text { color: #3f3f46; }
+  .expand-btn { background: #e4e4e7; border-color: rgba(0, 0, 0, 0.08); }
+
+  .source-link-card {
+    background: rgba(99, 102, 241, 0.05);
+    border-color: rgba(99, 102, 241, 0.1);
+  }
+
+  .action-bar {
+    background: rgba(255, 255, 255, 0.95);
+    border-top-color: rgba(0, 0, 0, 0.06);
+  }
+  .action-btn.secondary {
+    background: #e4e4e7;
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+  .action-btn.secondary .action-text { color: #52525b; }
+
+  .loading-text { color: #71717a; }
 }

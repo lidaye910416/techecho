@@ -1,33 +1,41 @@
 export default defineAppConfig({
   pages: [
     'pages/index/index',
-    'pages/category/index',
-    'pages/profile/index',
+    'pages/news/news',
+    'pages/read/read',
+    'pages/mine/mine',
   ],
   window: {
     backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#0a0a0a',
-    navigationBarTitleText: 'Tech Echo',
+    navigationStyle: 'custom',
+    navigationBarBackgroundColor: '#0f0f1a',
+    navigationBarTitleText: '科技回声',
     navigationBarTextStyle: 'white',
-    backgroundColor: '#0a0a0a'
+    backgroundColor: '#0f0f1a'
   },
   tabBar: {
-    color: '#666666',
-    selectedColor: '#00ff88',
-    backgroundColor: '#0a0a0a',
+    color: '#86868B',
+    selectedColor: '#6366f1',
+    backgroundColor: '#0f0f1a',
     borderStyle: 'black',
     list: [
       {
         pagePath: 'pages/index/index',
-        text: '首页'
+        text: '首页',
+        iconPath: 'assets/home.png',
+        selectedIconPath: 'assets/home-active.png'
       },
       {
-        pagePath: 'pages/category/index',
-        text: '分类'
+        pagePath: 'pages/news/news',
+        text: '收藏',
+        iconPath: 'assets/fav.png',
+        selectedIconPath: 'assets/fav-active.png'
       },
       {
-        pagePath: 'pages/profile/index',
-        text: '我的'
+        pagePath: 'pages/mine/mine',
+        text: '我的',
+        iconPath: 'assets/mine.png',
+        selectedIconPath: 'assets/mine-active.png'
       }
     ]
   },
