@@ -19,6 +19,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import {
   getNewsList,
   ttsSpeak,
+  getAudioUrl,
   NewsItem,
   getDisplayTitle,
   getDisplaySummary,
@@ -311,9 +312,10 @@ useEffect(() => {
     }
 
     // 优先使用 voice3（温婉女声），其次使用任何可用的预生成语音
-    const audioUrl = item.audio.voice3 || item.audio.voice1 || item.audio.voice2 || item.audio.voice4
+    const audioPath = item.audio.voice3 || item.audio.voice1 || item.audio.voice2 || item.audio.voice4
 
-    if (audioUrl) {
+    if (audioPath) {
+      const audioUrl = getAudioUrl(audioPath)
       playAudio(item.id, audioUrl)
     } else {
       Taro.showToast({ title: '无可用语音', icon: 'none' })
@@ -322,8 +324,11 @@ useEffect(() => {
 
   /** 播放音频 */
   const playAudio = (newsId: string, url: string) => {
+    // 确保 URL 是完整路径
+    const audioUrl = url.startsWith('http') ? url : getAudioUrl(url)
+    console.log('[TTS] 播放音频:', audioUrl)
     const ctx = Taro.createInnerAudioContext()
-    ctx.src = url
+    ctx.src = audioUrl
     ctx.autoplay = true
     ctx.onPlay(() => { setSpeakingId(newsId); setAudioCtx(ctx) })
     ctx.onEnded(() => { setSpeakingId(null); setAudioCtx(null); ctx.destroy() })

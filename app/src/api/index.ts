@@ -9,6 +9,17 @@ import Taro from '@tarojs/taro'
 // 基础配置 — 小程序正式环境需替换为生产域名
 const BASE_URL = process.env.TARO_APP_API_BASE || 'http://localhost:8001'
 
+/** 将相对路径转换为完整音频 URL */
+export function getAudioUrl(relativePath: string): string {
+  if (!relativePath) return ''
+  // 如果已经是完整 URL，直接返回
+  if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
+    return relativePath
+  }
+  // 转换为完整 URL
+  return `${BASE_URL}${relativePath}`
+}
+
 // ============ 通用请求封装 ============
 
 async function request<T = any>(
