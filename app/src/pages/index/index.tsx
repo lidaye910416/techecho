@@ -280,19 +280,21 @@ useEffect(() => {
   }
 
   /** 语音风格切换确认弹窗 */
-  const promptVoiceSwitch = (targetVoice: string, item: NewsItem) => {
+  const promptVoiceSwitch = (item: NewsItem) => {
     const currentName = VOICE_NAMES[voice] || voice
-    const targetName = VOICE_NAMES[targetVoice] || targetVoice
+    // 获取数据库中已有的预生成语音风格名称
+    const availableVoices = item.audio ? Object.keys(item.audio) : []
+    const availableNames = availableVoices.map(v => VOICE_NAMES[v] || v).join('、')
 
     Taro.showModal({
       title: t('voiceSwitchTitle'),
-      content: `当前风格：${currentName}\n将切换至：${targetName}`,
-      confirmText: t('switchStyle'),
+      content: `当前设置：${currentName}\n已有预生成：${availableNames || '无'}\n\n选择"切换"将调用实时语音生成（需登录，限一次）`,
+      confirmText: '切换风格',
       cancelText: '保持',
       success: (res) => {
         if (res.confirm) {
           // 用户选择切换风格 → 调用 TTS（消耗一次体验）
-          requestTTS(item, targetVoice)
+          requestTTS(item, voice)
         } else {
           // 用户选择保持风格 → 使用数据库中已有的预生成语音
           playOtherVoiceAudio(item)
@@ -301,13 +303,15 @@ useEffect(() => {
     })
   }
 
-  /** 使用数据库中已有的其他风格预生成语音 */
+  /** 使用数据库中已有的预生成语音 */
   const playOtherVoiceAudio = (item: NewsItem) => {
-    if (!item.audio) return
+    if (!item.audio || Object.keys(item.audio).length === 0) {
+      Taro.showToast({ title: '无可用语音', icon: 'none' })
+      return
+    }
 
     // 优先使用 voice3（温婉女声），其次使用任何可用的预生成语音
-    const availableVoice = item.audio.voice3 || item.audio.voice1 || item.audio.voice2 || item.audio.voice4
-    const audioUrl = Object.values(item.audio)[0]
+    const audioUrl = item.audio.voice3 || item.audio.voice1 || item.audio.voice2 || item.audio.voice4
 
     if (audioUrl) {
       playAudio(item.id, audioUrl)
@@ -390,7 +394,7 @@ useEffect(() => {
     const hasOtherVoiceAudio = item.audio && Object.keys(item.audio).length > 0
     if (hasOtherVoiceAudio) {
       // 有其他风格的预生成语音 → 弹窗询问
-      promptVoiceSwitch(voice, item)
+      promptVoiceSwitch(item)
       return
     }
 
