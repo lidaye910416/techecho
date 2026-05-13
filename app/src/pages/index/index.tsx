@@ -288,7 +288,7 @@ useEffect(() => {
       title: t('voiceSwitchTitle'),
       content: `当前风格：${currentName}\n将切换至：${targetName}`,
       confirmText: t('switchStyle'),
-      cancelText: t('keepStyle'),
+      cancelText: '保持',
       success: (res) => {
         if (res.confirm) {
           // 用户选择切换风格 → 调用 TTS（消耗一次体验）
