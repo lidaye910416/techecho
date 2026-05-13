@@ -66,7 +66,7 @@ export default function Index() {
 
   // 设置
   const [threshold, setThreshold] = useState(55)
-  const [voice] = useState('voice3')
+  const [voice, setVoice] = useState('voice3')
 
   // 播放
   const [speakingId, setSpeakingId] = useState<string | null>(null)
@@ -161,9 +161,10 @@ useEffect(() => {
     loadNews()
   }, [])
 
-  // Tab 切换回首页时刷新收藏状态
+  // Tab 切换回首页时刷新收藏状态和设置
   useDidShow(() => {
     loadFavorites()
+    loadSettings()
   })
 
   useEffect(() => {
@@ -178,6 +179,7 @@ useEffect(() => {
       if (raw) {
         const s = JSON.parse(raw)
         if (s.threshold !== undefined) setThreshold(s.threshold)
+        if (s.voice !== undefined) setVoice(s.voice)
       }
     } catch (_) { /* default */ }
   }
