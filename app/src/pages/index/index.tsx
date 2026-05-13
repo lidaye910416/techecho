@@ -46,6 +46,7 @@ const ALL_CATEGORIES = [
 const FAV_STORAGE_KEY = 'techecho_favorites'
 const SETTINGS_STORAGE_KEY = 'techecho_settings'
 const ANALYSIS_STATE_KEY = 'techecho_analysis_state'
+const TTS_USED_KEY = 'techecho_tts_used'
 
 // ============ 组件 ============
 
@@ -228,6 +229,46 @@ useEffect(() => {
 
   // ============ 朗读 ============
 
+  /** 检查用户是否已登录 */
+  const isLoggedIn = (): boolean => {
+    try { return !!Taro.getStorageSync('auth_token') } catch (_) { return false }
+  }
+
+  /** 检查 TTS 实时调用是否已使用 */
+  const isTTSUsed = (): boolean => {
+    try { return !!Taro.getStorageSync(TTS_USED_KEY) } catch (_) { return false }
+  }
+
+  /** 标记 TTS 已使用 */
+  const markTTSUsed = () => {
+    try { Taro.setStorageSync(TTS_USED_KEY, '1') } catch (_) { /* ignore */ }
+  }
+
+  /** 提示用户登录 */
+  const promptLogin = () => {
+    Taro.showModal({
+      title: '需要登录',
+      content: '实时语音生成仅限登录用户使用。是否前往登录？',
+      confirmText: '去登录',
+      cancelText: '稍后',
+      success: (res) => {
+        if (res.confirm) {
+          Taro.switchTab({ url: '/pages/mine/mine' })
+        }
+      },
+    })
+  }
+
+  /** 提示 TTS 次数已用完 */
+  const promptTTSLimit = () => {
+    Taro.showModal({
+      title: '体验次数已用完',
+      content: '实时语音生成功能每位用户限体验一次。建议收藏感兴趣的新闻，等待后台预生成完整语音。',
+      showCancel: false,
+      confirmText: '我知道了',
+    })
+  }
+
   const handleSpeak = async (item: NewsItem, e?: any) => {
     if (e) e.stopPropagation?.()
 
@@ -243,10 +284,24 @@ useEffect(() => {
     Taro.showToast({ title: t('speakGen'), icon: 'loading', duration: 10000 })
 
     try {
+      // 优先使用预生成语音（不受登录/次数限制）
       const preGenAudio = item.audio?.[voice]
       if (preGenAudio) {
         Taro.hideToast()
         playAudio(item.id, preGenAudio)
+        return
+      }
+
+      // 实时 TTS 需要检查登录和次数
+      if (!isLoggedIn()) {
+        Taro.hideToast()
+        promptLogin()
+        return
+      }
+
+      if (isTTSUsed()) {
+        Taro.hideToast()
+        promptTTSLimit()
         return
       }
 
@@ -255,6 +310,7 @@ useEffect(() => {
       Taro.hideToast()
 
       if (ttsRes.success && ttsRes.data?.audio_url) {
+        markTTSUsed()
         playAudio(item.id, ttsRes.data.audio_url)
       } else {
         Taro.showToast({ title: t('speakFailed'), icon: 'none' })

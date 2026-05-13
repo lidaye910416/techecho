@@ -66,6 +66,13 @@ const zh = {
   logout: '退出登录',
   loggingIn: '登录中...',
   preferences: '偏好设置',
+  needLogin: '需要登录',
+  needLoginContent: '实时语音生成仅限登录用户使用。是否前往登录？',
+  ttsLimitReached: '体验次数已用完',
+  ttsLimitContent: '实时语音生成功能每位用户限体验一次。建议收藏感兴趣的新闻，等待后台预生成完整语音。',
+  goToLogin: '去登录',
+  later: '稍后',
+  gotIt: '我知道了',
 } as const
 
 type ZhType = typeof zh
@@ -130,6 +137,13 @@ const en: Record<keyof ZhType, string> = {
   logout: 'Logout',
   loggingIn: 'Logging in...',
   preferences: 'Preferences',
+  needLogin: 'Login Required',
+  needLoginContent: 'Real-time speech generation is only available for logged-in users. Go to login?',
+  ttsLimitReached: 'Trial Limit Reached',
+  ttsLimitContent: 'Real-time speech generation is limited to one trial per user. Try favoriting news and wait for pre-generated audio.',
+  goToLogin: 'Login',
+  later: 'Later',
+  gotIt: 'Got it',
 }
 
 const messages = { zh, en }
