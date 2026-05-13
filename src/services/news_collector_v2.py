@@ -83,15 +83,13 @@ class BilingualNewsCollector:
     
     async def collect_all(self, lang=None, category=None) -> List[NewsItem]:
         """收集所有新闻"""
+        # 英文新闻已禁用，始终为空列表
+        en_news: List[NewsItem] = []
+
         if lang == 'zh':
             zh_news = await self.collect_zh()
-            en_news = []
-        elif lang == 'en':
-            zh_news = []
-            en_news = await self.collect_en()
         else:
             zh_news = await self.collect_zh()
-            en_news = await self.collect_en()
 
         # 去重 (基于标题相似度)
         all_news = zh_news + en_news

@@ -77,9 +77,9 @@ export default function Index() {
   const [threshold, setThreshold] = useState(55)
   const [voice, setVoice] = useState('voice3')
 
-  // 播放
+  // 播放 - 使用 useRef 避免闭包陷阱
   const [speakingId, setSpeakingId] = useState<string | null>(null)
-  const [audioCtx, setAudioCtx] = useState<Taro.InnerAudioContext | null>(null)
+  const audioCtxRef = useRef<Taro.InnerAudioContext | null>(null)
 
   // 下拉刷新
   const [refreshing, setRefreshing] = useState(false)
@@ -331,55 +331,55 @@ useEffect(() => {
   /** 播放音频 */
   const playAudio = (newsId: string, url: string) => {
     const audioUrl = url.startsWith('http') ? url : getAudioUrl(url)
-    console.log('[TTS] 播放音频:', audioUrl)
 
-    // 先销毁旧的音频上下文
-    if (audioCtx) {
-      console.log('[TTS] 销毁旧音频上下文')
+    // 销毁旧的音频上下文
+    const oldCtx = audioCtxRef.current
+    if (oldCtx) {
       try {
-        audioCtx.stop()
-        audioCtx.destroy()
-      } catch (e) {
-        console.error('[TTS] 销毁旧音频上下文失败:', e)
-      }
-      setAudioCtx(null)
-      setSpeakingId(null)
+        oldCtx.stop()
+        oldCtx.destroy()
+      } catch (e) { /* ignore */ }
+      audioCtxRef.current = null
     }
 
-    // 创建新的音频上下文
-    const ctx = Taro.createInnerAudioContext()
-    console.log('[TTS] 创建音频上下文成功')
+    // 延迟创建新上下文，避免状态冲突
+    setTimeout(() => {
+      const ctx = Taro.createInnerAudioContext()
+      audioCtxRef.current = ctx
 
-    ctx.src = audioUrl
-    ctx.autoplay = true
-    ctx.volume = 1.0
-    ctx.onTimeUpdate(() => {
-      console.log('[TTS] 播放中:', ctx.currentTime, '/', ctx.duration)
-    })
-    ctx.onPlay(() => {
-      console.log('[TTS] 开始播放')
-      setSpeakingId(newsId)
-      setAudioCtx(ctx)
-    })
-    ctx.onEnded(() => {
-      console.log('[TTS] 播放结束')
-      setSpeakingId(null)
-      setAudioCtx(null)
-      try { ctx.destroy() } catch (e) { /* ignore */ }
-    })
-    ctx.onStop(() => {
-      console.log('[TTS] 播放停止')
-      setSpeakingId(null)
-      setAudioCtx(null)
-      try { ctx.destroy() } catch (e) { /* ignore */ }
-    })
-    ctx.onError((err) => {
-      console.error('[TTS] 播放错误:', JSON.stringify(err))
-      setSpeakingId(null)
-      setAudioCtx(null)
-      try { ctx.destroy() } catch (e) { /* ignore */ }
-      Taro.showToast({ title: t('playFailed'), icon: 'none' })
-    })
+      ctx.onPlay(() => {
+        setSpeakingId(newsId)
+      })
+
+      ctx.onEnded(() => {
+        setSpeakingId(null)
+        audioCtxRef.current = null
+        try { ctx.destroy() } catch (e) { /* ignore */ }
+      })
+
+      ctx.onStop(() => {
+        setSpeakingId(null)
+        audioCtxRef.current = null
+        try { ctx.destroy() } catch (e) { /* ignore */ }
+      })
+
+      ctx.onError(() => {
+        setSpeakingId(null)
+        audioCtxRef.current = null
+        try { ctx.destroy() } catch (e) { /* ignore */ }
+        Taro.showToast({ title: t('playFailed'), icon: 'none' })
+      })
+
+      ctx.src = audioUrl
+      ctx.autoplay = true
+      ctx.volume = 1
+      ctx.obeyMuteSwitch = false
+
+      // 确保能播放
+      ctx.onCanplay(() => {
+        ctx.play()
+      })
+    }, 150)
   }
 
   /** 请求 TTS（实时语音生成） */
@@ -421,19 +421,21 @@ useEffect(() => {
 
     // 停止当前播放（如果是同一条新闻）
     if (speakingId === item.id) {
-      if (audioCtx) {
-        try { audioCtx.stop(); audioCtx.destroy() } catch (e) { /* ignore */ }
+      const ctx = audioCtxRef.current
+      if (ctx) {
+        try { ctx.stop(); ctx.destroy() } catch (e) { /* ignore */ }
+        audioCtxRef.current = null
       }
-      setAudioCtx(null)
       setSpeakingId(null)
       Taro.showToast({ title: t('stopped'), icon: 'none', duration: 1500 })
       return
     }
 
     // 停止其他新闻的播放
-    if (audioCtx) {
-      try { audioCtx.stop(); audioCtx.destroy() } catch (e) { /* ignore */ }
-      setAudioCtx(null)
+    const oldCtx = audioCtxRef.current
+    if (oldCtx) {
+      try { oldCtx.stop(); oldCtx.destroy() } catch (e) { /* ignore */ }
+      audioCtxRef.current = null
       setSpeakingId(null)
     }
 

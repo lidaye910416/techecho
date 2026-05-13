@@ -1,0 +1,398 @@
+# Ralph Progress Log
+Started: 2026-05-08
+Project: TechEcho Pro - 收藏新闻 AI 分析与语音播报
+
+## Codebase Patterns
+- 后端使用 FastAPI，路由在 src/api/
+- 前端使用 Taro，页面在 app/src/pages/
+- MiniMax 客户端封装在 src/services/minimax_client.py
+- 数据库使用 SQLite，数据服务在 src/services/news_database.py
+
+---
+
+## 2026-05-08 10:05 - US-001 + US-002
+- What was implemented:
+  - 后端 API: POST /api/favorites/analyze (AI 分析)
+  - 后端 API: POST /api/favorites/tts (TTS 语音播报)
+  - 精细化提示词: 角色定义+固定模板+播客风格优化
+  - TTS 配置: 语速 1.15x, voice_id=female-tianmei
+  - 文本预处理: format_for_tts() 增强感染力
+- Files changed:
+  - src/services/minimax_client.py (添加 chat 和 analyze_text 方法)
+  - src/api/favorites_api.py (新建 - 收藏分析 API)
+  - src/api/routes.py (注册新路由)
+- **Learnings for future iterations:**
+  - MiniMax 对话 API 端点: v1/text/chatquery_v2
+  - MiniMax TTS 支持 speed 参数
+  - AI 返回格式可能需要多次尝试才能正确解析
+---
+
+## 2026-05-08 10:30 - US-003 + US-004
+- What was implemented:
+  - H5 前端: app/index.html 添加 AI 分析功能
+  - 分析按钮: 渐变胶囊按钮，loading 状态
+  - 分析结果展示: 核心发现卡片 + 现状扫描 + 趋势研判 + 值得注意 + 主笔手记
+  - 音频播放器: 播放/暂停/跳过15秒/进度条/语速控制/下载
+  - Tab 切换: 收藏页面显示分析区域，其他页面隐藏
+- Files changed:
+  - app/index.html (添加 CSS 样式 + HTML 结构 + JS 逻辑)
+- **Learnings for future iterations:**
+  - index.html 是单页应用，所有逻辑都在一个文件中
+  - 使用 localStorage 存储收藏数据
+  - audio.playbackRate 设置播放速度
+---
+
+## ============ Round 2 完成 ============
+
+## 2026-05-08 -- US-007: TTS 语音体系升级 ✅
+- voice_config.py: 四声线播客模板 (青叔/少年/轻御/甜妹), speed/speed 字段
+- minimax_client.py: available_voices 补充 male-qn-* 系列
+- app/index.html: getVoices() UI 更新, 默认语音 voice3
+- Files: voice_config.py, minimax_client.py, index.html
+
+## 2026-05-08 -- US-008: TTS 语音选择串联 ✅
+- favorites_api.py: TTSRequest 加 voice 字段, /tts 端点查 VOICE_STYLES
+- index.html: handleSpeak() + handleAnalyze() 传 voice: settings.voice
+- Files: favorites_api.py, index.html
+
+## 2026-05-08 -- US-009: 新闻 TTS 预生成 ✅
+- news_database.py: audio_url 列迁移, save_news_audio(), get_news_without_audio()
+- news_database.py: get_news_from_db/get_news_by_id 返回 audio 字段
+- tts_pregen.py: 新建模块, 采集后用 voice3 批量生成 TTS, 下载存本地
+- scheduler_service.py: daily_news_collection 末尾集成 TTS 预生成
+- Files: news_database.py, tts_pregen.py(新), scheduler_service.py
+
+## 2026-05-08 -- US-006: 分析结果持久化 ✅
+- index.html: analysisState 全局状态, localStorage 持久化
+- index.html: handleAnalyze() 缓存展示 vs 强制重新分析
+- index.html: closeReport() 不清除状态, switchTab() 恢复视图
+- index.html: toggleFavorite()/setLang() 清除旧分析结果
+- index.html: updateHeroButton() 动态切换 开始分析/重新分析
+- Files: index.html
+
+Total new files: 1 (tts_pregen.py)
+Total files changed: 6
+
+---
+
+## 2026-05-09 — US-011: 微信小程序 Tab Bar 重新配置 ✅
+- What was implemented:
+  - app.config.ts tabBar.list[1]: text '资讯'→'收藏', icon news.png→fav.png, selectedIcon news-active.png→fav-active.png
+  - config/index.js: 同步修改 tabBar.list[1] (两份配置必须一致, 否则Taro编译结果不确定)
+  - 生成收藏图标: app/src/assets/fav.png + fav-active.png (81×81 RGBA, 书签形状, 色值 #86868B/#6366f1)
+  - 图标用 Python Pillow 绘制, 对标 H5 collection tab SVG (M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z)
+  - pagePath 不变 (pages/news/news), news.tsx 已包含完整收藏功能
+- Files changed:
+  - app/src/app.config.ts (tabBar.list[1])
+  - app/config/index.js (tabBar.list[1])
+- Files created:
+  - app/src/assets/fav.png (new)
+  - app/src/assets/fav-active.png (new)
+- **Learnings for future iterations:**
+  - Taro 项目有两份 tabBar 配置: app.config.ts (Taro3 标准) 和 config/index.js (Taro 编译配置)。两份必须同步修改, 否则编译可能使用 config/index.js 覆盖 app.config.ts
+  - 微信小程序 Tab Bar 图标要求: 81×81 PNG, 透明底, 建议用 Pillow 脚本生成保证尺寸一致
+  - 页面路由不改文件名, 只改Tab文案 — news.tsx 包含收藏功能但文件名保持news避免连锁重命名
+---
+
+## ============ Round 1 完成 ============
+All 4 user stories completed:
+- US-001: POST /api/favorites/analyze ✅
+- US-002: POST /api/favorites/tts ✅
+- US-003: H5 前端 AI 分析按钮 ✅
+- US-004: H5 音频播放器组件 ✅
+
+Total commits: 2
+- d5913b7: feat: US-001+US-002 后端收藏分析 API 和 TTS 接口
+- 9245b9f: feat: US-003+US-004 H5 前端 AI 分析和音频播放器
+
+---
+
+## 2026-05-09 — US-010: 微信小程序「我的」页面 ✅
+- mine.tsx: 完整我的页面 (登录态/未登录态, 语音设置子页, 偏好设置子页)
+- mine.scss: 暗色主题样式, 卡片/菜单/滑块/Switch 全套
+- auth_api.py: 新建, POST /api/auth/wechat-login, 开发模式 mock, users 表
+- routes.py: 注册 auth_api_router
+- api/index.ts: fetch → Taro.request 适配, wechatLogin/getUserInfo/getVoices
+- app.config.ts: 对齐 config/index.js, tabBar 首页/资讯/我的
+- .env.example: 新增 WECHAT_APPID/WECHAT_SECRET
+- read.tsx: 修复嵌套三元表达式语法错误
+- Files: auth_api.py(新), routes.py, api/index.ts, mine.tsx, mine.scss, app.config.ts, .env.example, read.tsx
+
+## 2026-05-09 — US-010: 首页 & 资讯页对标 H5 重写 ✅
+- index.tsx: 完全对标 H5 首页 — 日期筛选/分类Chip/统计栏/新闻卡片(Emoji+分类+来源+标题+摘要+日期+朗读+收藏)
+- index.scss: 深色主题卡片布局, 统一样式设计
+- news.tsx: 对标 H5 收藏页 — AI 分析 Hero 卡片/收藏新闻列表/AI 分析报告视图/TTS 语音播报
+- news.scss: Hero 渐变卡片/报告文章排版/音频控制栏
+- api/index.ts: 新增 ttsSpeak()/analyzeFavorites()/CATEGORY_* 常量/DATE_FILTERS/isInDateRange
+- 关键技术点:
+  - Taro.createInnerAudioContext() 播放音频
+  - Taro.setStorageSync/getStorageSync 持久化收藏和设置
+  - stopPropagation 阻止卡片点击冒泡
+  - filterNews 三重过滤：分类 + 日期 + 质量阈值
+  - AI 分析状态持久化到 storage，避免重复请求
+- Files: index.tsx, index.scss, news.tsx, news.scss, api/index.ts
+
+---
+
+## 2026-05-09 — US-012: 微信小程序首页对标 H5 逐组件完善 ✅
+- What was implemented:
+  - 新增 ANALYSIS_STATE_KEY 常量定义 (之前 toggleFavorite 使用但未定义)
+  - 新增下拉刷新: ScrollView refresherEnabled + onRefresherRefresh → loadNews()
+  - 新增 useDidHide: 页面隐藏时停止 InnerAudioContext + destroy
+  - toggleFavorite: 收藏变化时 Taro.removeStorageSync('techecho_analysis_state') 清除分析缓存
+  - 组件树完全对标: header/date/chips/stats/card 5层结构 + 5种渲染分支 + 7条交互路径
+- Files changed:
+  - app/src/pages/index/index.tsx (ANALYSIS_STATE_KEY, refreshing state, onRefresherRefresh, useDidHide, ScrollView props)
+- **Learnings for future iterations:**
+  - Taro ScrollView 支持 refresherEnabled/refresherTriggered/onRefresherRefresh 实现下拉刷新
+  - useDidHide 对标 H5 switchTab → speechSynthesis.cancel()
+  - ANALYSIS_STATE_KEY 需在 index.tsx 和 news.tsx 中一致使用
+
+## 2026-05-09 — US-013: 微信小程序收藏页对标 H5 → ★2 CRITICAL BUG 修复 + 4 项增强 ✅
+- What was implemented:
+  - ★BUG1 修复: removeFavorite() 添加分析缓存清除逻辑 (clear analysisResult state + stop audio + removeStorageSync)
+  - ★BUG2 修复: 报告视图新增 mini-player (进度条 track+fill + 时间 0:00/0:00), add reportCurrentTime/reportDuration/reportProgress states
+  - 路径B缓存恢复: restoreAnalysisCache() 从 storage 恢复分析结果, init 时调用
+  - 报告视图内加载态: reportLoading + spinner + "正在生成分析报告..." (替代纯Toast)
+  - 报告视图内错误态: reportError + 红色文字显示 (替代纯Toast)
+  - useDidHide: 页面隐藏停止 reportAudioCtx + audioCtx
+  - 文本过滤增强: 过滤 <8字符/列表符号/编号/标签行/开场白
+  - 内容完整性检查: articleParas.length < 2 时显示 "内容不完整" 提示
+  - toggleReportPlay: onTimeUpdate 实时更新进度, formatTime() 辅助函数
+  - CSS: fav-mini-player, fav-progress-track/fill/time, fav-rp-loading, fav-rp-error
+- Files changed:
+  - app/src/pages/news/news.tsx (useDidHide, BUG1 fix, BUG2 mini-player, cache restore, loading/error states, text filtering)
+  - app/src/pages/news/news.scss (mini-player styles, loading/error styles)
+- **Learnings for future iterations:**
+  - InnerAudioContext.onTimeUpdate 回调中获取 currentTime 和 duration
+  - Taro 不支持 audio.playbackRate (语速控制) 和文件下载
+  - formatTime 辅助函数: Math.floor(seconds/60) + String(seconds%60).padStart(2,'0')
+  - 报告视图需要 loading/error 在视图内展示, Toast 对小屏幕不够友好
+
+---
+
+## 2026-05-09 — US-014: Taro 编译验证 + 端到端检查 ✅
+- What was verified:
+  - npx taro build --type weapp: exit code 0, Compiled successfully in 3.53s ✅
+  - 零 TS 错误, 零 SCSS 错误 ✅
+  - dist/ 四页面完整: pages/index/ (js+json+wxml+wxss), pages/news/, pages/read/, pages/mine/ ✅
+  - dist/app.json: tabBar [首页][收藏][我的] 文案图标正确 (home.png, fav.png, mine.png) ✅
+  - dist/app.json: pages 列表正确 (index/news/read/mine) ✅
+  - dist/assets/: fav.png, fav-active.png 书签图标存在 ✅
+- Build artifacts:
+  - dist/app.js (96KB), dist/app.json (841B), dist/app.wxss (24B)
+  - dist/taro.js (109KB), dist/vendors.js (8KB), dist/runtime.js (2KB)
+  - dist/pages/index/index.js + .wxss + .wxml + .json
+  - dist/pages/news/news.js + .wxss + .wxml + .json
+  - dist/pages/read/read.js + .wxss + .wxml + .json
+  - dist/pages/mine/mine.js + .wxss + .wxml + .json
+- **Next step for developer**: 微信开发者工具导入 dist/ 目录, 启动后端 localhost:8001, 验证三页面渲染和功能
+
+---
+
+## 2026-05-09 — BUGFIX: 首页+收藏页白屏 ✅
+- **Root cause 1**: `useDidHide` named import from `@tarojs/taro` not properly resolved by api-loader
+  - Module 616 (taro.js) only exports Taro API object, no `useDidHide` named export
+  - `(0,d.useDidHide)(callback)` → `undefined()` → TypeError → component crash → white screen
+  - Fix: removed `useDidHide` from both index.tsx and news.tsx (hooks and usage blocks)
+  - 对比: mine.tsx 不使用 useDidHide → 能正常渲染
+- **Root cause 2**: `process.env.TARO_APP_API_BASE` not replaced at build time
+  - WeChat 小程序可能没有全局 `process` 对象 → ReferenceError → API module init crash
+  - Fix: config/index.js `defineConstants` 添加 `'process.env.TARO_APP_API_BASE': JSON.stringify('http://localhost:8001')`
+  - 编译后: `const i="http://localhost:8001"` (字符串字面量，无运行时引用)
+- **Files changed**:
+  - app/src/pages/index/index.tsx (移除 import { useDidHide }, 移除 useDidHide hook)
+  - app/src/pages/news/news.tsx (移除 import { useDidHide }, 移除 useDidHide hook)
+  - app/config/index.js (defineConstants 添加 TARO_APP_API_BASE)
+- **Build**: npx taro build --type weapp → Compiled successfully in 3.26s
+- **Note**: `useDidHide` 功能 (切 Tab 停止音频) 暂时损失, 后续可用 page 生命周期或 Taro.eventCenter 替代
+- **Note**: 开发者需在微信开发者工具中开启「不校验合法域名」或配置服务器域名白名单
+
+---
+
+## 2026-05-09 — 全面对标 H5 重写 ✅
+- **What was implemented**:
+  - i18n 模块: app/src/i18n/index.ts — 对标 H5 L1046-1130, zh/en 双语言, t() 函数
+  - 首页 index.tsx 完全重写:
+    - Header: 渐变色 Logo (gradient #6366f1→#8b5cf6) + "科技回声" (对标 H5 L885-895)
+    - Header actions: 刷新按钮 ↻ (对标 H5 L903-908)
+    - 日期选择器: 毛玻璃效果 + 渐变边缘 (对标 H5 L118-166)
+    - 分类 Chips: 统一样式 rgba 背景 + 圆角 (对标 H5 L220-246)
+    - 统计栏: "共 N 条" (对标 H5 L924-926)
+    - 卡片: zh/en 语言标签 (对标 H5 L283-285), 来源 + ↗ 外链指示 (对标 H5 L287-289)
+    - 卡片日期: 月日格式 parseDate() (对标 H5)
+    - 全部文案 i18n 化
+  - 收藏页 news.tsx 完全重写:
+    - 统一 Header (与首页一致)
+    - Hero 卡片: i18n 文案 (对标 H5 L933-945)
+    - 卡片: 与首页完全一致 (zh/en 标签 + 来源 ↗ + 月日日期)
+    - 取消收藏按钮 (对标 H5)
+    - 报告视图: i18n 元信息/操作栏
+    - 全部文案 i18n 化
+  - 我的页 mine.tsx 更新:
+    - Header: 与首页统一渐变色 Logo
+    - 全部文案 i18n 化
+    - 语音设置/偏好设置保持原有功能
+  - SCSS 全面重写:
+    - index.scss: 对标 H5 逐样式对照 (max-width 600px 居中, 渐变色, 间距, 字号)
+    - news.scss: 统一样式 + 新增 header 样式 + zh/en 标签 + 来源行
+    - mine.scss: 新增 header 样式 + 统一样式命名
+- **Files created**:
+  - app/src/i18n/index.ts (新 — 国际化模块)
+- **Files rewritten**:
+  - app/src/pages/index/index.tsx
+  - app/src/pages/index/index.scss
+  - app/src/pages/news/news.tsx
+  - app/src/pages/news/news.scss
+  - app/src/pages/mine/mine.tsx
+  - app/src/pages/mine/mine.scss
+- **Build**: npx taro build --type weapp → Compiled successfully in 3.53s
+- **对比 H5 (localhost:8080)**:
+  - 视觉: ✅ Header 渐变色 Logo + 科技回声, 毛玻璃日期选择器, 统一卡片样式
+  - 标签: ✅ zh/en 语言标签 + 分类标签 (对标 H5 tag-zh/tag-en/tag-cat)
+  - 来源: ✅ 来源名 + ↗ 外链指示
+  - 文案: ✅ 全部中文对标 H5, 结构预留 en
+  - 缺失: ❌ zh/en 切换按钮 (小程序暂不实现)
+  - 缺失: ❌ 语速控制/音频下载 (小程序 InnerAudio 限制)
+  - 缺失: ❌ CSS Variables (小程序限制, 改为硬编码色值)
+
+## 2026-05-12 — US-015/US-016: 日期选择器滚动范围+居中修复 (第3轮) ✅
+- **问题回顾**:
+  - Bug1: 无法滚动到「本月」「全部」(后2项)
+  - Bug2: 选中项不在遮罩高亮区中心
+  - 第1轮: sync scrollLeft + spacer 调整 → 编译但无效果(setState过多干扰滚动)
+  - 第2轮: CSS scroll-snap + scrollIntoView → enhanced ScrollView 不支持 CSS snap, 吸附完全失效
+- **第3轮修复**:
+  - 恢复 JS 吸附方案 (scrollLeft 受控 + 200ms防抖 + 800ms边界兜底)
+  - 移除 handleDateScroll 中的 setSnapTarget(left) 同步 (避免高帧率 setState 干扰)
+  - leading spacer = halfScreen (对标 H5 padding-left:50%)
+  - trailing spacer = halfScreen * 2 (充足缓冲, 确保末项可滚至中心)
+  - 所有 scrollLeft 目标值偏移 HALF_ITEM (38px): calcItemCenter(i) = i * 76 + 38
+  - snap 计算: Math.round((left - 38) / 76)
+  - SCSS 清除 CSS scroll-snap (与 enhanced 不兼容)
+- **Files changed**:
+  - app/src/pages/index/index.tsx (日期选择器逻辑重写 ~100行)
+  - app/src/pages/index/index.scss (移除 scroll-snap 属性)
+  - ralph/prd.json (新增 US-015, US-016)
+- **Learnings**:
+  - WeChat enhanced ScrollView 不支持 CSS scroll-snap (原生渲染, 非WebView)
+  - scrollLeft 作为受控 prop 在 enhanced 模式下可用, 但不要在 onScroll 中同步 setState
+  - 判断依据: 手动滚动时 ScrollView 会发送 onScroll 事件且位置会改变, 说明 scrollLeft 不阻止手势
+  - 档位吸附需要 HALF_ITEM 偏移使 item 内容中心对齐视口中心 (而非 left edge)
+  - 对称 spacer (halfScreen) 对标 H5 padding:0 50% 是关键
+---
+
+## 2026-05-12 10:55 — US-015/US-016: 日期选择器第4轮修复尝试
+- **问题诊断**:
+  - Issue 1: 无法滚动到本月/全部 - trailing spacer 已是 halfScreen*2=375px，内容宽度 1322.5px 理论应足够
+  - Issue 2: 选中项不在 glow 中心 - 居中公式 scrollLeft = i*76+38 数学上正确
+  - 假设: scrollLeft 作为受控 prop 在首次渲染时内容宽度未建立，导致滚动范围受限
+- **修复尝试**:
+  - 延迟 100ms 设置初始 scrollLeft (先设为 0，100ms 后设为 calcItemCenter)
+  - 恢复 enhanced 模式
+  - trailing spacer = halfScreen * 2 (已确认)
+  - leading spacer = halfScreen (已确认)
+  - 居中公式 = i * ITEM_WIDTH + HALF_ITEM (已确认)
+- **Files changed**:
+  - app/src/pages/index/index.tsx (snapTarget 初始化延迟)
+- **Learnings**:
+  - WeChat enhanced ScrollView 可能对 scrollLeft 受控值有特殊时机要求
+  - 内容宽度可能在首次渲染时未正确建立
+  - 延迟 100ms 设置 scrollLeft 可能解决此问题
+
+## 2026-05-12 11:00 — US-015/US-016: 日期选择器第5轮修复
+- **问题分析**:
+  - Issue 1: 能滚到本周但无法到本月 - 防抖 200ms 太短，用户滚动时被拉回
+  - Issue 2: 初始居中偏移 - 可能是因为 100ms 延迟导致初始位置不对
+- **修复方案**:
+  - 移除 100ms 初始延迟，snapTarget 初始值直接设为 calcItemCenter(TODAY_INDEX)
+  - 防抖从 200ms → 1000ms，边界兜底从 800ms → 2000ms
+  - activateScrollLeft 的 progScrolling 从 500ms → 800ms
+  - 居中公式保持 i*76+38（数学正确）
+  - snap 计算保持 (left - 38) / 76
+- **Files changed**:
+  - app/src/pages/index/index.tsx
+
+## 2026-05-12 11:15 — US-015/US-016: 日期选择器第6轮修复
+- **问题分析**:
+  - Issue 1: 防抖延长到 1000ms/2000ms 后仍无法滚动到本月/全部
+  - Issue 2: 今天偏右 - 数学上 scrollLeft=494 应该居中，但视觉上偏右
+  - Issue 3: 来回滚动偶尔报错 "undefined is not iterable"
+  - 根本假设错误：scrollLeft=494 时 item 6 应该居中，但可能 WeChat ScrollView 的 scrollLeft 行为与预期不同
+- **修复方案**:
+  - 移除 enhanced 模式（enhanced 可能有特殊 scrollLeft 行为）
+  - 添加防御性检查：dateOptions 长度和 undefined 检查
+  - leading spacer 保持 halfScreen = 187.5
+  - 居中公式保持 i*76+38
+- **Files changed**:
+  - app/src/pages/index/index.tsx (移除 enhanced, 添加防御性检查)
+
+## 2026-05-12 11:35 — US-015/US-016: 日期选择器第10轮修复
+- **问题分析**:
+  - 真机(iPhone): 居中正确 - 公式没问题
+  - 开发者工具: 居中偏右 - 可能是模拟器viewport计算差异
+  - 无法到达本月/全部 - 可能是bounces弹性效果干扰
+- **修复方案**:
+  - trailing spacer = halfScreen * 3 (562.5px)
+  - 添加 white-space: nowrap 到 .idx-date-inner
+  - 添加 explicit width: 1500px 到 .idx-date-inner
+  - bounces = false 禁用弹性效果
+  - 恢复 scrollLeft 受控属性
+  - 恢复 enhanced 模式
+- **Files changed**:
+  - app/src/pages/index/index.scss
+  - app/src/pages/index/index.tsx
+
+## 2026-05-12 11:50 — US-017/US-018: 苹果计时器风格档位滚动
+- **问题分析**:
+  - 第10轮确认 bounces=false + white-space:nowrap 可以滚动到本月/全部
+  - 用户希望类似 iOS 计时器的档位滚动效果
+- **修复方案 (US-018)**:
+  - 使用 CSS scroll-snap 实现档位吸附
+  - scroll-snap-type: x mandatory
+  - scroll-snap-align: center on each item
+  - leading spacer = halfScreen - HALF_ITEM (149.5px) 使 item 居中
+  - trailing spacer = 同样 149.5px (对称)
+  - 移除 enhanced 模式 (不支持 CSS scroll-snap)
+  - 移除 scrollLeft 受控属性
+  - 移除所有 JS 吸附逻辑
+  - content width = 1060px (精确计算)
+- **Files changed**:
+  - app/src/pages/index/index.scss (scroll-snap, explicit width)
+  - app/src/pages/index/index.tsx (简化代码，移除 JS 吸附)
+
+## 2026-05-12 21:15 — US-019: 日期选择器右边界+9档位无动效 ✅
+- **问题**:
+  1. 往右滚动可继续拖动（即使到达本月也还有空白）
+  2. 有动效过渡（scrollWithAnimation + activateScrollLeft延迟释放）
+  3. 实时筛选导致滚动时可能卡顿
+- **修复**:
+  - 右边界硬限制：handleDateScroll 中超月后强制拉回 monthSnapLeft
+  - 移除所有动效：scrollToDate 直接 setSnapTarget，doSnap 直接赋值
+  - 移除实时筛选：handleDateScroll 不再计算 nearestIndex
+  - 移除 activateScrollLeft 调用（不再需要）
+- **Files changed**:
+  - app/src/pages/index/index.tsx (简化吸附逻辑，移除动效)
+  - ralph/prd.json (新增US-019，更新finalSolution)
+- **Build**: npx taro build --type weapp → Compiled successfully in 5.38s
+- **Learnings**:
+  - scrollLeft 受控 + bounces=false 可实现右边界硬限制
+  - 无动画方案：直接赋值 snapTarget，不经过 progScrolling 防抖机制
+  - 实时筛选与吸附逻辑分离：筛选仅在吸附时触发
+- **问题**:
+  1. 「全部」(all) 选项不应该存在，用户要求删除
+  2. 右滑有边界但用户不希望有任何其他档位动效
+- **修复**:
+  - api/index.ts: getDateFilters() 移除「全部」选项，保留9个选项
+  - index.tsx: leading spacer 从 0 改为 LEADING_SPACER = halfScreen - HALF_ITEM (149.5px)
+  - index.tsx: trailing spacer 从 38px 改为 LEADING_SPACER (149.5px，对称)
+  - index.tsx: 右边界检查改为 monthSnapLeft (item8)
+  - index.scss: width 从 1510px 改为 1059px
+- **Files changed**:
+  - app/src/api/index.ts (移除all选项)
+  - app/src/pages/index/index.tsx (leading/trailing spacer, 右边界)
+  - app/src/pages/index/index.scss (width: 1059px)
+  - ralph/prd.json (更新为9档位方案)
+- **Learnings**:
+  - 移除选项比限制滚动范围更彻底解决右边界问题
+  - leading spacer 必须 > 0 才能让 item0 居中 (scrollLeft不能为负)
