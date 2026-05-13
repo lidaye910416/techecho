@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Switch, Slider, Button, Image } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { wechatLogin, LoginResult } from '../../api'
 import { t } from '../../i18n'
 import './mine.scss'
@@ -47,6 +47,15 @@ export default function Mine() {
   const [favCount, setFavCount] = useState(0)
 
   useEffect(() => { loadPersistedState() }, [])
+
+  // Tab 切换回"我的"页面时刷新收藏数
+  useDidShow(() => {
+    try {
+      const favs = Taro.getStorageSync('techecho_favorites')
+      if (favs) setFavCount(JSON.parse(favs).length)
+      else setFavCount(0)
+    } catch (_) { /* ignore */ }
+  })
 
   // 监听来自其他页面的主题变更
   useEffect(() => {

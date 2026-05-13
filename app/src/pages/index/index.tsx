@@ -13,9 +13,9 @@
  * - 质量阈值过滤
  */
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import {
   getNewsList,
   ttsSpeak,
@@ -77,103 +77,25 @@ export default function Index() {
   // 详情底部弹出卡片（对标 H5 modal slideUp）
   const [detailItem, setDetailItem] = useState<NewsItem | null>(null)
 
-  // ===== 日期选择器 — 计算式档位吸附 =====
-  // 每个日期项 72px + 2×2px margin = 76px 固定步长
-  // 左右各一个 spacer(halfScreen-38) 确保首尾项可居中
-  // 项 i 的理想 scrollLeft = i * 76
+  // ===== 日期选择器 — 滑动浏览，点击选择 =====
+const dateOptions = useMemo(() => {
+  return [
+    { key: 'yesterday', label: '昨天' },
+    { key: 'today', label: '今天' },
+    { key: 'week', label: '本周' },
+  ]
+}, [])
 
-  const ITEM_WIDTH = 76
-  const TODAY_INDEX = 6 // day6..yesterday(5) + today(6)
+// 点击选择日期
+const selectDate = (key: string) => {
+  if (key === currentDateFilter) return
+  setCurrentDateFilter(key)
+}
 
-  const dateOptions = useMemo<DateFilterOption[]>(() => {
-    return getDateFilters({
-      today: t('dateToday'),
-      yesterday: t('dateYesterday'),
-      week: t('dateWeek'),
-      month: t('dateMonth'),
-    })
-  }, [])
-
-  // 建立 key → index 映射
-  const dateIndexMap = useMemo(() => {
-    const m = new Map<string, number>()
-    dateOptions.forEach((opt, i) => m.set(opt.key, i))
-    return m
-  }, [dateOptions])
-
-  // 半屏宽度（用于 spacer 计算）
-  const [halfScreen, setHalfScreen] = useState(187)
-  useEffect(() => {
-    try {
-      const sys = Taro.getSystemInfoSync()
-      setHalfScreen(Math.floor(sys.windowWidth / 2))
-    } catch (_) {}
-  }, [])
-
-  // 程序化滚动标记（防止吸附与程序化互相触发）
-  const progScrolling = useRef(false)
-
-  // 计算并执行吸附
-  const snapToNearest = useCallback((currentLeft: number) => {
-    const nearestIndex = Math.round(currentLeft / ITEM_WIDTH)
-    const clampedIndex = Math.max(0, Math.min(nearestIndex, dateOptions.length - 1))
-    const snapLeft = clampedIndex * ITEM_WIDTH
-    const optKey = dateOptions[clampedIndex]?.key
-
-    if (optKey && optKey !== currentDateFilter) {
-      setCurrentDateFilter(optKey)
-    }
-
-    const diff = snapLeft - currentLeft
-    if (Math.abs(diff) > 3) {
-      latestScrollLeft.current = snapLeft
-      progScrolling.current = true
-      setScrollState({ left: snapLeft, ver: Date.now() })
-      setTimeout(() => { progScrolling.current = false }, 500)
-    }
-  }, [currentDateFilter, dateOptions])
-
-  // scrollState：通过受控 scrollLeft 驱动 ScrollView
-  const [scrollState, setScrollState] = useState({ left: TODAY_INDEX * ITEM_WIDTH, ver: 1 })
-
-  // 点击日期项 → 立即更新筛选 + 程序化居中
-  const scrollToDate = useCallback((key: string) => {
-    setCurrentDateFilter(key)
-    const idx = dateIndexMap.get(key)
-    if (idx === undefined) return
-    const targetLeft = idx * ITEM_WIDTH
-
-    latestScrollLeft.current = targetLeft
-    progScrolling.current = true
-    setScrollState({ left: targetLeft, ver: Date.now() })
-    setTimeout(() => { progScrolling.current = false }, 500)
-  }, [dateIndexMap])
-
-  // 手动滑动 → 实时更新筛选 + 松手后吸附
-  const scrollEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const latestScrollLeft = useRef(TODAY_INDEX * ITEM_WIDTH)
-
-  const handleDateScroll = useCallback((e: any) => {
-    const left = e?.detail?.scrollLeft
-    if (typeof left !== 'number') return
-    latestScrollLeft.current = left
-
-    if (progScrolling.current) return
-
-    // 实时更新日期筛选（轻量）
-    const nearestIndex = Math.round(left / ITEM_WIDTH)
-    const clampedIndex = Math.max(0, Math.min(nearestIndex, dateOptions.length - 1))
-    const optKey = dateOptions[clampedIndex]?.key
-    if (optKey && optKey !== currentDateFilter) {
-      setCurrentDateFilter(optKey)
-    }
-
-    // 松手 200ms 后吸附到档位
-    if (scrollEndTimer.current) clearTimeout(scrollEndTimer.current)
-    scrollEndTimer.current = setTimeout(() => {
-      snapToNearest(latestScrollLeft.current)
-    }, 200)
-  }, [currentDateFilter, dateOptions, snapToNearest])
+// 初始化选中"今天"
+useEffect(() => {
+  setCurrentDateFilter('today')
+}, [])
 
   // ============ 初始化 ============
 
@@ -182,6 +104,11 @@ export default function Index() {
     loadFavorites()
     loadNews()
   }, [])
+
+  // Tab 切换回首页时刷新收藏状态
+  useDidShow(() => {
+    loadFavorites()
+  })
 
   useEffect(() => {
     filterNews()
@@ -382,48 +309,22 @@ export default function Index() {
       {/* ===== Filters — 对标 H5 L913-927 ===== */}
       <View className="idx-filters">
 
-        {/* 日期选择器 — 对标 H5 date-picker-wrapper L110-217 */}
+        {/* 日期选择器 — 纯展示，点击选择 */}
         <View className="idx-date-picker">
-          {/* 渐变遮罩 overlay — 对标 H5 ::before L133-151 */}
-          <View className="idx-date-overlay" />
-          {/* 中心高亮 glow — 对标 H5 ::after L153-166 */}
-          <View className="idx-date-glow" />
-          <ScrollView
-            scrollX
-            className="idx-date-track"
-            showScrollbar={false}
-            scrollWithAnimation
-            enhanced
-            scrollLeft={scrollState.ver > 0 ? scrollState.left : undefined}
-            onScroll={handleDateScroll}
-          >
-            {/* 内层 flex 容器 — 显式 spacer 替代百分比 padding */}
-            <View className="idx-date-inner">
-              {/* 首部 spacer — 确保第一项能滚动到中心 */}
-              <View style={{ width: `${halfScreen - 38}px`, flexShrink: 0 }} />
-              {dateOptions.map((opt) => {
-                const active = currentDateFilter === opt.key
-                return (
-                  <View
-                    key={opt.key}
-                    id={`date-${opt.key}`}
-                    data-key={opt.key}
-                    className={`idx-date-item${active ? ' idx-date-item--active' : ''}`}
-                    onClick={() => scrollToDate(opt.key)}
-                  >
-                    {opt.dayLabel ? (
-                      <Text className="idx-date-label">{opt.dayLabel}</Text>
-                    ) : (
-                      <Text className="idx-date-label">&nbsp;</Text>
-                    )}
-                    <Text className="idx-date-value">{opt.value}</Text>
-                  </View>
-                )
-              })}
-              {/* 尾部 spacer — 确保最后一项能滚动到中心 */}
-              <View style={{ width: `${halfScreen - 38}px`, flexShrink: 0 }} />
-            </View>
-          </ScrollView>
+          <View className="idx-date-inner">
+            {dateOptions.map((opt) => {
+              const active = currentDateFilter === opt.key
+              return (
+                <View
+                  key={opt.key}
+                  className={`idx-date-btn ${active ? 'idx-date-btn--active' : ''}`}
+                  onClick={() => selectDate(opt.key)}
+                >
+                  <Text className="idx-date-btn-label">{opt.label}</Text>
+                </View>
+              )
+            })}
+          </View>
         </View>
 
         {/* 分类 Chips — 对标 H5 category-scroll */}
@@ -492,7 +393,6 @@ export default function Index() {
             const source = getDisplaySource(item)
             const dateStr = item.published_at || item.created_at || ''
             const shortDate = parseDate(dateStr)
-            const isChinese = item.lang === 'zh' || (!item.lang && (item.title_zh || item.content_zh))
             const fav = isFav(item.id)
             const speak = isSpeaking(item.id)
 
@@ -509,11 +409,6 @@ export default function Index() {
                   </View>
                   <View className="idx-card-meta">
                     <View className="idx-card-tags">
-                      {isChinese ? (
-                        <Text className="idx-tag idx-tag--zh">中文</Text>
-                      ) : (
-                        <Text className="idx-tag idx-tag--en">EN</Text>
-                      )}
                       <Text className="idx-tag idx-tag--cat">{catName}</Text>
                     </View>
                     {/* 来源 — 对标 H5 source-link with ↗ */}

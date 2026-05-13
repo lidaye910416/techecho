@@ -260,3 +260,19 @@ WECHAT_SECRET=xxx          # 微信小程序 Secret (正式发布时填写)
 ```
 
 当前状态: TTS 可用 (`speech-2.8-hd`)，Chat API 可用 (`MiniMax-M2.7` → `v1/chat/completions`)。
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked as local markdown files under `.scratch/<feature-slug>/`. One feature per directory. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Standard five-role vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout — one `CONTEXT.md` at repo root, one `docs/adr/` directory. See `docs/agents/domain.md`.

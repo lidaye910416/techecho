@@ -11,7 +11,7 @@
 
 import { useState, useEffect } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import {
   getNewsList,
   ttsSpeak,
@@ -82,9 +82,14 @@ export default function News() {
     loadFavorites()
     loadAllNews()
     restoreAnalysisCache()
-    // 用户切换 Tab 时，返回收藏页始终显示列表视图（而非报告视图）
-    // 如需查看已生成的报告，点击 "AI智能播报" 按钮即可
   }, [])
+
+  // Tab 切换时重新加载收藏数据（小程序 Tab 页不 remount）
+  useDidShow(() => {
+    loadFavorites()
+    loadAllNews()
+    restoreAnalysisCache()
+  })
 
   const loadSettings = () => {
     try {

@@ -89,112 +89,62 @@
   flex-shrink: 0;
 }
 
-// ===== Date Picker — 对标 H5 L118-217 (ScrollView + 毛玻璃) =====
+// ===== Date Picker — 固定居中展示 =====
 .idx-date-picker {
-  position: relative;
-  height: 48px; // 对标 H5 L117
+  height: 48px;
   background: #09090b;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-// 渐变遮罩 — 对标 H5 ::before L133-151
-.idx-date-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(90deg,
-    #09090b 0%,
-    #09090b 25%,
-    rgba(99, 102, 241, 0.05) 40%,
-    rgba(99, 102, 241, 0.08) 50%,
-    rgba(99, 102, 241, 0.05) 60%,
-    #09090b 75%,
-    #09090b 100%
-  );
-  z-index: 10;
-  pointer-events: none;
-}
-
-// 中心高亮 — 对标 H5 ::after L153-166
-.idx-date-glow {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 65px;
-  height: 36px;
-  transform: translate(-50%, -50%);
-  background: rgba(99, 102, 241, 0.08); // 对标 H5 L162
-  border-radius: 8px;
-  z-index: 11;
-  pointer-events: none;
-}
-
-// 滚动轨道 — 对标 H5 .date-picker-track L120-129
-// 添加 scroll-snap 实现档位吸附（WeChat 8.0+ 支持）
-.idx-date-track {
-  position: relative;
-  z-index: 2;
-  height: 100%;
-  scroll-snap-type: x mandatory;
-  -webkit-scroll-snap-type: x mandatory;
-}
-
-// 内层 flex 容器 — 使用显式 spacer 元素替代百分比 padding
 .idx-date-inner {
   display: flex;
   align-items: center;
-  height: 100%;
+  justify-content: center;
+  gap: 12px;
 }
 
-// 日期项 — 对标 H5 .date-item L168-215
-.idx-date-item {
+.idx-date-btn {
+  width: 80px;
+  height: 36px;
   display: flex;
-  flex-shrink: 0;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  width: 72px;         // 固定宽度，确保滚动档位一致性
-  height: 34px;
-  margin: 0 2px;       // 收紧间距，增加可见档位
-  border-radius: 6px;     // 对标 H5 L179
-  background: transparent; // 对标 H5 L180
-  transition: all 0.2s ease; // 对标 H5 L183
-  opacity: 0.2;            // 对标 H5 L184 — 默认淡化
-  // CSS scroll-snap 档位吸附
-  scroll-snap-align: center;
-  -webkit-scroll-snap-align: center;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  transition: all 0.2s ease;
 }
 
-// 选中项 — 对标 H5 .date-item.center-item L187-199
-.idx-date-item--active {
-  opacity: 1;
-  transform: scale(1.2);  // 对标 H5 L189
+.idx-date-btn--active {
+  background: #6366f1;
+  border-color: #6366f1;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
-// 标签 — 对标 H5 .date-label L201-207
-.idx-date-label {
-  font-size: 8px;
+.idx-date-btn-label {
+  font-size: 14px;
   font-weight: 500;
   color: #71717a;
-  text-transform: uppercase;
-  letter-spacing: 0.2px;
+  transition: color 0.2s ease;
 }
 
-.idx-date-item--active .idx-date-label {
-  color: #6366f1;  // 对标 H5 L198
+.idx-date-btn-num {
+  font-size: 10px;
+  color: #52525b;
+  transition: color 0.2s ease;
 }
 
-// 值 — 对标 H5 .date-value L209-213
-.idx-date-value {
-  font-size: 14px;
+.idx-date-btn--active .idx-date-btn-label {
+  color: #fff;
   font-weight: 600;
-  color: #a1a1aa;
 }
 
-.idx-date-item--active .idx-date-value {
-  color: #6366f1;   // 对标 H5 L193
-  font-weight: 700;  // 对标 H5 L194
+.idx-date-btn--active .idx-date-btn-num {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 // ===== Category Chips — 对标 H5 L220-246 =====
@@ -680,14 +630,12 @@
 
   // Date picker
   .idx-date-picker { background: #ffffff; border-bottom-color: rgba(0,0,0,.06); }
-  .idx-date-overlay {
-    background: linear-gradient(90deg,
-      #ffffff 0%, #ffffff 25%,
-      rgba(99,102,241,.05) 40%, rgba(99,102,241,.08) 50%,
-      rgba(99,102,241,.05) 60%, #ffffff 75%, #ffffff 100%
-    );
-  }
-  .idx-date-item { opacity: 0.2; }
+  .idx-date-btn { background: #f4f4f5; border-color: rgba(0,0,0,.08); }
+  .idx-date-btn-label { color: #71717a; }
+  .idx-date-btn-num { color: #a1a1aa; }
+  .idx-date-btn--active { background: #6366f1; border-color: #6366f1; }
+  .idx-date-btn--active .idx-date-btn-label { color: #fff; }
+  .idx-date-btn--active .idx-date-btn-num { color: rgba(255,255,255,.7); }
 
   // Category
   .idx-cat-row { background: #ffffff; }

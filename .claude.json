@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Command(/diagnose)",
+      "Command(/caveman)",
+      "Command(/grill-me)",
+      "Command(/grill-with-docs)",
+      "Command(/handoff)",
+      "Command(/improve-codebase-architecture)",
+      "Command(/prototype)",
+      "Command(/setup-matt-pocock-skills)",
+      "Command(/tdd)",
+      "Command(/to-issues)",
+      "Command(/to-prd)",
+      "Command(/triage)",
+      "Command(/write-a-skill)",
+      "Command(/zoom-out)"
+    ]
+  }
+}
