@@ -48,6 +48,14 @@ const SETTINGS_STORAGE_KEY = 'techecho_settings'
 const ANALYSIS_STATE_KEY = 'techecho_analysis_state'
 const TTS_USED_KEY = 'techecho_tts_used'
 
+// 语音风格名称映射
+const VOICE_NAMES: Record<string, string> = {
+  voice1: '沉稳男声',
+  voice2: '清朗男声',
+  voice3: '温婉女声',
+  voice4: '清新女声',
+}
+
 // ============ 组件 ============
 
 export default function Index() {
@@ -264,37 +272,70 @@ useEffect(() => {
   /** 提示 TTS 次数已用完 */
   const promptTTSLimit = () => {
     Taro.showModal({
-      title: '体验次数已用完',
-      content: '实时语音生成功能每位用户限体验一次。建议收藏感兴趣的新闻，等待后台预生成完整语音。',
+      title: t('ttsLimitReached'),
+      content: t('ttsLimitContent'),
       showCancel: false,
-      confirmText: '我知道了',
+      confirmText: t('gotIt'),
     })
   }
 
-  const handleSpeak = async (item: NewsItem, e?: any) => {
-    if (e) e.stopPropagation?.()
+  /** 语音风格切换确认弹窗 */
+  const promptVoiceSwitch = (targetVoice: string, item: NewsItem) => {
+    const currentName = VOICE_NAMES[voice] || voice
+    const targetName = VOICE_NAMES[targetVoice] || targetVoice
 
-    if (speakingId === item.id) {
-      if (audioCtx) { audioCtx.stop(); audioCtx.destroy(); setAudioCtx(null) }
-      setSpeakingId(null)
-      Taro.showToast({ title: t('stopped'), icon: 'none', duration: 1500 })
-      return
+    Taro.showModal({
+      title: t('voiceSwitchTitle'),
+      content: `当前风格：${currentName}\n将切换至：${targetName}`,
+      confirmText: t('switchStyle'),
+      cancelText: t('keepStyle'),
+      success: (res) => {
+        if (res.confirm) {
+          // 用户选择切换风格 → 调用 TTS（消耗一次体验）
+          requestTTS(item, targetVoice)
+        } else {
+          // 用户选择保持风格 → 使用数据库中已有的预生成语音
+          playOtherVoiceAudio(item)
+        }
+      },
+    })
+  }
+
+  /** 使用数据库中已有的其他风格预生成语音 */
+  const playOtherVoiceAudio = (item: NewsItem) => {
+    if (!item.audio) return
+
+    // 优先使用 voice3（温婉女声），其次使用任何可用的预生成语音
+    const availableVoice = item.audio.voice3 || item.audio.voice1 || item.audio.voice2 || item.audio.voice4
+    const audioUrl = Object.values(item.audio)[0]
+
+    if (audioUrl) {
+      playAudio(item.id, audioUrl)
+    } else {
+      Taro.showToast({ title: '无可用语音', icon: 'none' })
     }
+  }
 
-    if (audioCtx) { audioCtx.stop(); audioCtx.destroy(); setAudioCtx(null) }
+  /** 播放音频 */
+  const playAudio = (newsId: string, url: string) => {
+    const ctx = Taro.createInnerAudioContext()
+    ctx.src = url
+    ctx.autoplay = true
+    ctx.onPlay(() => { setSpeakingId(newsId); setAudioCtx(ctx) })
+    ctx.onEnded(() => { setSpeakingId(null); setAudioCtx(null); ctx.destroy() })
+    ctx.onStop(() => { setSpeakingId(null); setAudioCtx(null); ctx.destroy() })
+    ctx.onError((err) => {
+      console.error('Audio play error:', err)
+      setSpeakingId(null); setAudioCtx(null); ctx.destroy()
+      Taro.showToast({ title: t('playFailed'), icon: 'none' })
+    })
+  }
 
+  /** 请求 TTS（实时语音生成） */
+  const requestTTS = async (item: NewsItem, voiceId: string) => {
     Taro.showToast({ title: t('speakGen'), icon: 'loading', duration: 10000 })
 
     try {
-      // 优先使用预生成语音（不受登录/次数限制）
-      const preGenAudio = item.audio?.[voice]
-      if (preGenAudio) {
-        Taro.hideToast()
-        playAudio(item.id, preGenAudio)
-        return
-      }
-
-      // 实时 TTS 需要检查登录和次数
       if (!isLoggedIn()) {
         Taro.hideToast()
         promptLogin()
@@ -308,7 +349,7 @@ useEffect(() => {
       }
 
       const text = (item.summary_zh || item.content_zh || item.title_zh || '').slice(0, 800)
-      const ttsRes = await ttsSpeak(text, voice)
+      const ttsRes = await ttsSpeak(text, voiceId)
       Taro.hideToast()
 
       if (ttsRes.success && ttsRes.data?.audio_url) {
@@ -324,18 +365,37 @@ useEffect(() => {
     }
   }
 
-  const playAudio = (newsId: string, url: string) => {
-    const ctx = Taro.createInnerAudioContext()
-    ctx.src = url
-    ctx.autoplay = true
-    ctx.onPlay(() => { setSpeakingId(newsId); setAudioCtx(ctx) })
-    ctx.onEnded(() => { setSpeakingId(null); setAudioCtx(null); ctx.destroy() })
-    ctx.onStop(() => { setSpeakingId(null); setAudioCtx(null); ctx.destroy() })
-    ctx.onError((err) => {
-      console.error('Audio play error:', err)
-      setSpeakingId(null); setAudioCtx(null); ctx.destroy()
-      Taro.showToast({ title: t('playFailed'), icon: 'none' })
-    })
+  const handleSpeak = async (item: NewsItem, e?: any) => {
+    if (e) e.stopPropagation?.()
+
+    // 停止当前播放
+    if (speakingId === item.id) {
+      if (audioCtx) { audioCtx.stop(); audioCtx.destroy(); setAudioCtx(null) }
+      setSpeakingId(null)
+      Taro.showToast({ title: t('stopped'), icon: 'none', duration: 1500 })
+      return
+    }
+
+    if (audioCtx) { audioCtx.stop(); audioCtx.destroy(); setAudioCtx(null) }
+
+    // 检查当前设置的语音风格是否有预生成语音
+    const preGenAudio = item.audio?.[voice]
+    if (preGenAudio) {
+      // 有预生成语音 → 直接播放
+      playAudio(item.id, preGenAudio)
+      return
+    }
+
+    // 检查数据库是否有其他风格的预生成语音
+    const hasOtherVoiceAudio = item.audio && Object.keys(item.audio).length > 0
+    if (hasOtherVoiceAudio) {
+      // 有其他风格的预生成语音 → 弹窗询问
+      promptVoiceSwitch(voice, item)
+      return
+    }
+
+    // 数据库完全没有预生成语音 → 直接调用 TTS（按限制逻辑）
+    requestTTS(item, voice)
   }
 
   // ============ 收藏 ============

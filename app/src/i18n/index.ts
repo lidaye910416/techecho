@@ -73,6 +73,14 @@ const zh = {
   goToLogin: '去登录',
   later: '稍后',
   gotIt: '我知道了',
+  voiceSwitchTitle: '切换语音风格？',
+  voiceSwitchContent: '当前风格：{current} · 将切换至：{target}',
+  switchStyle: '切换风格',
+  keepStyle: '保持当前风格',
+  voice1Name: '沉稳男声',
+  voice2Name: '清朗男声',
+  voice3Name: '温婉女声',
+  voice4Name: '清新女声',
 } as const
 
 type ZhType = typeof zh
@@ -144,6 +152,14 @@ const en: Record<keyof ZhType, string> = {
   goToLogin: 'Login',
   later: 'Later',
   gotIt: 'Got it',
+  voiceSwitchTitle: 'Switch Voice Style?',
+  voiceSwitchContent: 'Current: {current} · Switch to: {target}',
+  switchStyle: 'Switch Style',
+  keepStyle: 'Keep Current',
+  voice1Name: 'Deep Male',
+  voice2Name: 'Clear Male',
+  voice3Name: 'Gentle Female',
+  voice4Name: 'Fresh Female',
 }
 
 const messages = { zh, en }
