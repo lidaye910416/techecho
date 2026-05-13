@@ -77,8 +77,53 @@ export default function Index() {
   // 详情底部弹出卡片（对标 H5 modal slideUp）
   const [detailItem, setDetailItem] = useState<NewsItem | null>(null)
 
-  // ===== 日期选择器 — 滑动浏览，点击选择 =====
-const dateOptions = useMemo(() => {
+  // ================================================
+  // [TODO] 日期选择器滚动模式（暂时禁用 - 已简化为3档固定按钮）
+  // ================================================
+  // 禁用原因：微信小程序 ScrollView 不支持 CSS scroll-snap，
+  //          JS 吸附逻辑复杂，当前产品需求只需3档位直接点击选择
+  //
+  // 如需恢复滚动模式：
+  // 1. 取消下方常量定义注释
+  //    - ITEM_WIDTH: 单个档位宽度
+  //    - HALF_ITEM: 半宽（用于居中计算）
+  //    - TODAY_INDEX: "今天"在列表中的索引
+  //    - LEADING_SPACER: 左侧占位宽度
+  //    - halfScreen: 屏幕半宽
+  //
+  // 2. 恢复 getDateFilters() 调用，获取完整的日期选项列表
+  //
+  // 3. 恢复 scrollToDate() 函数，实现：
+  //    - 计算目标 scrollLeft
+  //    - 速度检测（判断是手动滚动还是点击）
+  //    - 档位吸附（滚动到最近的档位中心）
+  //    - 右边界硬限制
+  //
+  // 4. 恢复 ScrollView 的 onScroll 事件处理
+  //    - 实时更新 scrollLeft
+  //    - 节流触发档位吸附
+  //
+  // 5. 恢复 index.scss 中的滚动相关样式：
+  //    - .idx-date-overlay (渐变遮罩)
+  //    - .idx-date-glow (中心高亮)
+  //    - .idx-date-track (滚动轨道)
+  //    - .idx-date-item (档位项)
+  //    - .idx-date-item--active (激活状态)
+  //    - .idx-date-label (标签文字 TODAY/YDAY等)
+  // ================================================
+
+  // [TODO] 恢复滚动模式：取消下方注释
+  // const ITEM_WIDTH = 76
+  // const HALF_ITEM = ITEM_WIDTH / 2
+  // const TODAY_INDEX = 6
+  // const halfScreen = (() => {
+  //   try { return Taro.getSystemInfoSync().windowWidth / 2 }
+  //   catch (_) { return 187.5 }
+  // })()
+  // const LEADING_SPACER = halfScreen - HALF_ITEM
+
+  // 3档位固定按钮（当前使用版本）
+  const dateOptions = useMemo(() => {
   return [
     { key: 'yesterday', label: '昨天' },
     { key: 'today', label: '今天' },
@@ -86,11 +131,21 @@ const dateOptions = useMemo(() => {
   ]
 }, [])
 
-// 点击选择日期
-const selectDate = (key: string) => {
-  if (key === currentDateFilter) return
-  setCurrentDateFilter(key)
-}
+  // [TODO] 恢复滚动模式：将 selectDate 替换为 scrollToDate，实现档位吸附滚动
+  // const DATE_KEYS = ['day6', 'day5', 'day4', 'day3', 'day2', 'yesterday', 'today', 'week', 'month', 'all'] as const
+  // const scrollToDate = (key: string) => {
+  //   const idx = DATE_KEYS.indexOf(key as typeof DATE_KEYS[number])
+  //   if (idx < 0) return
+  //   const targetScrollLeft = idx * ITEM_WIDTH
+  //   setScrollLeft(targetScrollLeft)
+  //   setCurrentDateFilter(key)
+  // }
+
+  // 当前使用：直接设置筛选条件
+  const selectDate = (key: string) => {
+    if (key === currentDateFilter) return
+    setCurrentDateFilter(key)
+  }
 
 // 初始化选中"今天"
 useEffect(() => {

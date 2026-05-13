@@ -89,7 +89,106 @@
   flex-shrink: 0;
 }
 
-// ===== Date Picker — 固定居中展示 =====
+/* [TODO] 日期选择器滚动样式（暂时禁用 - 已简化为3档固定按钮）
+   ================================================
+   禁用原因：微信小程序 ScrollView 不支持 CSS scroll-snap，
+            JS 吸附逻辑复杂，当前产品需求只需3档位直接点击选择
+
+   如需恢复滚动模式：
+   1. 取消下方 .idx-date-overlay 到 .idx-date-label 的注释
+   2. 同时恢复 index.tsx 中的滚动逻辑代码
+   3. 将 .idx-date-inner 从 flex 布局改为 ScrollView 容器
+
+// ===== Date Picker — 滚动模式样式（暂时禁用）=====
+// .idx-date-picker {
+//   height: 48px;
+//   overflow: hidden;
+//   background: #09090b;
+//   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+//   position: relative;
+// }
+
+// .idx-date-track {
+//   display: flex;
+//   flex-direction: row;
+//   align-items: center;
+// }
+
+// .idx-date-overlay {
+//   position: absolute;
+//   top: 0;
+//   left: 0;
+//   right: 0;
+//   bottom: 0;
+//   pointer-events: none;
+//   z-index: 2;
+//   background: linear-gradient(to right,
+//     #09090b 0%,
+//     transparent 20%,
+//     transparent 80%,
+//     #09090b 100%
+//   );
+// }
+
+// .idx-date-glow {
+//   position: absolute;
+//   top: 50%;
+//   left: 50%;
+//   transform: translate(-50%, -50%);
+//   width: 76px;
+//   height: 40px;
+//   background: radial-gradient(ellipse at center,
+//     rgba(99, 102, 241, 0.15) 0%,
+//     transparent 70%
+//   );
+//   pointer-events: none;
+//   z-index: 1;
+// }
+
+// .idx-date-inner {
+//   display: flex;
+//   align-items: center;
+// }
+
+// .idx-date-item {
+//   flex-shrink: 0;
+//   width: 76px;
+//   height: 48px;
+//   display: flex;
+//   flex-direction: column;
+//   align-items: center;
+//   justify-content: center;
+//   gap: 2px;
+// }
+
+// .idx-date-item--active {
+//   background: rgba(99, 102, 241, 0.2);
+// }
+
+// .idx-date-label {
+//   font-size: 9px;
+//   font-weight: 600;
+//   color: #52525b;
+//   letter-spacing: 0.5px;
+// }
+
+// .idx-date-label--active {
+//   color: #a5b4fc;
+// }
+
+// .idx-date-value {
+//   font-size: 14px;
+//   font-weight: 500;
+//   color: #71717a;
+// }
+
+// .idx-date-value--active {
+//   color: #fafafa;
+//   font-weight: 600;
+// }
+   ================================================ */
+
+// ===== Date Picker — 固定按钮样式（当前使用版本）=====
 .idx-date-picker {
   height: 48px;
   background: #09090b;

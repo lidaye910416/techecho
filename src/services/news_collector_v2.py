@@ -35,13 +35,21 @@ ZH_SOURCES = [
 ]
 
 EN_SOURCES = [
-    # 英文源
-    {"name": "TechCrunch", "url": "https://techcrunch.com/feed/", "category": "news", "weight": 2.5},
-    {"name": "MIT Tech Review", "url": "https://www.technologyreview.com/feed/", "category": "ai", "weight": 2.5},
-    {"name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "category": "tools", "weight": 2},
-    {"name": "The Verge", "url": "https://www.theverge.com/rss/index.xml", "category": "product", "weight": 2},
-    {"name": "Hacker News", "url": "https://hnrss.org/frontpage", "category": "news", "weight": 2},
-    {"name": "Wired", "url": "https://www.wired.com/feed/rss", "category": "ai", "weight": 2},
+    # [TODO] 英文新闻源配置（暂时禁用 - 纯中文项目）
+    #
+    # 禁用原因：产品定位为纯中文科技资讯平台
+    #
+    # 如需恢复英文新闻功能：
+    # 1. 取消下方源列表注释，恢复各新闻源配置
+    # 2. 恢复 collect_en() 方法的正常逻辑（见该方法 TODO）
+    # 3. 确保 API 接口支持 lang='en' 筛选
+    #
+    # {"name": "TechCrunch", "url": "https://techcrunch.com/feed/", "category": "news", "weight": 2.5},
+    # {"name": "MIT Tech Review", "url": "https://www.technologyreview.com/feed/", "category": "ai", "weight": 2.5},
+    # {"name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "category": "tools", "weight": 2},
+    # {"name": "The Verge", "url": "https://www.theverge.com/rss/index.xml", "category": "product", "weight": 2},
+    # {"name": "Hacker News", "url": "https://hnrss.org/frontpage", "category": "news", "weight": 2},
+    # {"name": "Wired", "url": "https://www.wired.com/feed/rss", "category": "ai", "weight": 2},
 ]
 
 class BilingualNewsCollector:
@@ -59,8 +67,19 @@ class BilingualNewsCollector:
         return await self._collect_sources(ZH_SOURCES, lang='zh')
     
     async def collect_en(self) -> List[NewsItem]:
-        """收集英文新闻"""
-        return await self._collect_sources(EN_SOURCES, lang='en')
+        """收集英文新闻（暂时禁用 - 纯中文项目）
+
+        [TODO] 如需恢复英文新闻功能：
+        1. 取消 EN_SOURCES 的注释，恢复各新闻源配置
+        2. 取消下方 return 语句的注释
+        3. 确保 API 接口支持 lang='en' 筛选
+
+        恢复代码：
+            return await self._collect_sources(EN_SOURCES, lang='en')
+        """
+        # [TODO] 恢复英文新闻收集：取消下方注释并删除 pass
+        # return await self._collect_sources(EN_SOURCES, lang='en')
+        pass
     
     async def collect_all(self, lang=None, category=None) -> List[NewsItem]:
         """收集所有新闻"""
