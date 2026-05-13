@@ -333,7 +333,23 @@ useEffect(() => {
     const audioUrl = url.startsWith('http') ? url : getAudioUrl(url)
     console.log('[TTS] 播放音频:', audioUrl)
 
+    // 先销毁旧的音频上下文
+    if (audioCtx) {
+      console.log('[TTS] 销毁旧音频上下文')
+      try {
+        audioCtx.stop()
+        audioCtx.destroy()
+      } catch (e) {
+        console.error('[TTS] 销毁旧音频上下文失败:', e)
+      }
+      setAudioCtx(null)
+      setSpeakingId(null)
+    }
+
+    // 创建新的音频上下文
     const ctx = Taro.createInnerAudioContext()
+    console.log('[TTS] 创建音频上下文成功')
+
     ctx.src = audioUrl
     ctx.autoplay = true
     ctx.volume = 1.0
@@ -347,24 +363,23 @@ useEffect(() => {
     })
     ctx.onEnded(() => {
       console.log('[TTS] 播放结束')
-      setSpeakingId(null); setAudioCtx(null); ctx.destroy()
+      setSpeakingId(null)
+      setAudioCtx(null)
+      try { ctx.destroy() } catch (e) { /* ignore */ }
     })
     ctx.onStop(() => {
       console.log('[TTS] 播放停止')
-      setSpeakingId(null); setAudioCtx(null); ctx.destroy()
+      setSpeakingId(null)
+      setAudioCtx(null)
+      try { ctx.destroy() } catch (e) { /* ignore */ }
     })
     ctx.onError((err) => {
       console.error('[TTS] 播放错误:', JSON.stringify(err))
-      setSpeakingId(null); setAudioCtx(null); ctx.destroy()
+      setSpeakingId(null)
+      setAudioCtx(null)
+      try { ctx.destroy() } catch (e) { /* ignore */ }
       Taro.showToast({ title: t('playFailed'), icon: 'none' })
     })
-
-    // 5秒后检查是否仍在播放
-    setTimeout(() => {
-      if (speakingId === newsId && !ctx.paused) {
-        console.log('[TTS] 播放正常进行中')
-      }
-    }, 5000)
   }
 
   /** 请求 TTS（实时语音生成） */
@@ -404,15 +419,23 @@ useEffect(() => {
   const handleSpeak = async (item: NewsItem, e?: any) => {
     if (e) e.stopPropagation?.()
 
-    // 停止当前播放
+    // 停止当前播放（如果是同一条新闻）
     if (speakingId === item.id) {
-      if (audioCtx) { audioCtx.stop(); audioCtx.destroy(); setAudioCtx(null) }
+      if (audioCtx) {
+        try { audioCtx.stop(); audioCtx.destroy() } catch (e) { /* ignore */ }
+      }
+      setAudioCtx(null)
       setSpeakingId(null)
       Taro.showToast({ title: t('stopped'), icon: 'none', duration: 1500 })
       return
     }
 
-    if (audioCtx) { audioCtx.stop(); audioCtx.destroy(); setAudioCtx(null) }
+    // 停止其他新闻的播放
+    if (audioCtx) {
+      try { audioCtx.stop(); audioCtx.destroy() } catch (e) { /* ignore */ }
+      setAudioCtx(null)
+      setSpeakingId(null)
+    }
 
     // 检查当前设置的语音风格是否有预生成语音
     const preGenAudio = item.audio?.[voice]
