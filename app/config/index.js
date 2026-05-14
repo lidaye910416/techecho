@@ -16,7 +16,7 @@ export default defineAppConfig({
     }
   },
   defineConstants: {
-    'process.env.TARO_APP_API_BASE': JSON.stringify('http://localhost:8001'),
+    'process.env.TARO_APP_API_BASE': JSON.stringify('http://localhost:8000'),
   },
   pages: [
     'pages/index/index',

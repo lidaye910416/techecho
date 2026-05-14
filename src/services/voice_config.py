@@ -16,7 +16,7 @@ VOICE_STYLES: Dict[str, Dict] = {
         "edge": "zh-CN-XiaoyiNeural",
         "azure": "zh-CN-XiaoyiNeural",
         "gender": "female",
-        "speed": 1.0,
+        "speed": 1.15,
         "desc": "知性柔和，适合行业洞察",
     },
     "voice1": {
@@ -25,7 +25,7 @@ VOICE_STYLES: Dict[str, Dict] = {
         "edge": "zh-CN-YunxiNeural",
         "azure": "zh-CN-YunxiNeural",
         "gender": "male",
-        "speed": 0.95,
+        "speed": 1.1,
         "desc": "低音磁性，适合深度长文",
     },
     "voice2": {
@@ -34,7 +34,7 @@ VOICE_STYLES: Dict[str, Dict] = {
         "edge": "zh-CN-YunyangNeural",
         "azure": "zh-CN-YunyangNeural",
         "gender": "male",
-        "speed": 1.05,
+        "speed": 1.2,
         "desc": "明亮有力，适合科技快讯",
     },
     "voice4": {
@@ -43,7 +43,7 @@ VOICE_STYLES: Dict[str, Dict] = {
         "edge": "zh-CN-XiaoxiaoNeural",
         "azure": "zh-CN-XiaoxiaoNeural",
         "gender": "female",
-        "speed": 1.1,
+        "speed": 1.25,
         "desc": "甜美自然，适合轻松播报",
     },
 }
@@ -107,12 +107,12 @@ class VoiceConfigService:
 
     def apply_preset(self, preset_name: str) -> Dict:
         presets = {
-            "professional_female": {"voice_id": "female-yujie", "speed": 1.0},
-            "professional_male": {"voice_id": "male-qn-qingse", "speed": 0.95},
-            "friendly_female": {"voice_id": "female-tianmei", "speed": 1.1},
-            "friendly_male": {"voice_id": "male-qn-jingying", "speed": 1.05},
-            "energetic_female": {"voice_id": "female-yujie", "speed": 1.15},
-            "calm_male": {"voice_id": "male-qn-qingse", "speed": 0.9},
+            "professional_female": {"voice_id": "female-yujie", "speed": 1.15},
+            "professional_male": {"voice_id": "male-qn-qingse", "speed": 1.1},
+            "friendly_female": {"voice_id": "female-tianmei", "speed": 1.25},
+            "friendly_male": {"voice_id": "male-qn-jingying", "speed": 1.2},
+            "energetic_female": {"voice_id": "female-yujie", "speed": 1.3},
+            "calm_male": {"voice_id": "male-qn-qingse", "speed": 1.05},
         }
         return presets.get(preset_name, presets["professional_female"])
 

@@ -13,7 +13,7 @@
  * - 质量阈值过滤
  */
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import {
@@ -32,6 +32,20 @@ import {
 } from '../../api'
 import { t } from '../../i18n'
 import { useTheme } from '../../hooks/useTheme'
+import {
+  playNewsAudio,
+  stopAllAudio,
+  onAudioStop,
+  onAudioStart,
+  AUDIO_STOP_EVENT,
+  AUDIO_START_EVENT,
+  AUDIO_PAUSE_EVENT,
+  AUDIO_RESUME_EVENT,
+  AUDIO_SWITCH_EVENT,
+  AUDIO_LOADING_EVENT,
+  getPlayingInfo,
+  globalAudioCtx,
+} from '../../utils/audioManager'
 import './index.scss'
 
 // ============ 常量 ============
@@ -57,6 +71,9 @@ const VOICE_NAMES: Record<string, string> = {
   voice4: '清新女声',
 }
 
+// 全局音频标识
+const AUDIO_SOURCE = 'index'
+
 // ============ 组件 ============
 
 export default function Index() {
@@ -79,6 +96,8 @@ export default function Index() {
 
   // 播放 - 使用 useRef 避免闭包陷阱
   const [speakingId, setSpeakingId] = useState<string | null>(null)
+  const [pausedId, setPausedId] = useState<string | null>(null)  // 暂停的新闻ID
+  const [loadingId, setLoadingId] = useState<string | null>(null)  // 正在加载的新闻ID
   const audioCtxRef = useRef<Taro.InnerAudioContext | null>(null)
 
   // 下拉刷新
@@ -175,6 +194,70 @@ useEffect(() => {
     loadFavorites()
     loadSettings()
   })
+
+  // 监听全局音频事件
+  useEffect(() => {
+    const handleStop = () => {
+      setSpeakingId(null)
+      setPausedId(null)
+      setLoadingId(null)
+      audioCtxRef.current = null
+    }
+
+    const handleStart = (item: { newsId: string; source: string }) => {
+      if (item.source === AUDIO_SOURCE) {
+        setSpeakingId(item.newsId)
+        setPausedId(null)
+      } else {
+        setSpeakingId(null)
+        setPausedId(null)
+      }
+    }
+
+    const handlePause = (data: { newsId: string }) => {
+      setPausedId(data.newsId)
+      setSpeakingId(null)
+    }
+
+    const handleResume = (data: { newsId: string }) => {
+      setSpeakingId(data.newsId)
+      setPausedId(null)
+    }
+
+    const handleSwitch = (data: { oldNewsId: string | null; newNewsId: string }) => {
+      if (data.oldNewsId) {
+        setSpeakingId(null)
+        setPausedId(null)
+      }
+    }
+
+    const handleLoading = (data: { newsId: string }) => {
+      setLoadingId(data.newsId)
+      setSpeakingId(data.newsId)
+      setPausedId(null)
+    }
+
+    const unsubStop = onAudioStop(handleStop)
+    const unsubStart = onAudioStart(handleStart)
+
+    Taro.eventCenter.on(AUDIO_STOP_EVENT, handleStop)
+    Taro.eventCenter.on(AUDIO_START_EVENT, handleStart)
+    Taro.eventCenter.on(AUDIO_PAUSE_EVENT, handlePause)
+    Taro.eventCenter.on(AUDIO_RESUME_EVENT, handleResume)
+    Taro.eventCenter.on(AUDIO_SWITCH_EVENT, handleSwitch)
+    Taro.eventCenter.on(AUDIO_LOADING_EVENT, handleLoading)
+
+    return () => {
+      unsubStop()
+      unsubStart()
+      Taro.eventCenter.off(AUDIO_STOP_EVENT, handleStop)
+      Taro.eventCenter.off(AUDIO_START_EVENT, handleStart)
+      Taro.eventCenter.off(AUDIO_PAUSE_EVENT, handlePause)
+      Taro.eventCenter.off(AUDIO_RESUME_EVENT, handleResume)
+      Taro.eventCenter.off(AUDIO_SWITCH_EVENT, handleSwitch)
+      Taro.eventCenter.off(AUDIO_LOADING_EVENT, handleLoading)
+    }
+  }, [])
 
   useEffect(() => {
     filterNews()
@@ -297,17 +380,25 @@ useEffect(() => {
           // 用户选择切换风格 → 调用 TTS（消耗一次体验）
           requestTTS(item, voice)
         } else {
-          // 用户选择保持风格 → 使用数据库中已有的预生成语音
+          // 用户选择保持风格 → 使用默认风格播放，并切换语音设置
+          const defaultVoice = 'voice3'
+          setVoice(defaultVoice)
+          try {
+            const raw = Taro.getStorageSync(SETTINGS_STORAGE_KEY)
+            const s = raw ? JSON.parse(raw) : {}
+            s.voice = defaultVoice
+            Taro.setStorageSync(SETTINGS_STORAGE_KEY, JSON.stringify(s))
+            // 通知其他页面设置已变更
+            Taro.eventCenter.trigger('techecho_settings_changed')
+          } catch (_) { /* ignore */ }
           playOtherVoiceAudio(item)
         }
       },
     })
   }
 
-  /** 使用数据库中已有的预生成语音 */
+  /** 使用数据库中已有的预生成语音（播放默认风格 voice3） */
   const playOtherVoiceAudio = (item: NewsItem) => {
-    console.log('[TTS] playOtherVoiceAudio called, item.audio:', item.audio)
-
     if (!item.audio || Object.keys(item.audio).length === 0) {
       Taro.showToast({ title: '无可用语音', icon: 'none' })
       return
@@ -317,11 +408,8 @@ useEffect(() => {
     const audioPath = item.audio.voice3 || item.audio.voice1 || item.audio.voice2 || item.audio.voice4
       || Object.values(item.audio)[0]
 
-    console.log('[TTS] audioPath:', audioPath)
-
     if (audioPath) {
       const audioUrl = getAudioUrl(audioPath)
-      console.log('[TTS] audioUrl:', audioUrl)
       playAudio(item.id, audioUrl)
     } else {
       Taro.showToast({ title: '无可用语音', icon: 'none' })
@@ -331,55 +419,7 @@ useEffect(() => {
   /** 播放音频 */
   const playAudio = (newsId: string, url: string) => {
     const audioUrl = url.startsWith('http') ? url : getAudioUrl(url)
-
-    // 销毁旧的音频上下文
-    const oldCtx = audioCtxRef.current
-    if (oldCtx) {
-      try {
-        oldCtx.stop()
-        oldCtx.destroy()
-      } catch (e) { /* ignore */ }
-      audioCtxRef.current = null
-    }
-
-    // 延迟创建新上下文，避免状态冲突
-    setTimeout(() => {
-      const ctx = Taro.createInnerAudioContext()
-      audioCtxRef.current = ctx
-
-      ctx.onPlay(() => {
-        setSpeakingId(newsId)
-      })
-
-      ctx.onEnded(() => {
-        setSpeakingId(null)
-        audioCtxRef.current = null
-        try { ctx.destroy() } catch (e) { /* ignore */ }
-      })
-
-      ctx.onStop(() => {
-        setSpeakingId(null)
-        audioCtxRef.current = null
-        try { ctx.destroy() } catch (e) { /* ignore */ }
-      })
-
-      ctx.onError(() => {
-        setSpeakingId(null)
-        audioCtxRef.current = null
-        try { ctx.destroy() } catch (e) { /* ignore */ }
-        Taro.showToast({ title: t('playFailed'), icon: 'none' })
-      })
-
-      ctx.src = audioUrl
-      ctx.autoplay = true
-      ctx.volume = 1
-      ctx.obeyMuteSwitch = false
-
-      // 确保能播放
-      ctx.onCanplay(() => {
-        ctx.play()
-      })
-    }, 150)
+    playNewsAudio(newsId, audioUrl, AUDIO_SOURCE)
   }
 
   /** 请求 TTS（实时语音生成） */
@@ -419,26 +459,23 @@ useEffect(() => {
   const handleSpeak = async (item: NewsItem, e?: any) => {
     if (e) e.stopPropagation?.()
 
-    // 停止当前播放（如果是同一条新闻）
+    // 检查是否正在播放/暂停该新闻
     if (speakingId === item.id) {
-      const ctx = audioCtxRef.current
-      if (ctx) {
-        try { ctx.stop(); ctx.destroy() } catch (e) { /* ignore */ }
-        audioCtxRef.current = null
-      }
-      setSpeakingId(null)
-      Taro.showToast({ title: t('stopped'), icon: 'none', duration: 1500 })
+      // 正在播放 → 停止
+      stopAllAudio()
       return
     }
 
-    // 停止其他新闻的播放
-    const oldCtx = audioCtxRef.current
-    if (oldCtx) {
-      try { oldCtx.stop(); oldCtx.destroy() } catch (e) { /* ignore */ }
-      audioCtxRef.current = null
-      setSpeakingId(null)
+    if (pausedId === item.id) {
+      // 正在暂停 → 继续播放（直接调用 audioManager 恢复）
+      const playingInfo = getPlayingInfo()
+      if (playingInfo.newsId === item.id && playingInfo.isPaused && globalAudioCtx) {
+        globalAudioCtx.play()
+      }
+      return
     }
 
+    // 按钮是播放状态，检查预生成语音
     // 检查当前设置的语音风格是否有预生成语音
     const preGenAudio = item.audio?.[voice]
     if (preGenAudio) {
@@ -492,17 +529,52 @@ useEffect(() => {
 
   // ============ 格式化 ============
 
-  const parseDate = (dateStr: string) => {
+  /** 安全解析日期（兼容 iOS 的 RFC 2822 格式） */
+  const safeParseDate = (dateStr: string): Date | null => {
+    if (!dateStr) return null
+
+    // 优先匹配 ISO 格式（iOS 支持）
+    const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (isoMatch) {
+      const [, y, m, d] = isoMatch
+      return new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
+    }
+
+    // 解析 RFC 2822 格式（iOS 不支持，需手动解析）
+    // 格式: "Wed, 13 May 2026 07:59:36 +0800"
+    const rfcMatch = dateStr.match(/^[A-Za-z]{3},\s+(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/)
+    if (rfcMatch) {
+      const [, day, monthStr, year, hour, min, sec] = rfcMatch
+      const monthMap: Record<string, number> = {
+        Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+        Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+      }
+      const month = monthMap[monthStr]
+      if (month !== undefined) {
+        return new Date(parseInt(year), month, parseInt(day), parseInt(hour), parseInt(min), parseInt(sec))
+      }
+    }
+
+    // 尝试标准解析（兜底）
     try {
       const d = new Date(dateStr)
-      const m = d.getMonth() + 1
-      const day = d.getDate()
-      return `${m}月${day}日`
-    } catch (_) { return dateStr.slice(0, 10) }
+      if (!isNaN(d.getTime())) return d
+    } catch (_) { /* ignore */ }
+
+    return null
+  }
+
+  const parseDate = (dateStr: string) => {
+    const d = safeParseDate(dateStr)
+    if (!d) return dateStr.slice(0, 10)
+    const m = d.getMonth() + 1
+    const day = d.getDate()
+    return `${m}月${day}日`
   }
 
   // ===== 系统信息 =====
   // navigationStyle: 'custom' — 自定义导航栏，需手动适配状态栏高度
+  // 注意: Taro.getSystemInfoSync 在新版本基础库中已废弃，但暂时无影响
   const statusBarHeight = (Taro.getSystemInfoSync?.().statusBarHeight || 20) as number
   const headerPaddingTop = `${statusBarHeight + 8}px`
 
@@ -522,7 +594,8 @@ useEffect(() => {
   // ============ 渲染 ============
 
   const isFav = (id: string) => favorites.indexOf(id) !== -1
-  const isSpeaking = (id: string) => speakingId === id
+  // 判断是否正在播放（无论是播放中还是暂停中，都显示激活状态）
+  const isSpeaking = (id: string) => speakingId === id || pausedId === id
 
   return (
     <View className={`idx-page${darkMode ? '' : ' idx-light'}`}>
@@ -590,6 +663,7 @@ useEffect(() => {
       </View>
 
       {/* ===== Feed — 对标 H5 L946-948 ===== */}
+      {/* 使用 View 包裹内容以避免 scroll-view 的 padding 警告 */}
       <ScrollView
         scrollY
         className="idx-feed"
@@ -668,7 +742,9 @@ useEffect(() => {
                       onClick={(e: any) => handleSpeak(item, e)}
                     >
                       <Text className="idx-act-text">
-                        {speak ? t('stopSpeaking') : '🔊 ' + t('speak')}
+                        {speakingId === item.id ? t('stopSpeaking') :
+                         pausedId === item.id ? '▶️ ' + t('speak') :
+                         '🔊 ' + t('speak')}
                       </Text>
                     </View>
                     <View
@@ -734,8 +810,7 @@ useEffect(() => {
                 className={`idx-detail-act ${isSpeaking(detailItem.id) ? 'idx-detail-act--active' : ''}`}
                 onClick={(e: any) => handleSpeak(detailItem, e)}
               >
-                <Text>{isSpeaking(detailItem.id) ? '⏸️' : '🔊'}</Text>
-                <Text>{isSpeaking(detailItem.id) ? t('stopSpeaking') : t('speak')}</Text>
+                <Text>{speakingId === detailItem.id ? t('stopSpeaking') : pausedId === detailItem.id ? '▶️ ' + t('speak') : '🔊 ' + t('speak')}</Text>
               </View>
               <View
                 className={`idx-detail-act ${isFav(detailItem.id) ? 'idx-detail-act--active' : ''}`}

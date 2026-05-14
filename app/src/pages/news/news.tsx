@@ -9,7 +9,7 @@
  * - 取消收藏
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import {
@@ -26,6 +26,28 @@ import {
 } from '../../api'
 import { t } from '../../i18n'
 import { useTheme } from '../../hooks/useTheme'
+import {
+  playNewsAudio,
+  playReportAudio,
+  stopAllAudio,
+  toggleReportPlay as toggleReportPlayGlobal,
+  pauseReport,
+  resumeReport,
+  onAudioStop,
+  onAudioStart,
+  AUDIO_STOP_EVENT,
+  AUDIO_START_EVENT,
+  AUDIO_PAUSE_EVENT,
+  AUDIO_RESUME_EVENT,
+  AUDIO_SWITCH_EVENT,
+  AUDIO_LOADING_EVENT,
+  AUDIO_REPORT_PAUSE_EVENT,
+  AUDIO_REPORT_RESUME_EVENT,
+  getPlayingInfo,
+  getReportPlaying,
+  globalAudioCtx,
+  globalReportCtx,
+} from '../../utils/audioManager'
 import './news.scss'
 
 // ============ 常量 ============
@@ -43,6 +65,9 @@ const VOICE_NAMES: Record<string, string> = {
   voice4: '清新女声',
 }
 
+// 全局音频标识
+const AUDIO_SOURCE = 'fav'
+
 // ============ 组件 ============
 
 export default function News() {
@@ -58,7 +83,11 @@ export default function News() {
 
   // 单条播放
   const [speakingId, setSpeakingId] = useState<string | null>(null)
-  const [audioCtx, setAudioCtx] = useState<Taro.InnerAudioContext | null>(null)
+  const [pausedId, setPausedId] = useState<string | null>(null)  // 暂停的新闻ID
+  const [loadingId, setLoadingId] = useState<string | null>(null)  // 正在加载的新闻ID
+
+  // 判断是否正在播放（包括播放中或暂停中）
+  const isSpeaking = (id: string) => speakingId === id || pausedId === id
 
   // AI 分析
   const [analyzing, setAnalyzing] = useState(false)
@@ -100,6 +129,88 @@ export default function News() {
     loadAllNews()
     restoreAnalysisCache()
   })
+
+  // 监听全局音频状态
+  useEffect(() => {
+    const handleStop = () => {
+      setSpeakingId(null)
+      setPausedId(null)
+      setLoadingId(null)
+      setReportPlaying(false)
+      setReportCurrentTime(0)
+      clearReportTimer()
+    }
+
+    const handleStart = (item: { newsId: string; source: string }) => {
+      // 如果是来自其他页面的播放，停止当前页面的新闻播放
+      if (item.source !== AUDIO_SOURCE && item.newsId !== '__report__') {
+        setSpeakingId(null)
+        setPausedId(null)
+      }
+    }
+
+    const handlePause = (data: { newsId: string }) => {
+      setPausedId(data.newsId)
+      setSpeakingId(null)
+    }
+
+    const handleResume = (data: { newsId: string }) => {
+      setSpeakingId(data.newsId)
+      setPausedId(null)
+    }
+
+    // 切换音频：旧音频被停止，新音频开始加载
+    const handleSwitch = (data: { oldNewsId: string | null; newNewsId: string }) => {
+      if (data.oldNewsId) {
+        setSpeakingId(null)
+        setPausedId(null)
+      }
+    }
+
+    // 新音频正在加载
+    const handleLoading = (data: { newsId: string }) => {
+      setLoadingId(data.newsId)
+      setSpeakingId(data.newsId)
+      setPausedId(null)
+    }
+
+    // 报告暂停
+    const handleReportPause = () => {
+      setReportPlaying(false)
+    }
+
+    // 报告继续播放
+    const handleReportResume = () => {
+      setReportPlaying(true)
+    }
+
+    // 使用回调方式监听
+    const unsubStop = onAudioStop(handleStop)
+    const unsubStart = onAudioStart(handleStart)
+
+    // 也监听事件
+    Taro.eventCenter.on(AUDIO_STOP_EVENT, handleStop)
+    Taro.eventCenter.on(AUDIO_START_EVENT, handleStart)
+    Taro.eventCenter.on(AUDIO_PAUSE_EVENT, handlePause)
+    Taro.eventCenter.on(AUDIO_RESUME_EVENT, handleResume)
+    Taro.eventCenter.on(AUDIO_SWITCH_EVENT, handleSwitch)
+    Taro.eventCenter.on(AUDIO_LOADING_EVENT, handleLoading)
+    Taro.eventCenter.on(AUDIO_REPORT_PAUSE_EVENT, handleReportPause)
+    Taro.eventCenter.on(AUDIO_REPORT_RESUME_EVENT, handleReportResume)
+
+    return () => {
+      unsubStop()
+      unsubStart()
+      Taro.eventCenter.off(AUDIO_STOP_EVENT, handleStop)
+      Taro.eventCenter.off(AUDIO_START_EVENT, handleStart)
+      Taro.eventCenter.off(AUDIO_PAUSE_EVENT, handlePause)
+      Taro.eventCenter.off(AUDIO_RESUME_EVENT, handleResume)
+      Taro.eventCenter.off(AUDIO_SWITCH_EVENT, handleSwitch)
+      Taro.eventCenter.off(AUDIO_LOADING_EVENT, handleLoading)
+      Taro.eventCenter.off(AUDIO_REPORT_PAUSE_EVENT, handleReportPause)
+      Taro.eventCenter.off(AUDIO_REPORT_RESUME_EVENT, handleReportResume)
+    }
+  }, [])
 
   const loadSettings = () => {
     try {
@@ -227,14 +338,24 @@ export default function News() {
           // 用户选择切换风格 → 调用 TTS（消耗一次体验）
           requestTTS(item, voice)
         } else {
-          // 用户选择保持风格 → 使用数据库中已有的预生成语音
+          // 用户选择保持风格 → 使用默认风格播放，并切换语音设置
+          const defaultVoice = 'voice3'
+          setVoice(defaultVoice)
+          try {
+            const raw = Taro.getStorageSync(SETTINGS_STORAGE_KEY)
+            const s = raw ? JSON.parse(raw) : {}
+            s.voice = defaultVoice
+            Taro.setStorageSync(SETTINGS_STORAGE_KEY, JSON.stringify(s))
+            // 通知其他页面设置已变更
+            Taro.eventCenter.trigger('techecho_settings_changed')
+          } catch (_) { /* ignore */ }
           playOtherVoiceAudio(item)
         }
       },
     })
   }
 
-  /** 使用数据库中已有的预生成语音 */
+  /** 使用数据库中已有的预生成语音（播放默认风格 voice3） */
   const playOtherVoiceAudio = (item: NewsItem) => {
     if (!item.audio || Object.keys(item.audio).length === 0) {
       Taro.showToast({ title: '无可用语音', icon: 'none' })
@@ -256,45 +377,13 @@ export default function News() {
   /** 播放音频 */
   const playSingleAudio = (newsId: string, url: string) => {
     const audioUrl = url.startsWith('http') ? url : getAudioUrl(url)
-    console.log('[TTS] 播放音频:', audioUrl)
+    console.log('[Fav] playSingleAudio:', newsId)
 
-    // 先销毁旧的音频上下文
-    if (audioCtx) {
-      console.log('[TTS] 销毁旧音频上下文')
-      try { audioCtx.stop(); audioCtx.destroy() } catch (e) { /* ignore */ }
-      setAudioCtx(null)
-      setSpeakingId(null)
-    }
+    // 使用全局音频管理器
+    playNewsAudio(newsId, audioUrl, AUDIO_SOURCE)
 
-    const ctx = Taro.createInnerAudioContext()
-    console.log('[TTS] 创建音频上下文成功')
-    ctx.src = audioUrl
-    ctx.autoplay = true
-    ctx.volume = 1.0
-    ctx.onTimeUpdate(() => {
-      console.log('[TTS] 播放中:', ctx.currentTime, '/', ctx.duration)
-    })
-    ctx.onPlay(() => {
-      console.log('[TTS] 开始播放')
-      setSpeakingId(newsId)
-      setAudioCtx(ctx)
-    })
-    ctx.onEnded(() => {
-      console.log('[TTS] 播放结束')
-      setSpeakingId(null); setAudioCtx(null)
-      try { ctx.destroy() } catch (e) { /* ignore */ }
-    })
-    ctx.onStop(() => {
-      console.log('[TTS] 播放停止')
-      setSpeakingId(null); setAudioCtx(null)
-      try { ctx.destroy() } catch (e) { /* ignore */ }
-    })
-    ctx.onError((err) => {
-      console.error('[TTS] 播放错误:', JSON.stringify(err))
-      setSpeakingId(null); setAudioCtx(null)
-      try { ctx.destroy() } catch (e) { /* ignore */ }
-      Taro.showToast({ title: t('playFailed'), icon: 'none' })
-    })
+    // 更新本地状态
+    setSpeakingId(newsId)
   }
 
   /** 请求 TTS（实时语音生成） */
@@ -334,24 +423,23 @@ export default function News() {
   const handleSpeak = async (item: NewsItem, e?: any) => {
     if (e) e.stopPropagation?.()
 
-    // 停止当前播放（如果是同一条新闻）
+    // 检查是否正在播放/暂停该新闻
     if (speakingId === item.id) {
-      if (audioCtx) {
-        try { audioCtx.stop(); audioCtx.destroy() } catch (e) { /* ignore */ }
-      }
-      setAudioCtx(null)
-      setSpeakingId(null)
-      Taro.showToast({ title: t('stopped'), icon: 'none', duration: 1500 })
+      // 正在播放 → 停止
+      stopAllAudio()
       return
     }
 
-    // 停止其他新闻的播放
-    if (audioCtx) {
-      try { audioCtx.stop(); audioCtx.destroy() } catch (e) { /* ignore */ }
-      setAudioCtx(null)
-      setSpeakingId(null)
+    if (pausedId === item.id) {
+      // 正在暂停 → 继续播放（直接调用 audioManager 恢复）
+      const playingInfo = getPlayingInfo()
+      if (playingInfo.newsId === item.id && playingInfo.isPaused && globalAudioCtx) {
+        globalAudioCtx.play()
+      }
+      return
     }
 
+    // 按钮是播放状态，检查预生成语音
     // 检查当前设置的语音风格是否有预生成语音
     const preGenAudio = item.audio?.[voice]
     if (preGenAudio) {
@@ -522,7 +610,14 @@ export default function News() {
   }
 
   const closeReport = () => {
-    if (reportAudioCtx) { reportAudioCtx.stop(); reportAudioCtx.destroy(); setReportAudioCtx(null) }
+    // 使用全局音频管理器停止报告音频
+    if (globalReportCtx) {
+      try {
+        globalReportCtx.stop()
+        globalReportCtx.destroy()
+      } catch (e) { /* ignore */ }
+    }
+    clearReportTimer()
     setReportPlaying(false)
     setReportCurrentTime(0)
     setReportDuration(0)
@@ -532,58 +627,196 @@ export default function News() {
     // 回到列表视图，Hero 卡片保留 analysisMeta 显示两个按钮
   }
 
+  // ============ 报告 TTS 生成（仅限一次）============
 
+  /** 检查用户是否已登录 */
+  const isReportLoggedIn = (): boolean => {
+    try { return !!Taro.getStorageSync('auth_token') } catch (_) { return false }
+  }
+
+  /** 检查报告 TTS 实时调用是否已使用 */
+  const isReportTTSUsed = (): boolean => {
+    try { return !!Taro.getStorageSync('techecho_report_tts_used') } catch (_) { return false }
+  }
+
+  /** 标记报告 TTS 已使用 */
+  const markReportTTSUsed = () => {
+    try { Taro.setStorageSync('techecho_report_tts_used', '1') } catch (_) { /* ignore */ }
+  }
+
+  /** 提示报告需要登录微信 */
+  const promptReportLogin = () => {
+    Taro.showModal({
+      title: t('needLogin'),
+      content: '实时语音生成仅限登录用户使用。是否前往登录？',
+      confirmText: t('goToLogin'),
+      cancelText: t('later'),
+      success: (res) => {
+        if (res.confirm) {
+          Taro.switchTab({ url: '/pages/mine/mine' })
+        }
+      },
+    })
+  }
+
+  /** 提示报告 TTS 次数已用完 */
+  const promptReportTTSLimit = () => {
+    Taro.showModal({
+      title: t('ttsLimitReached'),
+      content: t('ttsLimitContent'),
+      showCancel: false,
+      confirmText: t('gotIt'),
+    })
+  }
+
+  // 报告音频进度定时器
+  const reportTimerRef = useRef<number | null>(null)
+
+  // 清理报告进度定时器
+  const clearReportTimer = () => {
+    if (reportTimerRef.current !== null) {
+      clearInterval(reportTimerRef.current)
+      reportTimerRef.current = null
+    }
+  }
+
+  // 启动报告音频进度更新
+  const startReportTimer = () => {
+    clearReportTimer()
+    reportTimerRef.current = setInterval(() => {
+      const ctx = globalReportCtx
+      if (ctx && ctx.duration) {
+        setReportCurrentTime(ctx.currentTime || 0)
+        setReportDuration(ctx.duration || 0)
+      }
+    }, 500) as unknown as number
+  }
+
+  // 监听报告音频事件，更新进度
+  useEffect(() => {
+    if (!analysisResult) return
+
+    const handleReportPlay = () => {
+      setReportPlaying(true)
+      startReportTimer()
+    }
+
+    const handleReportStop = () => {
+      setReportPlaying(false)
+      setReportCurrentTime(0)
+      clearReportTimer()
+    }
+
+    Taro.eventCenter.on(AUDIO_START_EVENT, handleReportPlay)
+    Taro.eventCenter.on(AUDIO_STOP_EVENT, handleReportStop)
+    Taro.eventCenter.on(AUDIO_REPORT_PAUSE_EVENT, handleReportStop)
+    Taro.eventCenter.on(AUDIO_REPORT_RESUME_EVENT, handleReportPlay)
+
+    return () => {
+      Taro.eventCenter.off(AUDIO_START_EVENT, handleReportPlay)
+      Taro.eventCenter.off(AUDIO_STOP_EVENT, handleReportStop)
+      Taro.eventCenter.off(AUDIO_REPORT_PAUSE_EVENT, handleReportStop)
+      Taro.eventCenter.off(AUDIO_REPORT_RESUME_EVENT, handleReportPlay)
+      clearReportTimer()
+    }
+  }, [analysisResult])
+
+  /**
+   * 报告播放/暂停切换
+   * 对标首页 handleSpeak 的播放逻辑
+   */
   const toggleReportPlay = () => {
     if (!analysisResult?.audio_url) return
 
-    if (reportAudioCtx) {
-      if (reportPlaying) {
-        reportAudioCtx.pause()
-        setReportPlaying(false)
-      } else {
-        reportAudioCtx.play()
-        setReportPlaying(true)
-      }
+    const isCurrentlyPlaying = getReportPlaying()
+
+    if (isCurrentlyPlaying) {
+      // 正在播放 → 暂停（调用全局管理器，会触发 AUDIO_REPORT_PAUSE_EVENT）
+      toggleReportPlayGlobal()
+      // reportPlaying 状态会在 handleReportPause 中更新
+    } else if (globalReportCtx) {
+      // 暂停中 → 继续播放
+      resumeReport()
+      // reportPlaying 状态会在 handleReportResume 中更新
+    } else {
+      // 还没有播放过 → 开始播放
+      playReport(analysisResult.audio_url)
+    }
+  }
+
+  /**
+   * 播放报告音频
+   * 先停止新闻音频，再播放报告
+   */
+  const playReport = (url: string) => {
+    // 先停止新闻音频（保持与首页一致的逻辑）
+    stopAllAudio()
+
+    // 更新本地新闻播放状态
+    setSpeakingId(null)
+    setPausedId(null)
+
+    // 播放报告音频
+    playReportAudio(url)
+    setReportPlaying(true)
+    startReportTimer()
+  }
+
+  /**
+   * 请求报告 TTS 语音生成
+   * 分析报告的 TTS 只有一次限制
+   */
+  const requestReportTTS = async () => {
+    if (!analysisResult) return
+
+    Taro.showToast({ title: t('speakGen'), icon: 'loading', duration: 15000 })
+
+    // 检查登录状态
+    if (!isReportLoggedIn()) {
+      Taro.hideToast()
+      promptReportLogin()
       return
     }
 
-    const ctx = Taro.createInnerAudioContext()
-    ctx.src = analysisResult.audio_url
-    ctx.autoplay = true
+    // 检查 TTS 次数限制（分析报告只有一次）
+    if (isReportTTSUsed()) {
+      Taro.hideToast()
+      promptReportTTSLimit()
+      return
+    }
 
-    ctx.onPlay(() => {
-      setReportAudioCtx(ctx)
-      setReportPlaying(true)
-      setTimeout(() => {
-        if (ctx.duration > 0) setReportDuration(ctx.duration)
-      }, 500)
-    })
+    try {
+      const rawText = analysisResult.raw_text || ''
+      const ttsRes = await ttsSpeak(rawText.slice(0, 2500), voice)
+      Taro.hideToast()
 
-    ctx.onTimeUpdate(() => {
-      if (ctx.duration > 0) {
-        setReportCurrentTime(ctx.currentTime)
-        setReportDuration(ctx.duration)
+      if (ttsRes.success && ttsRes.data?.audio_url) {
+        // 标记 TTS 已使用（仅限一次）
+        markReportTTSUsed()
+
+        // 更新 analysisResult 的 audio_url
+        setAnalysisResult(prev => prev ? { ...prev, audio_url: ttsRes.data!.audio_url } : null)
+
+        // 同时更新缓存
+        try {
+          const raw = Taro.getStorageSync(ANALYSIS_STATE_KEY)
+          if (raw) {
+            const cached = JSON.parse(raw)
+            cached.audioUrl = ttsRes.data.audio_url
+            Taro.setStorageSync(ANALYSIS_STATE_KEY, JSON.stringify(cached))
+          }
+        } catch (_) { /* ignore */ }
+
+        // 播放生成的音频
+        playReport(ttsRes.data.audio_url)
+      } else {
+        Taro.showToast({ title: t('speakFailed'), icon: 'none' })
       }
-    })
-
-    ctx.onEnded(() => {
-      setReportPlaying(false); setReportAudioCtx(null)
-      setReportCurrentTime(0); setReportDuration(0)
-      ctx.destroy()
-    })
-
-    ctx.onStop(() => {
-      setReportPlaying(false); setReportAudioCtx(null)
-      setReportCurrentTime(0); setReportDuration(0)
-      ctx.destroy()
-    })
-
-    ctx.onError((err) => {
-      console.error('Report audio error:', err)
-      setReportPlaying(false); setReportAudioCtx(null)
-      setReportCurrentTime(0); setReportDuration(0)
-      ctx.destroy()
-    })
+    } catch (e) {
+      console.error('Report TTS failed:', e)
+      Taro.hideToast()
+      Taro.showToast({ title: t('speakUnavail'), icon: 'none' })
+    }
   }
 
   // ===== 系统信息 =====
@@ -648,7 +881,7 @@ export default function News() {
           </View>
 
           {/* Mini Player — 对标 H5 L964-972 */}
-          {(reportAudioCtx || analysisResult.audio_url) && (
+          {(reportPlaying || globalReportCtx) && analysisResult.audio_url && (
             <View className="fav-mini-player">
               <View className="fav-progress-track">
                 <View
@@ -665,21 +898,34 @@ export default function News() {
             </View>
           )}
 
-          {/* 操作栏 — 对标 H5 L973-979 */}
+          {/* 操作栏 — 对标首页 handleSpeak 逻辑 */}
           <View className="fav-report-actions">
             <View className="fav-ra-btn fav-ra-btn--primary" onClick={handleAnalyze}>
               <Text className="fav-ra-text">{t('reAnalyze')}</Text>
             </View>
+
+            {/* 报告播放按钮 — 对标首页播放逻辑 */}
             {analysisResult.audio_url ? (
               <View
                 className={`fav-ra-btn fav-ra-btn--play ${reportPlaying ? 'fav-ra-btn--playing' : ''}`}
                 onClick={toggleReportPlay}
               >
-                <Text className="fav-ra-text">{reportPlaying ? t('reportPause') : t('reportPlay')}</Text>
+                <Text className="fav-ra-text">
+                  {reportPlaying ? t('reportPause') : t('reportPlay')}
+                </Text>
               </View>
-            ) : (
+            ) : isReportTTSUsed() ? (
+              // TTS 次数已用完，显示禁用状态
               <View className="fav-ra-btn fav-ra-btn--disabled">
                 <Text className="fav-ra-text">{t('reportPlay')}</Text>
+              </View>
+            ) : (
+              // 未生成过语音，显示生成按钮
+              <View
+                className="fav-ra-btn fav-ra-btn--play"
+                onClick={requestReportTTS}
+              >
+                <Text className="fav-ra-text">🎙 {t('reportGenVoice')}</Text>
               </View>
             )}
           </View>
@@ -775,7 +1021,7 @@ export default function News() {
             const dateStr = item.published_at || item.created_at || ''
             const shortDate = parseDate(dateStr)
             const isChinese = item.lang === 'zh' || (!item.lang && (item.title_zh || item.content_zh))
-            const speak = speakingId === item.id
+            const speak = speakingId === item.id || pausedId === item.id
 
             return (
               <View
@@ -817,7 +1063,9 @@ export default function News() {
                       onClick={(e: any) => handleSpeak(item, e)}
                     >
                       <Text className="fav-act-text">
-                        {speak ? t('stopSpeaking') : '🔊 ' + t('speak')}
+                        {speakingId === item.id ? t('stopSpeaking') :
+                         pausedId === item.id ? '▶️ ' + t('speak') :
+                         '🔊 ' + t('speak')}
                       </Text>
                     </View>
                     <View
@@ -872,11 +1120,10 @@ export default function News() {
 
             <View className="idx-detail-actions">
               <View
-                className={`idx-detail-act ${speakingId === detailItem.id ? 'idx-detail-act--active' : ''}`}
+                className={`idx-detail-act ${isSpeaking(detailItem.id) ? 'idx-detail-act--active' : ''}`}
                 onClick={(e: any) => handleSpeak(detailItem, e)}
               >
-                <Text>{speakingId === detailItem.id ? '⏸️' : '🔊'}</Text>
-                <Text>{speakingId === detailItem.id ? t('stopSpeaking') : t('speak')}</Text>
+                <Text>{speakingId === detailItem.id ? t('stopSpeaking') : pausedId === detailItem.id ? '▶️ ' + t('speak') : '🔊 ' + t('speak')}</Text>
               </View>
               <View className="idx-detail-act idx-detail-act--active" onClick={(e: any) => removeFavorite(detailItem.id, e)}>
                 <Text>💔</Text>

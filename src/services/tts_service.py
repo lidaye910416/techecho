@@ -127,12 +127,14 @@ class TTSService:
 
         voice_style = VOICE_STYLES.get(voice_id, {})
         minimax_voice = voice_style.get("minimax", "female-tianmei")
+        speed = voice_style.get("speed", 1.0)
 
         try:
             # 调用 MiniMax TTS API
             result = await self.minimax.text_to_speech(
                 text=text,
-                voice_id=minimax_voice
+                voice_id=minimax_voice,
+                speed=speed
             )
 
             audio_url = result.get("data", {}).get("audio_url", "")
@@ -171,9 +173,14 @@ class TTSService:
         """使用 edge-tts 生成语音"""
         voice_style = VOICE_STYLES.get(voice_id, {})
         edge_voice = voice_style.get("edge", "zh-CN-XiaoxiaoNeural")
+        speed = voice_style.get("speed", 1.0)
+        # 将 speed 转换为 edge-tts rate 格式: speed=1.0 → '+0%', speed=1.15 → '+15%'
+        # 注意：使用 round() 避免浮点精度问题
+        rate_percent = round((speed - 1.0) * 100)
+        rate = f"+{rate_percent}%"
 
         try:
-            communicate = edge_tts.Communicate(text, edge_voice)
+            communicate = edge_tts.Communicate(text, edge_voice, rate=rate)
             await communicate.save(str(audio_file))
 
             return TTSResult(

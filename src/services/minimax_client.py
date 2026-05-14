@@ -96,7 +96,7 @@ class MiniMaxClient:
         API: POST https://api.minimaxi.com/v1/t2a_v2
         使用 output_format: url 返回可访问的音频 URL
         """
-        logger.info(f"TTS: {text[:50]}... (voice: {voice_id})")
+        logger.info(f"TTS: {text[:50]}... (voice: {voice_id}, speed: {speed})")
 
         # 尝试不同的模型
         for model in self.tts_models:
@@ -106,7 +106,10 @@ class MiniMaxClient:
                     "text": text,
                     "stream": False,
                     "voice_setting": {
-                        "voice_id": voice_id
+                        "voice_id": voice_id,
+                        "speed": round(speed, 2),
+                        "volume": 1.0,
+                        "pitch": 0
                     },
                     "output_format": "url"  # 返回 URL 格式
                 }

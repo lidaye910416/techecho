@@ -384,15 +384,34 @@ export function getDateFilters(labels?: {
  * 支持: "2026-05-07 10:00:00", "Sat, 09 May 2026 07:20:00 +0800", "2026-05-08 09:31:04  +0800"
  */
 function extractDatePart(dateStr: string): string | null {
+  if (!dateStr) return null
+
   // 优先匹配 YYYY-MM-DD 前缀（最快，覆盖 90% 场景）
   const isoMatch = dateStr.match(/^(\d{4}-\d{2}-\d{2})/)
   if (isoMatch) return isoMatch[1]
 
-  // 解析 RFC 2822 / 标准 JavaScript Date 兼容格式
-  const parsed = new Date(dateStr)
-  if (!isNaN(parsed.getTime())) {
-    return parsed.toISOString().slice(0, 10)
+  // 解析 RFC 2822 格式（iOS 不支持，需手动解析）
+  // 格式: "Wed, 13 May 2026 07:59:36 +0800"
+  const rfcMatch = dateStr.match(/^[A-Za-z]{3},\s+(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/)
+  if (rfcMatch) {
+    const [, day, monthStr, year, hour, min, sec] = rfcMatch
+    const monthMap: Record<string, string> = {
+      Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+      Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+    }
+    const month = monthMap[monthStr]
+    if (month) {
+      return `${year}-${month}-${day.padStart(2, '0')}`
+    }
   }
+
+  // 尝试标准 Date 解析（作为兜底）
+  try {
+    const parsed = new Date(dateStr)
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 10)
+    }
+  } catch (_) { /* ignore */ }
 
   return null
 }

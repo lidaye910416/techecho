@@ -57,16 +57,28 @@ export default function Mine() {
     } catch (_) { /* ignore */ }
   })
 
-  // 监听来自其他页面的主题变更
+  // 监听来自其他页面的主题变更和设置变更
   useEffect(() => {
-    const handler = () => {
+    const themeHandler = () => {
       try {
         const saved = Taro.getStorageSync('techecho_settings')
         if (saved) setSettings((prev) => ({ ...prev, ...JSON.parse(saved) }))
       } catch (_) {}
     }
-    Taro.eventCenter.on('techecho_theme_changed', handler)
-    return () => { Taro.eventCenter.off('techecho_theme_changed', handler) }
+
+    const settingsHandler = () => {
+      try {
+        const saved = Taro.getStorageSync('techecho_settings')
+        if (saved) setSettings((prev) => ({ ...prev, ...JSON.parse(saved) }))
+      } catch (_) {}
+    }
+
+    Taro.eventCenter.on('techecho_theme_changed', themeHandler)
+    Taro.eventCenter.on('techecho_settings_changed', settingsHandler)
+    return () => {
+      Taro.eventCenter.off('techecho_theme_changed', themeHandler)
+      Taro.eventCenter.off('techecho_settings_changed', settingsHandler)
+    }
   }, [])
 
   function loadPersistedState() {
