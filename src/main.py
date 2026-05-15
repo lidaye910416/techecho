@@ -7,6 +7,7 @@ from pathlib import Path
 
 # 自动加载 .env 文件
 from dotenv import load_dotenv
+import os as _os
 env_path = Path(__file__).parent.parent / ".env"
 if env_path.exists():
     load_dotenv(env_path)
@@ -60,4 +61,4 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
