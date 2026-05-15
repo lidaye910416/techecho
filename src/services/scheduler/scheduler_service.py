@@ -19,9 +19,7 @@ async def daily_news_collection():
 
     try:
         # 动态导入避免循环依赖
-        from src.services.news_collector_v2 import BilingualNewsCollector
-        from src.services.news_ai_calibrator import NewsAICalibrator
-        from src.services.news_database import save_news_to_db
+        from src.services.news import BilingualNewsCollector, NewsAICalibrator, save_news_to_db
 
         collector = BilingualNewsCollector()
         calibrator = NewsAICalibrator()
@@ -55,8 +53,12 @@ async def daily_news_collection():
                 }
             })
 
-        # AI 校准
-        calibrated_news, stats = calibrator.batch_calibrate(news_dicts, min_score=55)
+        # AI 校准（必须成功，API 失败会抛异常）
+        try:
+            calibrated_news, stats = calibrator.batch_calibrate(news_dicts, min_score=55)
+        except RuntimeError as e:
+            logger.error(f"❌ AI 校准失败: {e}")
+            raise  # 让调度器捕获异常，记录后停止任务
 
         # 保存到数据库（前端通过 /api/news 接口读取）
         db_count = save_news_to_db(calibrated_news)
@@ -65,7 +67,7 @@ async def daily_news_collection():
 
         # TTS 预生成（采集后自动为每条新闻生成语音缓存）
         try:
-            from src.services.tts_pregen import pre_generate_tts_for_news
+            from src.services.tts import pre_generate_tts_for_news
             logger.info("🎙️ 开始 TTS 预生成...")
             tts_stats = await pre_generate_tts_for_news(calibrated_news)
             logger.info(

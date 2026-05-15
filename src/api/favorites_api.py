@@ -2,6 +2,13 @@
 收藏新闻 AI 分析 API
 
 提供收藏新闻的分析和 TTS 语音播报功能
+
+[TODO] 并发处理优化
+- 当前：多用户同时调用 analyze 时，共用单例 MiniMaxClient，可能触发 API 限流
+- 优化方案：
+  1. 请求队列 + asyncio.Semaphore 限制并发数
+  2. 分析结果缓存（相同 news_ids 直接返回缓存）
+  3. 基于用户的请求频率限制（避免单用户频繁触发）
 """
 
 from fastapi import APIRouter, HTTPException, Body
@@ -98,7 +105,7 @@ async def analyze_favorites(request: AnalyzeRequest):
         raise HTTPException(status_code=500, detail="MINIMAX_API_KEY 未配置，请先配置环境变量")
 
     # 获取收藏的新闻数据
-    from src.services.news_database import get_news_from_db
+    from src.services.news import get_news_from_db
 
     # 先拉取足够多的新闻，再用 news_ids 过滤
     # 使用较大的 limit 确保覆盖收藏列表中的低分新闻
@@ -307,7 +314,7 @@ async def text_to_speech(request: TTSRequest):
         logger.warning("Text truncated to 2500 characters")
 
     # 根据用户选择的语音风格获取 MiniMax voice_id 和 speed
-    from src.services.voice_config import VOICE_STYLES
+    from src.services.tts import VOICE_STYLES
     default_voice = "voice3"  # 轻御·对谈
     voice = request.voice if request.voice and request.voice in VOICE_STYLES else default_voice
     style = VOICE_STYLES.get(voice, VOICE_STYLES[default_voice])

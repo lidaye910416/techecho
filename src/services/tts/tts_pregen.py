@@ -4,6 +4,9 @@ TTS 预生成服务
 新闻采集后，使用系统默认音色(voice3)为每条新闻预生成 TTS 音频，
 存储到 data/audio/ 目录，写入数据库 audio_url 字段。
 用户点击「朗读」时直接播放缓存，避免重复消耗 MiniMax API 配额。
+
+注意：TTS 失败时不使用替代服务，直接返回失败状态。
+前端会处理 TTS 请求（携带用户登录态）。
 """
 
 import os
@@ -12,14 +15,15 @@ import httpx
 from pathlib import Path
 from typing import List, Dict
 
-from src.services.voice_config import VOICE_STYLES
+from src.services.tts.voice_config import VOICE_STYLES
 from src.services.minimax_client import get_minimax_client
-from src.services.news_database import save_news_audio
+from src.services.news import save_news_audio
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_VOICE = "voice3"
-AUDIO_DIR = Path(__file__).parent.parent.parent / "data" / "audio"
+# 修复：使用正确的项目根目录路径
+AUDIO_DIR = Path(__file__).parent.parent.parent.parent / "data" / "audio"
 
 
 def _get_audio_path(news_id: str) -> Path:
@@ -38,6 +42,17 @@ async def pre_generate_tts_for_news(
     news_list: List[Dict],
     voice: str = DEFAULT_VOICE
 ) -> Dict[str, int]:
+    """
+    预生成 TTS 音频（仅使用 MiniMax，不降级）
+
+    注意：
+    - 只使用 MiniMax API
+    - 失败时不使用 edge-tts 等替代服务
+    - 前端会处理用户请求时的 TTS 生成（携带登录态）
+
+    Returns:
+        stats: {"success": int, "skipped": int, "failed": int}
+    """
     style = VOICE_STYLES.get(voice, VOICE_STYLES[DEFAULT_VOICE])
     voice_id = style["minimax"]
     speed = style["speed"]
@@ -94,6 +109,8 @@ async def pre_generate_tts_for_news(
             except Exception as e:
                 stats["failed"] += 1
                 logger.warning(f"TTS pregen [{i+1}/{len(news_list)}] fail {news_id[:24]}: {str(e)[:80]}")
+                # 注意：失败时不使用替代 TTS，直接跳过
+                # 前端会在用户点击时发起新的 TTS 请求
                 continue
 
     finally:

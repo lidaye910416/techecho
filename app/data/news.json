@@ -1,187 +1,278 @@
 {
-  "lastUpdate": "2026-05-13 15:58",
-  "totalCount": 8,
+  "lastUpdate": "2026-05-15 09:22",
+  "totalCount": 9,
   "stats": {
-    "A+": 2,
-    "A": 1,
-    "B": 1,
-    "C": 1,
-    "D": 3
+    "A+": 0,
+    "A": 0,
+    "B": 0,
+    "C": 9,
+    "D": 0
   },
   "categories": [
     "ai",
-    "news",
-    "product"
+    "tools",
+    "news"
   ],
   "news": [
     {
-      "id": "8d953984-c831-4fec-a3ba-8f41b3678e13",
-      "title_zh": "OpenAI宣布GPT-5即将发布，支持多模态理解和 autonomous agents",
+      "id": "d0e41c88-402b-4fa6-86f9-856aadb19a80",
+      "title_zh": "AI融资激增与模型迭代加速：大厂竞争格局生变",
       "title_en": "",
-      "content_zh": "OpenAI CEO Sam Altman在社交媒体上确认，GPT-5正在全力开发中，将在未来几个月内发布。据透露，GPT-5将具备前所未有的多模态理解能力，能够同时处理文本、图像、音频和视频。此外，新模型将原生支持 autonomous agents，允许AI在用户授权下自主执行复杂任务，包括浏览网页、写代码、操作软件等。这被视为AI从助手向真正的数字代理转变的里程碑。",
+      "content_zh": "Recursive Superintelligence获6.5亿美元融资，AI自主进化技术获资本认可；苹果与OpenAI合作破裂或影响iOS19 AI功能整合进程。GPT-5.6内测启动三周，OpenAI与Anthropic同日打响开发者补贴战，吸引更多应用接入。",
       "content_en": "",
       "source_zh": "钛媒体",
       "source_en": "",
-      "source_url": "https://example.com/news/8d953984-c831-4fec-a3ba-8f41b3678e13",
+      "source_url": "https://www.tmtpost.com/7989030.html",
       "lang": "zh",
       "category": "ai",
-      "published_at": "2026-05-12 22:00:00",
-      "created_at": "2026-05-13T15:58:25.450481",
+      "published_at": "Fri, 15 May 2026 08:23:20 +0800",
+      "created_at": "2026-05-15T09:13:08.142359",
       "quality": {
-        "total_100": 90.0,
-        "grade": "A+",
-        "scores": {}
-      },
-      "audio": {}
-    },
-    {
-      "id": "bdc68120-fccd-4e98-822e-066ea1d419cd",
-      "title_zh": "英伟达发布新一代AI芯片Blackwell Ultra，性能提升3倍",
-      "title_en": "",
-      "content_zh": "英伟达在GTC大会上正式发布了Blackwell Ultra芯片，这是目前世界上最强大的AI训练和推理芯片。相比上一代Hopper，Blackwell Ultra在FP8精度的推理性能提升了3倍，同时能效比提升了2.5倍。黄仁勋表示，这款芯片将彻底改变AI计算的经济学，让大规模AI训练和部署变得更加经济实惠。多家云服务商已表示将采购该芯片用于下一代AI基础设施。",
-      "content_en": "",
-      "source_zh": "36氪",
-      "source_en": "",
-      "source_url": "https://example.com/news/bdc68120-fccd-4e98-822e-066ea1d419cd",
-      "lang": "zh",
-      "category": "ai",
-      "published_at": "2026-05-12 22:00:00",
-      "created_at": "2026-05-13T15:58:25.450488",
-      "quality": {
-        "total_100": 88.5,
-        "grade": "A+",
-        "scores": {}
-      },
-      "audio": {}
-    },
-    {
-      "id": "2532cd85-1c03-49bd-824a-87a795d05192",
-      "title_zh": "苹果Vision Pro 2曝光：更轻薄设计，售价或将下调30%",
-      "title_en": "",
-      "content_zh": "供应链消息显示，苹果正在研发Vision Pro第二代产品。新品将采用全新的光学引擎设计，整体重量将减少40%，佩戴舒适度大幅提升。同时，苹果正在与多家MicroLED供应商谈判，以解决目前显示屏成本过高的问题。业内分析师预测，Vision Pro 2的售价可能会从目前的3499美元下调至2499美元，这将大大加速空间计算设备的普及。",
-      "content_en": "",
-      "source_zh": "爱范儿",
-      "source_en": "",
-      "source_url": "https://example.com/news/2532cd85-1c03-49bd-824a-87a795d05192",
-      "lang": "zh",
-      "category": "product",
-      "published_at": "2026-05-13 15:58:14",
-      "created_at": "2026-05-13T15:58:25.450490",
-      "quality": {
-        "total_100": 85.0,
-        "grade": "A",
-        "scores": {}
-      },
-      "audio": {}
-    },
-    {
-      "id": "7e4d03d2-1eb2-4207-a603-3740b83a1b23",
-      "title_zh": "AI产业日报：SpaceX轨数据中心、OpenAI微软协议修订、GitLab转型",
-      "title_en": "",
-      "content_zh": "据钛媒体5月13日报道，SpaceX正与谷歌就共建轨数据中心进行初步洽谈，目标是突破传统算力瓶颈，重塑全球云计算格局。同期，OpenAI与微软修订合作协议，设定380亿美元营收分成上限，预计到2030年为OpenAI节省970亿美元成本。",
-      "content_en": "",
-      "source_zh": "钛媒体",
-      "source_en": "",
-      "source_url": "https://www.tmtpost.com/7985992.html",
-      "lang": "zh",
-      "category": "news",
-      "published_at": "Wed, 13 May 2026 07:59:36 +0800",
-      "created_at": "2026-05-13T15:58:25.450491",
-      "quality": {
-        "total_100": 66.5,
-        "grade": "B",
-        "scores": {}
-      },
-      "audio": {
-        "voice3": "/data/audio/7e4d03d2-1eb2-4207-a603-3740b83a1b23_v3.mp3"
-      }
-    },
-    {
-      "id": "b69c9650-56f0-4736-8a46-979de004f371",
-      "title_zh": "快手评估可灵AI资产重组方案，加速AI业务整合",
-      "title_en": "",
-      "content_zh": "快手正在评估拟议重组可灵AI之相关资产及业务的方案。可灵AI是快手自研的视频生成大模型，具备文生视频、图生视频等功能，已在全球市场产生显著影响。此次重组评估标志着快手进一步聚焦AI核心能力，整合相关资源以强化在大模型领域的技术优势和商业化能力。",
-      "content_en": "",
-      "source_zh": "钛媒体",
-      "source_en": "",
-      "source_url": "https://www.tmtpost.com/7985766.html",
-      "lang": "zh",
-      "category": "ai",
-      "published_at": "Wed, 13 May 2026 07:20:00 +0800",
-      "created_at": "2026-05-13T15:58:25.450493",
-      "quality": {
-        "total_100": 64.8,
+        "total_100": 63.8,
         "grade": "C",
-        "scores": {}
-      },
-      "audio": {
-        "voice3": "/data/audio/b69c9650-56f0-4736-8a46-979de004f371_v3.mp3"
+        "scores": {
+          "completeness": 3.5,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 7.5,
+          "actionability": 6.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
       }
     },
     {
-      "id": "8f4f0f37-048a-4699-9663-7695873d77f7",
-      "title_zh": "连亏四年仍定增7亿，海量数据押注HTAP与多模态数据库",
+      "id": "afe264a3-d668-4ed4-8b9f-9412bebe8fb2",
+      "title_zh": "Anthropic称90%代码已由AI完成；腾讯辟谣AI人才离职",
       "title_en": "",
-      "content_zh": "数据库厂商海量数据连亏四年后仍决定定增募资7亿元，押注HTAP与多模态技术。HTAP融合事务与分析处理，多模态技术支撑多样化数据处理需求。财报显示公司累计分红1600万，但募资总额将超12亿。市场关注其在持续亏损下仍大额融资的逻辑，以及HTAP、多模态等前沿技术能否真正落地并转化为业绩。",
+      "content_zh": "腾讯官方辟谣“AI一号位即将离职”传闻，表示相关消息不实。与此同时，Anthropic高管透露，公司目前已有90%的代码由AI工具完成。这一数据表明，AI辅助编程正加速渗透软件开发全流程，从代码补全到功能实现，AI正在重新定义工程师的工作模式。",
       "content_en": "",
       "source_zh": "钛媒体",
       "source_en": "",
-      "source_url": "https://www.tmtpost.com/7985857.html",
+      "source_url": "https://www.tmtpost.com/7988860.html",
       "lang": "zh",
       "category": "news",
-      "published_at": "Tue, 12 May 2026 22:45:31 +0800",
-      "created_at": "2026-05-13T15:58:25.450494",
+      "published_at": "Fri, 15 May 2026 07:20:00 +0800",
+      "created_at": "2026-05-15T09:13:08.143290",
       "quality": {
-        "total_100": 52.8,
-        "grade": "D",
-        "scores": {}
-      },
-      "audio": {
-        "voice3": "/data/audio/8f4f0f37-048a-4699-9663-7695873d77f7_v3.mp3"
+        "total_100": 62.2,
+        "grade": "C",
+        "scores": {
+          "completeness": 3.5,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 7.5,
+          "actionability": 6.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
       }
     },
     {
-      "id": "b277fe44-5b98-4ef2-bdf0-308a530c4a69",
-      "title_zh": "阿里千问接入淘宝：AI购物体验的端到端革命",
+      "id": "28ee9bb7-14e2-4379-9d5b-da773b7b8d36",
+      "title_zh": "Android运行Linux终端体验评测（2026版）",
       "title_en": "",
-      "content_zh": "阿里巴巴将通义千问大模型深度融入淘宝生态，标志着AI购物进入「端到端」时代。通过千问的智能交互能力，淘宝实现了从商品搜索、个性化推荐到智能客服的全链路AI赋能。用户可通过自然语言对话完成复杂购物决策，平台能精准捕捉需求并提供个性化服务。",
-      "content_en": "",
-      "source_zh": "钛媒体",
-      "source_en": "",
-      "source_url": "https://www.tmtpost.com/7984130.html",
-      "lang": "zh",
-      "category": "ai",
-      "published_at": "Tue, 12 May 2026 18:23:11 +0800",
-      "created_at": "2026-05-13T15:58:25.450494",
-      "quality": {
-        "total_100": 52.0,
-        "grade": "D",
-        "scores": {}
-      },
-      "audio": {
-        "voice3": "/data/audio/b277fe44-5b98-4ef2-bdf0-308a530c4a69_v3.mp3"
-      }
-    },
-    {
-      "id": "971a85a3-6c7a-426f-b76e-b93561d74bc3",
-      "title_zh": "地震预警App推荐：关键时刻能救命",
-      "title_en": "",
-      "content_zh": "地震预警App推荐：关键时刻能救命。推荐一款实用的地震预警应用，适用于没有内置预警功能的Android和iOS设备。该应用能提前几秒到几十秒发出警报，为用户提供宝贵的避险时间。界面简洁易用，支持自定义预警阈值和通知设置。在地震多发地区，这款App值得常备。",
+      "content_zh": "Google在Android上推出Linux终端功能，最初作为实验性特性登录Pixel机型，现已逐步开放。该功能与ChromeOS的Linux虚拟机开发环境技术同源，为开发者提供了在移动设备上进行命令行开发的可能。",
       "content_en": "",
       "source_zh": "少数派",
       "source_en": "",
-      "source_url": "https://sspai.com/post/73727",
+      "source_url": "https://sspai.com/prime/story/linux-vm-on-android",
       "lang": "zh",
-      "category": "product",
-      "published_at": "Tue, 12 May 2026 11:01:33 +0800",
-      "created_at": "2026-05-13T15:58:25.450495",
+      "category": "tools",
+      "published_at": "Thu, 14 May 2026 15:45:31 +0800",
+      "created_at": "2026-05-15T09:13:08.680331",
       "quality": {
-        "total_100": 48.0,
-        "grade": "D",
-        "scores": {}
-      },
-      "audio": {
-        "voice3": "/data/audio/971a85a3-6c7a-426f-b76e-b93561d74bc3_v3.mp3"
+        "total_100": 62.0,
+        "grade": "C",
+        "scores": {
+          "completeness": 6.0,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "98ab8a0a-0a80-4ad3-9088-f55347085201",
+      "title_zh": "腾讯加码AI投资：319亿元资本支出背后的战略考量",
+      "title_en": "",
+      "content_zh": "腾讯2026年Q1财报显示，其AI相关资本开支达319亿元，同比增长16%；研发投入225亿元，主要用于基础设施建设和模型迭代。腾讯正加大AI领域投资，涵盖大模型、Agent等产品的研发与部署。不过，AI投入对短期利润构成一定拖累，投资者需关注资本支出与投资回报的平衡。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3808999399497221?f=rss",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "2026-05-14 18:36:59  +0800",
+      "created_at": "2026-05-15T09:14:19.780085",
+      "quality": {
+        "total_100": 59.8,
+        "grade": "C",
+        "scores": {
+          "completeness": 3.5,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 6.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "a150b77a-118b-46b4-a329-3feda46bfa4a",
+      "title_zh": "美批准向10家中国公司出售H200芯片 黄仁勋随团访华寻求突破",
+      "title_en": "",
+      "content_zh": "美国商务部已批准英伟达向10家中国公司出售H200芯片，买家包括阿里巴巴、腾讯、字节跳动和京东等企业，每家公司最多可采购75,000颗。英伟达CEO黄仁勋此次受特朗普邀请随团访华，旨在打破芯片销售的僵局。中国方面尚未批准任何交易，中美芯片贸易僵局能否借此访华机会取得突破值得关注。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84298",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "Thu, 14 May 2026 21:38:52 +0800",
+      "created_at": "2026-05-15T09:13:08.919791",
+      "quality": {
+        "total_100": 59.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 4.5,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 2.5,
+          "actionability": 5.0,
+          "impact": 5.5,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "c20da0a8-c3ab-4b53-a9f6-f3fad8e24639",
+      "title_zh": "Meta追踪员工数据训练AI模型引发抗议",
+      "title_en": "",
+      "content_zh": "Meta正在美国员工电脑上部署追踪软件，采集鼠标移动、点击及按键数据用于训练AI模型，这是其构建自动化工作AI智能体计划的关键环节。这套名为Model Capability Initiative的工具运行于工作相关应用及网站，并不定时截取屏幕快照。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84293",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "Thu, 14 May 2026 15:00:17 +0800",
+      "created_at": "2026-05-15T09:13:08.920283",
+      "quality": {
+        "total_100": 59.0,
+        "grade": "C",
+        "scores": {
+          "completeness": 3.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "5cfae33e-9c0f-439d-80e6-50fcd144adea",
+      "title_zh": "腾讯Q1密集发布多款Agent产品，AI投入持续加码",
+      "title_en": "",
+      "content_zh": "2026年Q1，腾讯营收1964.6亿元，Non-IFRS经营利润756.3亿元，若剔除新AI产品影响，利润本该同比增长17%。本季研发投入225.4亿元，同比增长19%；资本开支319.4亿元，同比增长16%。总裁刘炽平表示，预期今年资本开支会显著上升，尤其在下半年。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3808710182034944?f=rss",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "2026-05-14 18:36:23  +0800",
+      "created_at": "2026-05-15T09:14:19.780219",
+      "quality": {
+        "total_100": 57.5,
+        "grade": "C",
+        "scores": {
+          "completeness": 2.0,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 6.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "6389b7eb-ecf3-4010-8622-268634ddad09",
+      "title_zh": "AI作弊迫使普林斯顿取消133年无人监考制度",
+      "title_en": "",
+      "content_zh": "1893年普林斯顿大学建立《荣誉规章》实施无人监考制度，学生以人格担保考试诚信。然而生成式AI工具的普及导致作弊泛滥，2025年调查显示29.9%的大四学生承认至少一次作弊，其中攻读工程学学位的学生作弊比例高达40.8%。荣誉规章依赖学生互相举报，但在AI工具和不愿告密的文化下形同虚设。",
+      "content_en": "",
+      "source_zh": "Solidot",
+      "source_en": "",
+      "source_url": "https://www.solidot.org/story?sid=84300",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "Thu, 14 May 2026 23:41:46 +0800",
+      "created_at": "2026-05-15T09:13:08.919576",
+      "quality": {
+        "total_100": 56.8,
+        "grade": "C",
+        "scores": {
+          "completeness": 0.5,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 6.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "0ff1b1a1-5505-4d04-acb9-3df0458e2acd",
+      "title_zh": "腾讯Q1资本开支370亿元押注AI 占比超营收18%",
+      "title_en": "",
+      "content_zh": "腾讯一季度资本开支达370亿元，其中主要投入用于支持AI相关发展，占整体营收比重超过18%。这一数据反映出腾讯在AI赛道上的积极布局，尽管面临激烈竞争，仍在持续加大研发投入力度。业内人士指出，随着大模型和生成式AI技术的快速发展，科技巨头们在AI领域的军备竞赛正在加速，资本开支将成为衡量企业AI竞争力的重要指标。",
+      "content_en": "",
+      "source_zh": "钛媒体",
+      "source_en": "",
+      "source_url": "https://www.tmtpost.com/7988103.html",
+      "lang": "zh",
+      "category": "ai",
+      "published_at": "Thu, 14 May 2026 18:17:33 +0800",
+      "created_at": "2026-05-15T09:13:08.143377",
+      "quality": {
+        "total_100": 55.2,
+        "grade": "C",
+        "scores": {
+          "completeness": 0.5,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 6.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
       }
     }
   ]

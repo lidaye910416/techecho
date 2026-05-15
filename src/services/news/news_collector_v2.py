@@ -102,23 +102,54 @@ class BilingualNewsCollector:
         return result
     
     async def _collect_sources(self, sources: List[Dict], lang: str) -> List[NewsItem]:
-        """从多个源收集"""
+        """从多个源收集（带重试机制）"""
         items = []
-        
+        MAX_RETRIES = 3
+        INITIAL_TIMEOUT = 10.0
+
         for source in sources:
-            try:
-                response = await self.client.get(source['url'])
-                response.raise_for_status()
-                feed = feedparser.parse(response.text)
-                
-                for entry in feed.entries[:10]:
-                    news_item = self._parse_entry(entry, source, lang)
-                    if news_item:
-                        items.append(news_item)
-                        
-            except Exception as e:
-                logger.warning(f"Failed to fetch {source['name']}: {e}")
-        
+            success = False
+            last_error = None
+
+            for attempt in range(MAX_RETRIES):
+                try:
+                    # 指数退避：超时时间随重试次数增加
+                    timeout = INITIAL_TIMEOUT * (2 ** attempt)
+                    response = await self.client.get(source['url'], timeout=timeout)
+                    response.raise_for_status()
+
+                    feed = feedparser.parse(response.text)
+                    entries_count = 0
+
+                    for entry in feed.entries[:15]:
+                        news_item = self._parse_entry(entry, source, lang)
+                        if news_item:
+                            items.append(news_item)
+                            entries_count += 1
+
+                    logger.info(f"✓ {source['name']}: {entries_count} items")
+                    success = True
+                    break  # 成功，跳出重试循环
+
+                except httpx.TimeoutException:
+                    last_error = f"超时 ({timeout:.1f}s)"
+                    logger.warning(f"  [{attempt+1}/{MAX_RETRIES}] {source['name']} 超时")
+                except httpx.HTTPStatusError as e:
+                    last_error = f"HTTP {e.response.status_code}"
+                    logger.warning(f"  [{attempt+1}/{MAX_RETRIES}] {source['name']} HTTP错误: {last_error}")
+                    if e.response.status_code >= 500:
+                        # 服务器错误，值得重试
+                        continue
+                    else:
+                        # 客户端错误（400-499），不重试
+                        break
+                except Exception as e:
+                    last_error = str(e)
+                    logger.warning(f"  [{attempt+1}/{MAX_RETRIES}] {source['name']} 错误: {last_error}")
+
+            if not success:
+                logger.error(f"✗ {source['name']} 最终失败: {last_error} (已重试{MAX_RETRIES}次)")
+
         return items
     
     def _parse_entry(self, entry, source: Dict, lang: str) -> Optional[NewsItem]:

@@ -14,7 +14,7 @@ import os
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from services.news_database import (
+from src.services.news import (
     get_news_from_db,
     get_news_stats,
     get_news_by_id,

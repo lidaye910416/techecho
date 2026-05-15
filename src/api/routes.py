@@ -32,20 +32,20 @@ BASE_URL = os.environ.get("BASE_URL", "http://localhost:8001")
 # ============ Voice Endpoints ============
 @router.get("/voices")
 async def get_voices():
-    from src.services.voice_config import VoiceConfigService
+    from src.services.tts import VoiceConfigService
     service = VoiceConfigService()
     return {"voices": service.get_all_voices()}
 
 @router.get("/voices/available")
 async def get_available_voices():
     """获取可用的声音列表"""
-    from src.services.voice_config import VoiceConfigService
+    from src.services.tts import VoiceConfigService
     service = VoiceConfigService()
     return {"voices": service.get_available_voices()}
 
 @router.get("/voices/presets")
 async def get_voice_presets():
-    from src.services.voice_config import VoiceConfigService
+    from src.services.tts import VoiceConfigService
     service = VoiceConfigService()
     return {
         "presets": [
