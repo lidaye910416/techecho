@@ -25,7 +25,7 @@ docker run -d \
   -p $PORT:8000 \
   -e PORT=8000 \
   -e MINIMAX_API_KEY=${MINIMAX_API_KEY:-sk-cp-tV4TuUIpZt64tdZO3kjFDIydJtrgaSDPDAXNo8zYk8CTHD39wz7vg1JN7_Dqd8LpevwJo-ZozDcpRo1REhX3PaCak4A8M-Rl8MXAEMvGbMoNOSi73B27yoM} \
-  -v $(pwd)/app/data:/app/data \
+  -v $(pwd)/data:/app/data \
   $IMAGE_NAME
 
 echo "⏳ 等待服务启动..."
@@ -49,7 +49,6 @@ if [ "$1" == "--daemon" ]; then
     echo "📋 常用命令:"
     echo "   查看日志: docker logs -f $CONTAINER_NAME"
     echo "   执行收集: docker exec $CONTAINER_NAME python3 scripts/collect_news.py"
-    echo "   数据库记录: docker exec $CONTAINER_NAME sqlite3 /app/data/database.db 'SELECT COUNT(*) FROM news_items'"
     echo "   停止服务: docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME"
     exit 0
 fi
@@ -67,10 +66,7 @@ echo "========================================"
 echo ""
 echo "📊 验证结果:"
 echo -n "   数据库记录: "
-docker exec $CONTAINER_NAME sqlite3 /app/data/database.db "SELECT COUNT(*) FROM news_items;"
-
-echo -n "   新闻API: "
-curl -s "http://localhost:$PORT/api/news?limit=3" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'可获取 {len(d.get(\"data\",[]))} 条新闻')"
+curl -s "http://localhost:$PORT/api/news?limit=100" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('data',[])), '条新闻')"
 
 echo ""
 echo "📋 后续操作:"

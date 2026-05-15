@@ -35,7 +35,7 @@ docker run -d \
   -p $PORT:8000 \
   -e PORT=8000 \
   -e MINIMAX_API_KEY=${MINIMAX_API_KEY:-sk-cp-tV4TuUIpZt64tdZO3kjFDIydJtrgaSDPDAXNo8zYk8CTHD39wz7vg1JN7_Dqd8LpevwJo-ZozDcpRo1REhX3PaCak4A8M-Rl8MXAEMvGbMoNOSi73B27yoM} \
-  -v $(pwd)/app/data:/app/data \
+  -v $(pwd)/data:/app/data \
   $IMAGE_NAME
 
 echo "⏳ 等待服务启动..."
