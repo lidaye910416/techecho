@@ -1,32 +1,33 @@
 {
-  "lastUpdate": "2026-05-15 09:22",
-  "totalCount": 9,
+  "lastUpdate": "2026-05-15 12:27",
+  "totalCount": 10,
   "stats": {
     "A+": 0,
     "A": 0,
     "B": 0,
-    "C": 9,
+    "C": 10,
     "D": 0
   },
   "categories": [
-    "ai",
+    "news",
     "tools",
-    "news"
+    "ai",
+    "product"
   ],
   "news": [
     {
-      "id": "d0e41c88-402b-4fa6-86f9-856aadb19a80",
-      "title_zh": "AI融资激增与模型迭代加速：大厂竞争格局生变",
+      "id": "da18d9a7-a9e5-4b98-b9f7-45ec409b9dc4",
+      "title_zh": "Recursive AI获6.5亿美元融资；GPT-5.6内测启动引发开发补贴战",
       "title_en": "",
-      "content_zh": "Recursive Superintelligence获6.5亿美元融资，AI自主进化技术获资本认可；苹果与OpenAI合作破裂或影响iOS19 AI功能整合进程。GPT-5.6内测启动三周，OpenAI与Anthropic同日打响开发者补贴战，吸引更多应用接入。",
+      "content_zh": "递归自改进AI初创公司Recursive Superintelligence获6.5亿美元融资，估值突破新高。苹果与OpenAI合作破裂或影响iOS 19的AI功能整合计划。OpenAI与Anthropic同日开启开发者补贴战，GPT-5.6内测启动三周即引发竞争。",
       "content_en": "",
       "source_zh": "钛媒体",
       "source_en": "",
       "source_url": "https://www.tmtpost.com/7989030.html",
       "lang": "zh",
-      "category": "ai",
+      "category": "news",
       "published_at": "Fri, 15 May 2026 08:23:20 +0800",
-      "created_at": "2026-05-15T09:13:08.142359",
+      "created_at": "2026-05-15T12:21:26.993934",
       "quality": {
         "total_100": 63.8,
         "grade": "C",
@@ -44,47 +45,18 @@
       }
     },
     {
-      "id": "afe264a3-d668-4ed4-8b9f-9412bebe8fb2",
-      "title_zh": "Anthropic称90%代码已由AI完成；腾讯辟谣AI人才离职",
+      "id": "05705b05-0ec2-4fa4-ab08-3058517c106a",
+      "title_zh": "Android运行Linux终端体验如何？2026版深度评测",
       "title_en": "",
-      "content_zh": "腾讯官方辟谣“AI一号位即将离职”传闻，表示相关消息不实。与此同时，Anthropic高管透露，公司目前已有90%的代码由AI工具完成。这一数据表明，AI辅助编程正加速渗透软件开发全流程，从代码补全到功能实现，AI正在重新定义工程师的工作模式。",
-      "content_en": "",
-      "source_zh": "钛媒体",
-      "source_en": "",
-      "source_url": "https://www.tmtpost.com/7988860.html",
-      "lang": "zh",
-      "category": "news",
-      "published_at": "Fri, 15 May 2026 07:20:00 +0800",
-      "created_at": "2026-05-15T09:13:08.143290",
-      "quality": {
-        "total_100": 62.2,
-        "grade": "C",
-        "scores": {
-          "completeness": 3.5,
-          "language": 8.0,
-          "title": 7.0,
-          "source_credibility": 9.0,
-          "info_density": 7.5,
-          "actionability": 6.0,
-          "impact": 5.0,
-          "originality": 5.0
-        },
-        "content_refined": true
-      }
-    },
-    {
-      "id": "28ee9bb7-14e2-4379-9d5b-da773b7b8d36",
-      "title_zh": "Android运行Linux终端体验评测（2026版）",
-      "title_en": "",
-      "content_zh": "Google在Android上推出Linux终端功能，最初作为实验性特性登录Pixel机型，现已逐步开放。该功能与ChromeOS的Linux虚拟机开发环境技术同源，为开发者提供了在移动设备上进行命令行开发的可能。",
+      "content_zh": "Google将ChromeOS中的Linux虚拟机开发环境移植到Android系统。2025年作为实验性功能登录Pixel机型后，该功能持续迭代优化，现已扩展支持更多设备。2026版不仅提升了系统兼容性和性能表现，还增强了与原生Android系统的交互体验，为移动端开发者提供了更灵活的编程环境。",
       "content_en": "",
       "source_zh": "少数派",
       "source_en": "",
       "source_url": "https://sspai.com/prime/story/linux-vm-on-android",
       "lang": "zh",
-      "category": "tools",
+      "category": "product",
       "published_at": "Thu, 14 May 2026 15:45:31 +0800",
-      "created_at": "2026-05-15T09:13:08.680331",
+      "created_at": "2026-05-15T12:21:27.504070",
       "quality": {
         "total_100": 62.0,
         "grade": "C",
@@ -102,10 +74,39 @@
       }
     },
     {
-      "id": "98ab8a0a-0a80-4ad3-9088-f55347085201",
-      "title_zh": "腾讯加码AI投资：319亿元资本支出背后的战略考量",
+      "id": "a6197650-2320-46e8-b610-c1bd16def32e",
+      "title_zh": "前大疆核心成员打造消费级CNC平台，获近亿元融资",
       "title_en": "",
-      "content_zh": "腾讯2026年Q1财报显示，其AI相关资本开支达319亿元，同比增长16%；研发投入225亿元，主要用于基础设施建设和模型迭代。腾讯正加大AI领域投资，涵盖大模型、Agent等产品的研发与部署。不过，AI投入对短期利润构成一定拖累，投资者需关注资本支出与投资回报的平衡。",
+      "content_zh": "消费级桌面CNC与智能数字制造平台「无限工坊」近日宣布完成近亿元融资，由美团战投、昆仑资本及奇绩创坛联合投资。该平台成立于2024年11月，创始团队包括前DJI核心成员及机器人领域海归博士。其核心产品采用五轴联动技术，可触达复杂曲面，配合AIGC智能生成3D模型，大幅降低使用门槛。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3809919654403587?f=rss",
+      "lang": "zh",
+      "category": "product",
+      "published_at": "2026-05-15 10:11:30  +0800",
+      "created_at": "2026-05-15T12:22:38.492595",
+      "quality": {
+        "total_100": 62.0,
+        "grade": "C",
+        "scores": {
+          "completeness": 6.0,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 5.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "4bff621b-b987-44ba-b081-bf6581a951f1",
+      "title_zh": "腾讯AI投资持续加码：Q1资本开支319亿元同比增长16%",
+      "title_en": "",
+      "content_zh": "腾讯2026年Q1财报显示，AI业务相关资本开支达319亿元，同比增长16%；研发投入225亿元，同比增长19%，主要用于基础设施建设和模型迭代。新AI产品对利润形成一定压力，但公司持续兑现AI投入承诺。管理层强调将平衡资本支出与投资回报，着眼长期技术布局。",
       "content_en": "",
       "source_zh": "36氪",
       "source_en": "",
@@ -113,7 +114,7 @@
       "lang": "zh",
       "category": "ai",
       "published_at": "2026-05-14 18:36:59  +0800",
-      "created_at": "2026-05-15T09:14:19.780085",
+      "created_at": "2026-05-15T12:22:38.493632",
       "quality": {
         "total_100": 59.8,
         "grade": "C",
@@ -131,10 +132,10 @@
       }
     },
     {
-      "id": "a150b77a-118b-46b4-a329-3feda46bfa4a",
-      "title_zh": "美批准向10家中国公司出售H200芯片 黄仁勋随团访华寻求突破",
+      "id": "55147f5b-9c6b-40a8-a923-a33490f4faed",
+      "title_zh": "美批准10家中国企业采购英伟达H200芯片，黄仁勋随行访华",
       "title_en": "",
-      "content_zh": "美国商务部已批准英伟达向10家中国公司出售H200芯片，买家包括阿里巴巴、腾讯、字节跳动和京东等企业，每家公司最多可采购75,000颗。英伟达CEO黄仁勋此次受特朗普邀请随团访华，旨在打破芯片销售的僵局。中国方面尚未批准任何交易，中美芯片贸易僵局能否借此访华机会取得突破值得关注。",
+      "content_zh": "美国商务部已批准阿里巴巴、腾讯、字节跳动、京东等10家中国公司采购英伟达H200芯片，每家最多可购买75,000颗。同时，包括联想、富士康在内的分销商也获得批准。英伟达CEO黄仁勋本周受特朗普邀请随行访华，寻求推动芯片销售。不过目前中国尚未批准任何交易，此次访问或有望打破僵局。",
       "content_en": "",
       "source_zh": "Solidot",
       "source_en": "",
@@ -142,7 +143,7 @@
       "lang": "zh",
       "category": "news",
       "published_at": "Thu, 14 May 2026 21:38:52 +0800",
-      "created_at": "2026-05-15T09:13:08.919791",
+      "created_at": "2026-05-15T12:21:27.744839",
       "quality": {
         "total_100": 59.5,
         "grade": "C",
@@ -160,10 +161,10 @@
       }
     },
     {
-      "id": "c20da0a8-c3ab-4b53-a9f6-f3fad8e24639",
-      "title_zh": "Meta追踪员工数据训练AI模型引发抗议",
+      "id": "90bc5652-a9ca-4535-8df2-c877aea6d47a",
+      "title_zh": "Meta员工抗议AI监控：追踪鼠标数据引发劳工权益争议",
       "title_en": "",
-      "content_zh": "Meta正在美国员工电脑上部署追踪软件，采集鼠标移动、点击及按键数据用于训练AI模型，这是其构建自动化工作AI智能体计划的关键环节。这套名为Model Capability Initiative的工具运行于工作相关应用及网站，并不定时截取屏幕快照。",
+      "content_zh": "Meta在美国员工电脑上安装追踪软件，采集鼠标移动、点击和按键数据用于训练AI模型，这是该公司构建AI智能体的重要环节。该软件在工作应用和网站中运行，会不定时截取屏幕内容。本周二Meta多地办公室员工散发传单抗议，并签署在线请愿书反对跟踪软件。",
       "content_en": "",
       "source_zh": "Solidot",
       "source_en": "",
@@ -171,7 +172,7 @@
       "lang": "zh",
       "category": "ai",
       "published_at": "Thu, 14 May 2026 15:00:17 +0800",
-      "created_at": "2026-05-15T09:13:08.920283",
+      "created_at": "2026-05-15T12:21:27.745499",
       "quality": {
         "total_100": 59.0,
         "grade": "C",
@@ -189,25 +190,25 @@
       }
     },
     {
-      "id": "5cfae33e-9c0f-439d-80e6-50fcd144adea",
-      "title_zh": "腾讯Q1密集发布多款Agent产品，AI投入持续加码",
+      "id": "357e30c6-3e17-474f-842b-9ce36e2aa064",
+      "title_zh": "阿里巴巴AI云连续高增长，Agent时代算力需求持续爆发",
       "title_en": "",
-      "content_zh": "2026年Q1，腾讯营收1964.6亿元，Non-IFRS经营利润756.3亿元，若剔除新AI产品影响，利润本该同比增长17%。本季研发投入225.4亿元，同比增长19%；资本开支319.4亿元，同比增长16%。总裁刘炽平表示，预期今年资本开支会显著上升，尤其在下半年。",
+      "content_zh": "受益于Agent时代算力需求爆发，阿里巴巴AI云业务保持强劲增势。财报显示，2026财年Q1阿里云营收整体同比增长38%，AI相关产品收入连续11个季度实现三位数增长。吴泳铭提出“未来5年AI和云要达到1000亿美元”年收入目标，进一步明确AI商业化路径。",
       "content_en": "",
       "source_zh": "36氪",
       "source_en": "",
-      "source_url": "https://36kr.com/p/3808710182034944?f=rss",
+      "source_url": "https://36kr.com/p/3807527591058948?f=rss",
       "lang": "zh",
       "category": "ai",
-      "published_at": "2026-05-14 18:36:23  +0800",
-      "created_at": "2026-05-15T09:14:19.780219",
+      "published_at": "2026-05-15 09:25:50  +0800",
+      "created_at": "2026-05-15T12:22:38.492893",
       "quality": {
-        "total_100": 57.5,
+        "total_100": 59.0,
         "grade": "C",
         "scores": {
           "completeness": 2.0,
           "language": 8.0,
-          "title": 7.0,
+          "title": 8.5,
           "source_credibility": 9.0,
           "info_density": 5.0,
           "actionability": 6.0,
@@ -218,18 +219,18 @@
       }
     },
     {
-      "id": "6389b7eb-ecf3-4010-8622-268634ddad09",
-      "title_zh": "AI作弊迫使普林斯顿取消133年无人监考制度",
+      "id": "af024dc9-8628-45e4-b6b1-92125c8c1602",
+      "title_zh": "AI作弊泛滥 普林斯顿废除133年无人监考制度",
       "title_en": "",
-      "content_zh": "1893年普林斯顿大学建立《荣誉规章》实施无人监考制度，学生以人格担保考试诚信。然而生成式AI工具的普及导致作弊泛滥，2025年调查显示29.9%的大四学生承认至少一次作弊，其中攻读工程学学位的学生作弊比例高达40.8%。荣誉规章依赖学生互相举报，但在AI工具和不愿告密的文化下形同虚设。",
+      "content_zh": "普林斯顿大学本周投票取消实施133年的无人监考制度，原因是AI作弊工具泛滥。1893年建立的《荣誉规章》依赖学生互相监督承诺考试诚信，但2025年调查显示，29.9%的大四学生承认至少一次作弊，使用生成式AI工具是主要手段。44.6%的学生目睹作弊却选择沉默，男厕所排长队成为作弊普遍的直接证据。",
       "content_en": "",
       "source_zh": "Solidot",
       "source_en": "",
       "source_url": "https://www.solidot.org/story?sid=84300",
       "lang": "zh",
-      "category": "ai",
+      "category": "news",
       "published_at": "Thu, 14 May 2026 23:41:46 +0800",
-      "created_at": "2026-05-15T09:13:08.919576",
+      "created_at": "2026-05-15T12:21:27.744560",
       "quality": {
         "total_100": 56.8,
         "grade": "C",
@@ -247,10 +248,10 @@
       }
     },
     {
-      "id": "0ff1b1a1-5505-4d04-acb9-3df0458e2acd",
-      "title_zh": "腾讯Q1资本开支370亿元押注AI 占比超营收18%",
+      "id": "7065c365-ce6c-4bda-bc60-e6cfa8ddf678",
+      "title_zh": "腾讯一季度AI投入370亿元 资本支出占比超18%",
       "title_en": "",
-      "content_zh": "腾讯一季度资本开支达370亿元，其中主要投入用于支持AI相关发展，占整体营收比重超过18%。这一数据反映出腾讯在AI赛道上的积极布局，尽管面临激烈竞争，仍在持续加大研发投入力度。业内人士指出，随着大模型和生成式AI技术的快速发展，科技巨头们在AI领域的军备竞赛正在加速，资本开支将成为衡量企业AI竞争力的重要指标。",
+      "content_zh": "腾讯日前披露，一季度资本开支达到370亿元，主要用于支持AI相关的投入，这一数字占其营收比重超过18%。业内人士分析，腾讯正加大对人工智能领域的投资力度，重点涵盖大模型研发、算力基础设施建设以及AI应用落地等方面。",
       "content_en": "",
       "source_zh": "钛媒体",
       "source_en": "",
@@ -258,7 +259,7 @@
       "lang": "zh",
       "category": "ai",
       "published_at": "Thu, 14 May 2026 18:17:33 +0800",
-      "created_at": "2026-05-15T09:13:08.143377",
+      "created_at": "2026-05-15T12:21:26.994066",
       "quality": {
         "total_100": 55.2,
         "grade": "C",
@@ -269,6 +270,35 @@
           "source_credibility": 9.0,
           "info_density": 5.0,
           "actionability": 6.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "content_refined": true
+      }
+    },
+    {
+      "id": "3845103e-b6fa-44dc-bbd0-ba21da2e4890",
+      "title_zh": "芯片制造质量保卫战：三星启动减产应对罢工风险",
+      "title_en": "",
+      "content_zh": "三星电子于14日开始削减芯片产量，以应对潜在的罢工风险。芯片制造的特殊性要求在罢工前提前调整产量和质量管控措施，最大限度降低损失风险。此举反映半导体制造对供应链稳定性的高度依赖，任何生产中断都可能导致严重的质量问题和交付延误，芯片制造商必须在风险可控范围内维持运营平衡。",
+      "content_en": "",
+      "source_zh": "36氪",
+      "source_en": "",
+      "source_url": "https://36kr.com/p/3809007831375621?f=rss",
+      "lang": "zh",
+      "category": "tools",
+      "published_at": "2026-05-14 18:43:16  +0800",
+      "created_at": "2026-05-15T12:22:38.493502",
+      "quality": {
+        "total_100": 55.0,
+        "grade": "C",
+        "scores": {
+          "completeness": 3.0,
+          "language": 8.0,
+          "title": 7.0,
+          "source_credibility": 9.0,
+          "info_density": 2.5,
+          "actionability": 5.0,
           "impact": 5.0,
           "originality": 5.0
         },
