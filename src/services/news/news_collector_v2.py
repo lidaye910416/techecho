@@ -62,9 +62,9 @@ class BilingualNewsCollector:
     async def close(self):
         await self.client.aclose()
     
-    async def collect_zh(self) -> List[NewsItem]:
+    async def collect_zh(self, source_limit: int = None) -> List[NewsItem]:
         """收集中文新闻"""
-        return await self._collect_sources(ZH_SOURCES, lang='zh')
+        return await self._collect_sources(ZH_SOURCES, lang='zh', source_limit=source_limit)
     
     async def collect_en(self) -> List[NewsItem]:
         """收集英文新闻（暂时禁用 - 纯中文项目）
@@ -81,15 +81,21 @@ class BilingualNewsCollector:
         # return await self._collect_sources(EN_SOURCES, lang='en')
         pass
     
-    async def collect_all(self, lang=None, category=None) -> List[NewsItem]:
-        """收集所有新闻"""
+    async def collect_all(self, lang=None, category=None, source_limit: int = None) -> List[NewsItem]:
+        """收集所有新闻
+
+        Args:
+            lang: 语言筛选 (zh/en)
+            category: 分类筛选
+            source_limit: 每个 RSS 源最多抓取条数 (默认抓全部)
+        """
         # 英文新闻已禁用，始终为空列表
         en_news: List[NewsItem] = []
 
         if lang == 'zh':
-            zh_news = await self.collect_zh()
+            zh_news = await self.collect_zh(source_limit=source_limit)
         else:
-            zh_news = await self.collect_zh()
+            zh_news = await self.collect_zh(source_limit=source_limit)
 
         # 去重 (基于标题相似度)
         all_news = zh_news + en_news
@@ -101,8 +107,14 @@ class BilingualNewsCollector:
 
         return result
     
-    async def _collect_sources(self, sources: List[Dict], lang: str) -> List[NewsItem]:
-        """从多个源收集（带重试机制）"""
+    async def _collect_sources(self, sources: List[Dict], lang: str, source_limit: int = None) -> List[NewsItem]:
+        """从多个源收集（带重试机制）
+
+        Args:
+            sources: RSS 源列表
+            lang: 语言
+            source_limit: 每个源最多抓取条数 (None=全部)
+        """
         items = []
         MAX_RETRIES = 3
         INITIAL_TIMEOUT = 10.0
@@ -110,6 +122,7 @@ class BilingualNewsCollector:
         for source in sources:
             success = False
             last_error = None
+            source_entries = []
 
             for attempt in range(MAX_RETRIES):
                 try:
@@ -121,10 +134,16 @@ class BilingualNewsCollector:
                     feed = feedparser.parse(response.text)
                     entries_count = 0
 
-                    for entry in feed.entries[:15]:
+                    # 应用 source_limit 限制
+                    entries = feed.entries
+                    if source_limit is not None:
+                        entries = feed.entries[:source_limit]
+
+                    for entry in entries:
                         news_item = self._parse_entry(entry, source, lang)
                         if news_item:
                             items.append(news_item)
+                            source_entries.append(news_item)
                             entries_count += 1
 
                     logger.info(f"✓ {source['name']}: {entries_count} items")

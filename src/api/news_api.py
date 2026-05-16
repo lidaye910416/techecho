@@ -146,7 +146,8 @@ async def trigger_collect(
     category: Optional[str] = None,
     lang: Optional[str] = None,
     limit: Optional[int] = None,
-    min_quality: int = Query(default=55, ge=0, le=100)
+    min_quality: int = Query(default=55, ge=0, le=100),
+    source_limit: Optional[int] = Query(default=None, ge=1, le=50, description="每个RSS源最多抓取条数")
 ):
     """触发新闻收集任务（异步后台执行）"""
     from src.services.news_collect_service import trigger_collect_task
@@ -155,7 +156,8 @@ async def trigger_collect(
         category=category,
         lang=lang,
         limit=limit,
-        min_quality=min_quality
+        min_quality=min_quality,
+        source_limit=source_limit
     )
 
     return {

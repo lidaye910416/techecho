@@ -4,10 +4,11 @@
   "description": "TechEcho Pro - 智能科技资讯平台",
   "main": "dist/index.html",
   "scripts": {
-    "dev:weapp": "TARO_APP_API_BASE=http://localhost:8000 taro build --type weapp",
-    "dev:h5": "TARO_APP_API_BASE=http://localhost:8000 taro build --type h5",
-    "build:weapp": "TARO_APP_API_BASE=http://localhost:8000 taro build --type weapp",
-    "build:h5": "TARO_APP_API_BASE=http://localhost:8000 taro build --type h5"
+    "dev:weapp": "TARO_APP_API_BASE=http://localhost:8000 taro build --type weapp --watch && npm run copy:weapp",
+    "dev:h5": "TARO_APP_API_BASE=http://localhost:8000 taro build --type h5 --watch",
+    "build:weapp": "TARO_APP_API_BASE=https://techecho-258357-8-1433613936.sh.run.tcloudbase.com taro build --type weapp && npm run copy:weapp",
+    "build:h5": "TARO_APP_API_BASE=https://techecho-258357-8-1433613936.sh.run.tcloudbase.com taro build --type h5",
+    "copy:weapp": "cp dist/app.json . && cp -r dist/assets . && cp dist/project.config.json ."
   },
   "dependencies": {
     "@tarojs/components": "3.6.40",

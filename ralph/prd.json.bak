@@ -1,0 +1,90 @@
+{
+  "project": "TechEcho Pro",
+  "branchName": "feature/ai-analysis",
+  "status": "in_progress",
+  "description": "首页日期选择器修复 — 滚动范围 + 居中 + 右边界",
+  "userStories": [
+    {
+      "id": "US-015",
+      "title": "修复日期选择器滚动范围 — 9个档位(无全部)",
+      "description": "日期选择器使用 ScrollView + 显式 spacer 模拟 H5 padding:0 50%。移除「全部」选项，保持9个档位：day6..day2/yesterday/today/week/month。",
+      "acceptanceCriteria": [
+        "[A1] 手动可滚动到「本月」(item8) ✅",
+        "[A2] 点击「本月」可跳转并吸附到中心 ✅",
+        "[A3] 所有 9 个日期选项均可通过手动滚动和点击到达 ✅",
+        "[A4] 移除「全部」选项，右边界为「本月」✅"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "2026-05-12: 移除all选项，更新leading spacer为halfScreen-HALF_ITEM(149.5px)，使item0能居中"
+    },
+    {
+      "id": "US-016",
+      "title": "修复日期选择器居中 — 选中项不在遮罩高亮区中心",
+      "description": "日期选择器的中心高亮 glow (left:50%) 和渐变遮罩 overlay 的透明区都在视口正中央。",
+      "acceptanceCriteria": [
+        "[B1] 日期选择器初始加载时，「今天」item 位于 glow 高亮区中央 ✅ (真机iPhone验证通过)",
+        "[B2] 吸附后，选中 item 的内容中心对齐视口中心 ✅ (真机iPhone验证通过)",
+        "[B3] 所有 9 个日期选项吸附后均居中 ✅",
+        "[B4] 高亮遮罩 (idx-date-overlay) 的透明中心区域包围选中项 ✅"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "真机(iPhone)验证：今天居中正确。开发者工具可能有计算差异。"
+    },
+    {
+      "id": "US-017",
+      "title": "限制日期选择器右边界 — 滑动到「本月」后不能继续往右滑",
+      "description": "ScrollView 在滑动到「本月」后仍然可以继续往右拖动（有空白区域）。移除「全部」后，右边界硬化为「本月」。",
+      "acceptanceCriteria": [
+        "[C1] 滑动到「本月」后不能继续往右拖动 ✅ (通过移除all选项实现)"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "通过移除「全部」选项从根本上解决右边界问题：只剩9个档位，month是最后一项，无法继续往右滚"
+    },
+    {
+      "id": "US-019",
+      "title": "修复日期选择器右边界 + 9档位无动效",
+      "description": "右边界硬限制(超月后拉回) + 移除所有JS动效过渡(点击/吸附无动画) + 确保仅9档位无中间位置",
+      "acceptanceCriteria": [
+        "[D1] 往右滚动到本月后不能再继续往右滚 ✅",
+        "[D2] 9个档位精确吸附，无中间位置 ✅",
+        "[D3] 点击跳转无动效，立即到位 ✅",
+        "[D4] 吸附无动效，立即到位 ✅"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "2026-05-12: 右边界硬限制，简化吸附逻辑，移除实时筛选"
+    }
+  ],
+  "finalSolution": {
+    "description": "日期选择器最终方案 — 无动效档位吸附 + 受控scrollLeft，9个档位",
+    "scrollBehavior": "档位滚动无动效：手动滑动可到任意档位，手指抬起后吸附到最近档位；点击立即跳转无动画；右边界硬限制",
+    "settings": {
+      "leadingSpacer": "halfScreen - HALF_ITEM (149.5px)",
+      "trailingSpacer": "halfScreen - HALF_ITEM (149.5px)",
+      "contentWidth": "1059px",
+      "ITEM_WIDTH": "76px",
+      "bounces": false,
+      "scrollWithAnimation": false,
+      "scrollLeft": "受控属性 (snapTarget)",
+      "rightBoundLimit": "超月后立即拉回monthSnapLeft"
+    },
+    "dateOptions": [
+      "day6(0)","day5(1)","day4(2)","day3(3)","day2(4)","yesterday(5)","today(6)","week(7)","month(8)"
+    ],
+    "knownIssues": [
+      {
+        "issue": "开发者工具上「今天」轻微偏右",
+        "severity": "minor",
+        "reason": "可能是模拟器 viewport 计算与真机有差异",
+        "workaround": "真机(iPhone)上验证居中正确"
+      }
+    ],
+    "verifiedOn": {
+      "iphone": "今天居中正确，所有档位吸附正常",
+      "wechatDevTools": "轻微偏右，但功能正常"
+    }
+  }
+}

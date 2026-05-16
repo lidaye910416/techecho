@@ -52,18 +52,20 @@ async def collect_news_async(
     lang: Optional[str] = None,
     limit: Optional[int] = None,
     min_quality: int = 55,
+    source_limit: Optional[int] = None,
     task_id: Optional[str] = None
 ) -> CollectResult:
     """
     异步执行新闻收集任务
-    
+
     Args:
         category: 筛选分类 (ai/tools/news/product)
         lang: 筛选语言 (zh/en)
-        limit: 限制数量
+        limit: 限制最终保存数量
         min_quality: 最低质量分
+        source_limit: 每个 RSS 源最多抓取条数 (默认抓全部)
         task_id: 任务ID（用于状态追踪）
-    
+
     Returns:
         CollectResult: 收集结果
     """
@@ -107,7 +109,7 @@ async def collect_news_async(
         
         # 1. 收集新闻
         print("\n[1/5] 收集新闻...")
-        news_items = await collector.collect_all(lang=lang, category=category)
+        news_items = await collector.collect_all(lang=lang, category=category, source_limit=source_limit)
         result.raw_count = len(news_items)
         print(f"   收集到 {len(news_items)} 条原始新闻")
         
@@ -197,16 +199,17 @@ async def trigger_collect_task(
     category: Optional[str] = None,
     lang: Optional[str] = None,
     limit: Optional[int] = None,
-    min_quality: int = 55
+    min_quality: int = 55,
+    source_limit: Optional[int] = None
 ) -> str:
     """
     触发新闻收集任务（异步后台执行）
-    
+
     Returns:
         task_id: 任务ID
     """
     task_id = str(uuid.uuid4())
-    
+
     # 启动后台任务
     asyncio.create_task(
         collect_news_async(
@@ -214,8 +217,9 @@ async def trigger_collect_task(
             lang=lang,
             limit=limit,
             min_quality=min_quality,
+            source_limit=source_limit,
             task_id=task_id
         )
     )
-    
+
     return task_id
