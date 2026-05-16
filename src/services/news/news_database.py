@@ -7,7 +7,11 @@ import os
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '../../data/database.db')
+# 配置中心
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+from src.config.settings import DB_PATH
 
 def get_db_connection():
     """获取数据库连接"""

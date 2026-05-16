@@ -21,7 +21,11 @@ WECHAT_APPID = os.getenv("WECHAT_APPID", "")
 WECHAT_SECRET = os.getenv("WECHAT_SECRET", "")
 
 # 数据库路径
-DB_PATH = os.path.join(os.path.dirname(__file__), '../../data/database.db')
+# 配置中心
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from src.config.settings import DB_PATH
 
 # Token 有效期（7天）
 TOKEN_EXPIRE_SECONDS = 7 * 24 * 3600

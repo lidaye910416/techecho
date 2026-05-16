@@ -1,0 +1,32 @@
+# 小程序（独立部署）
+app/src/
+app/dist/
+app/node_modules/
+app/package*.json
+app/project.config.json
+
+# Git
+.git/
+.gitignore
+
+# 文档
+*.md
+
+# IDE 和临时文件
+.vscode/
+.idea/
+.DS_Store
+__pycache__/
+
+# 环境配置（通过云托管控制台配置）
+.env
+.env.*
+.env.local
+
+# 测试脚本
+scripts/simulate_pipeline.py
+scripts/verify_news.py
+
+# 日志
+logs/
+*.log

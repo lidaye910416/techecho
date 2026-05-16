@@ -1,22 +1,20 @@
-// defineAppConfig wrapper - returns config directly since Taro 3.x handles it automatically
-const defineAppConfig = (config) => config;
-
-export default defineAppConfig({
+// Taro 公共配置
+module.exports = {
   projectName: 'tech-echo-pro',
   sourceRoot: 'src',
   outputRoot: 'dist',
   framework: 'react',
   compiler: 'webpack5',
-  designWidth: 375, // SCSS 按 375px 设计稿编写，1px = 2rpx → 物理尺寸翻倍
+  designWidth: 375,
   // 禁用 scope hoisting 修复 Taro + webpack5 循环依赖 TDZ 错误
-  // Cannot access 'vi' before initialization / Cannot access 'R' before initialization
   mini: {
     webpackChain(chain) {
       chain.optimization.concatenateModules(false)
     }
   },
+  // API 地址通过 package.json 中的环境变量传入
   defineConstants: {
-    'process.env.TARO_APP_API_BASE': JSON.stringify('http://localhost:8000'),
+    'process.env.TARO_APP_API_BASE': JSON.stringify(process.env.TARO_APP_API_BASE || 'http://localhost:8000'),
   },
   pages: [
     'pages/index/index',
@@ -41,4 +39,4 @@ export default defineAppConfig({
       { pagePath: 'pages/mine/mine', text: '我的', iconPath: 'assets/mine.png', selectedIconPath: 'assets/mine-active.png' }
     ]
   }
-})
+}

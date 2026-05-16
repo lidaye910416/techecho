@@ -1,90 +1,104 @@
 {
-  "project": "TechEcho Pro",
+  "project": "TechEcho Pro - 新闻收集 API 改造",
   "branchName": "feature/ai-analysis",
-  "status": "in_progress",
-  "description": "首页日期选择器修复 — 滚动范围 + 居中 + 右边界",
+  "status": "completed",
+  "description": "将 collect_news.py 的功能封装为 API 接口，支持定时任务触发",
   "userStories": [
     {
-      "id": "US-015",
-      "title": "修复日期选择器滚动范围 — 9个档位(无全部)",
-      "description": "日期选择器使用 ScrollView + 显式 spacer 模拟 H5 padding:0 50%。移除「全部」选项，保持9个档位：day6..day2/yesterday/today/week/month。",
+      "id": "US-020",
+      "title": "创建新闻收集服务层",
+      "description": "将 collect_news.py 的核心逻辑提取到独立的服务函数 collect_news_async()，供 API 和脚本复用",
       "acceptanceCriteria": [
-        "[A1] 手动可滚动到「本月」(item8) ✅",
-        "[A2] 点击「本月」可跳转并吸附到中心 ✅",
-        "[A3] 所有 9 个日期选项均可通过手动滚动和点击到达 ✅",
-        "[A4] 移除「全部」选项，右边界为「本月」✅"
+        "[A1] 服务函数可独立调用 ✅",
+        "[A2] 支持 category、lang、limit、min_quality 参数 ✅",
+        "[A3] 返回收集结果统计 ✅"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "2026-05-12: 移除all选项，更新leading spacer为halfScreen-HALF_ITEM(149.5px)，使item0能居中"
+      "notes": "2026-05-16: 创建 src/services/news_collect_service.py"
     },
     {
-      "id": "US-016",
-      "title": "修复日期选择器居中 — 选中项不在遮罩高亮区中心",
-      "description": "日期选择器的中心高亮 glow (left:50%) 和渐变遮罩 overlay 的透明区都在视口正中央。",
+      "id": "US-021",
+      "title": "添加触发收集 API 接口",
+      "description": "在 news_api.py 中添加 POST /api/news/collect 接口，支持异步后台执行新闻收集任务",
       "acceptanceCriteria": [
-        "[B1] 日期选择器初始加载时，「今天」item 位于 glow 高亮区中央 ✅ (真机iPhone验证通过)",
-        "[B2] 吸附后，选中 item 的内容中心对齐视口中心 ✅ (真机iPhone验证通过)",
-        "[B3] 所有 9 个日期选项吸附后均居中 ✅",
-        "[B4] 高亮遮罩 (idx-date-overlay) 的透明中心区域包围选中项 ✅"
+        "[B1] POST /api/news/collect 返回 task_id ✅",
+        "[B2] 收集任务在后台异步执行，不阻塞请求 ✅",
+        "[B3] 返回任务 ID 用于后续查询 ✅"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "2026-05-16: 异步后台任务通过 asyncio.create_task() 实现"
+    },
+    {
+      "id": "US-022",
+      "title": "添加收集状态查询接口",
+      "description": "提供 GET /api/news/collect/status 接口，查询当前收集任务状态",
+      "acceptanceCriteria": [
+        "[C1] GET /api/news/collect/status 返回任务状态 ✅",
+        "[C2] 返回进度信息（进行中/完成/失败）✅"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "真机(iPhone)验证：今天居中正确。开发者工具可能有计算差异。"
+      "notes": "2026-05-16: 支持 task_id 查询和当前任务查询"
     },
     {
-      "id": "US-017",
-      "title": "限制日期选择器右边界 — 滑动到「本月」后不能继续往右滑",
-      "description": "ScrollView 在滑动到「本月」后仍然可以继续往右拖动（有空白区域）。移除「全部」后，右边界硬化为「本月」。",
+      "id": "US-023",
+      "title": "测试 API 接口",
+      "description": "使用 curl 测试收集接口功能",
       "acceptanceCriteria": [
-        "[C1] 滑动到「本月」后不能继续往右拖动 ✅ (通过移除all选项实现)"
-      ],
-      "priority": 3,
-      "passes": true,
-      "notes": "通过移除「全部」选项从根本上解决右边界问题：只剩9个档位，month是最后一项，无法继续往右滚"
-    },
-    {
-      "id": "US-019",
-      "title": "修复日期选择器右边界 + 9档位无动效",
-      "description": "右边界硬限制(超月后拉回) + 移除所有JS动效过渡(点击/吸附无动画) + 确保仅9档位无中间位置",
-      "acceptanceCriteria": [
-        "[D1] 往右滚动到本月后不能再继续往右滚 ✅",
-        "[D2] 9个档位精确吸附，无中间位置 ✅",
-        "[D3] 点击跳转无动效，立即到位 ✅",
-        "[D4] 吸附无动效，立即到位 ✅"
+        "[D1] 触发收集接口返回 task_id ✅",
+        "[D2] 健康检查接口正常 ✅",
+        "[D3] 新闻列表接口正常 ✅"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "2026-05-12: 右边界硬限制，简化吸附逻辑，移除实时筛选"
+      "notes": "2026-05-16: 测试通过，收集 70 条原始新闻，过滤后 3 条"
     }
   ],
-  "finalSolution": {
-    "description": "日期选择器最终方案 — 无动效档位吸附 + 受控scrollLeft，9个档位",
-    "scrollBehavior": "档位滚动无动效：手动滑动可到任意档位，手指抬起后吸附到最近档位；点击立即跳转无动画；右边界硬限制",
-    "settings": {
-      "leadingSpacer": "halfScreen - HALF_ITEM (149.5px)",
-      "trailingSpacer": "halfScreen - HALF_ITEM (149.5px)",
-      "contentWidth": "1059px",
-      "ITEM_WIDTH": "76px",
-      "bounces": false,
-      "scrollWithAnimation": false,
-      "scrollLeft": "受控属性 (snapTarget)",
-      "rightBoundLimit": "超月后立即拉回monthSnapLeft"
-    },
-    "dateOptions": [
-      "day6(0)","day5(1)","day4(2)","day3(3)","day2(4)","yesterday(5)","today(6)","week(7)","month(8)"
-    ],
-    "knownIssues": [
-      {
-        "issue": "开发者工具上「今天」轻微偏右",
-        "severity": "minor",
-        "reason": "可能是模拟器 viewport 计算与真机有差异",
-        "workaround": "真机(iPhone)上验证居中正确"
+  "apiEndpoints": {
+    "POST /api/news/collect": {
+      "description": "触发新闻收集任务（异步）",
+      "params": {
+        "category": "可选，筛选分类 (ai/tools/news/product)",
+        "lang": "可选，筛选语言 zh/en",
+        "limit": "可选，限制数量",
+        "min_quality": "可选，最低质量分 (默认55)"
+      },
+      "response": {
+        "success": true,
+        "message": "新闻收集任务已启动，请在 /api/news/collect/status 查看进度",
+        "task_id": "uuid"
       }
-    ],
-    "verifiedOn": {
-      "iphone": "今天居中正确，所有档位吸附正常",
-      "wechatDevTools": "轻微偏右，但功能正常"
+    },
+    "GET /api/news/collect/status": {
+      "description": "查询收集任务状态",
+      "params": {
+        "task_id": "可选，指定任务ID；不指定则返回当前任务状态"
+      },
+      "response": {
+        "status": "idle/running/completed/failed",
+        "task_status": {
+          "task_id": "任务ID",
+          "status": "任务状态",
+          "raw_count": "原始新闻数量",
+          "filtered_count": "过滤后数量",
+          "saved_count": "保存数量",
+          "started_at": "开始时间",
+          "completed_at": "完成时间"
+        }
+      }
     }
+  },
+  "filesChanged": [
+    "src/services/news_collect_service.py (新增)",
+    "src/api/collect_api.py (新增)",
+    "src/api/news_api.py (修改 - 替换 collect 接口)",
+    "src/api/routes.py (修改 - 注册新路由)"
+  ],
+  "usageExample": {
+    "triggerCollect": "curl -X POST 'http://localhost:8000/api/news/collect?limit=5'",
+    "checkStatus": "curl 'http://localhost:8000/api/news/collect/status'",
+    "checkTask": "curl 'http://localhost:8000/api/news/collect/status?task_id=xxx'"
   }
 }

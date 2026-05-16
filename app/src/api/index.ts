@@ -6,8 +6,8 @@
 
 import Taro from '@tarojs/taro'
 
-// 基础配置 — 小程序正式环境需替换为生产域名
-const BASE_URL = process.env.TARO_APP_API_BASE || 'http://localhost:8001'
+// 微信云托管后端地址
+const BASE_URL = process.env.TARO_APP_API_BASE || ''
 
 /** 将相对路径转换为完整音频 URL */
 export function getAudioUrl(relativePath: string): string {

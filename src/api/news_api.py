@@ -14,7 +14,7 @@ import os
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from services.news_database import (
+from src.services.news import (
     get_news_from_db,
     get_news_stats,
     get_news_by_id,
@@ -142,15 +142,28 @@ async def get_news_detail(news_id: str):
     }
 
 @router.post("/collect")
-async def trigger_collect():
-    """触发新闻收集任务"""
+async def trigger_collect(
+    category: Optional[str] = None,
+    lang: Optional[str] = None,
+    limit: Optional[int] = None,
+    min_quality: int = Query(default=55, ge=0, le=100),
+    source_limit: Optional[int] = Query(default=None, ge=1, le=50, description="每个RSS源最多抓取条数")
+):
+    """触发新闻收集任务（异步后台执行）"""
+    from src.services.news_collect_service import trigger_collect_task
+
+    task_id = await trigger_collect_task(
+        category=category,
+        lang=lang,
+        limit=limit,
+        min_quality=min_quality,
+        source_limit=source_limit
+    )
+
     return {
         'success': True,
-        'message': 'Collection task triggered. Use CLI: python scripts/collect_news.py',
-        'endpoints': {
-            'cli': 'python scripts/collect_news.py',
-            'schedule': '设置定时任务调用 CLI'
-        }
+        'message': '新闻收集任务已启动，请在 /api/news/collect/status 查看进度',
+        'task_id': task_id
     }
 
 @router.post("/{news_id}/read")

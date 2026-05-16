@@ -55,7 +55,8 @@ import './news.scss'
 const FAV_STORAGE_KEY = 'techecho_favorites'
 const SETTINGS_STORAGE_KEY = 'techecho_settings'
 const ANALYSIS_STATE_KEY = 'techecho_analysis_state'
-const TTS_USED_KEY = 'techecho_tts_used'
+const TTS_USED_KEY = 'techecho_tts_used'  // TTS 使用标记（一次性）
+const TTS_CACHE_KEY = 'techecho_tts_cache'  // TTS 音频缓存
 
 // 语音风格名称映射
 const VOICE_NAMES: Record<string, string> = {
@@ -281,12 +282,33 @@ export default function News() {
 
   // ============ 朗读单条 ============
 
+  /** 检查是否已有该新闻的 TTS 缓存 */
+  const getCachedAudio = (newsId: string, voiceId: string): string | null => {
+    try {
+      const raw = Taro.getStorageSync(TTS_CACHE_KEY)
+      if (!raw) return null
+      const cache: Record<string, Record<string, string>> = JSON.parse(raw)
+      return cache[newsId]?.[voiceId] || null
+    } catch (_) { return null }
+  }
+
+  /** 缓存 TTS 音频 */
+  const cacheAudio = (newsId: string, voiceId: string, audioUrl: string) => {
+    try {
+      const raw = Taro.getStorageSync(TTS_CACHE_KEY)
+      const cache: Record<string, Record<string, string>> = raw ? JSON.parse(raw) : {}
+      if (!cache[newsId]) cache[newsId] = {}
+      cache[newsId][voiceId] = audioUrl
+      Taro.setStorageSync(TTS_CACHE_KEY, JSON.stringify(cache))
+    } catch (_) { /* ignore */ }
+  }
+
   /** 检查用户是否已登录 */
   const isLoggedIn = (): boolean => {
     try { return !!Taro.getStorageSync('auth_token') } catch (_) { return false }
   }
 
-  /** 检查 TTS 实时调用是否已使用 */
+  /** 检查 TTS 是否已使用（一次性机会） */
   const isTTSUsed = (): boolean => {
     try { return !!Taro.getStorageSync(TTS_USED_KEY) } catch (_) { return false }
   }
@@ -294,6 +316,16 @@ export default function News() {
   /** 标记 TTS 已使用 */
   const markTTSUsed = () => {
     try { Taro.setStorageSync(TTS_USED_KEY, '1') } catch (_) { /* ignore */ }
+  }
+
+  /** 提示 TTS 次数已用完 */
+  const promptTTSLimit = () => {
+    Taro.showModal({
+      title: t('ttsLimitReached'),
+      content: t('ttsLimitContent'),
+      showCancel: false,
+      confirmText: t('gotIt'),
+    })
   }
 
   /** 提示用户登录 */
@@ -308,16 +340,6 @@ export default function News() {
           Taro.switchTab({ url: '/pages/mine/mine' })
         }
       },
-    })
-  }
-
-  /** 提示 TTS 次数已用完 */
-  const promptTTSLimit = () => {
-    Taro.showModal({
-      title: t('ttsLimitReached'),
-      content: t('ttsLimitContent'),
-      showCancel: false,
-      confirmText: t('gotIt'),
     })
   }
 
@@ -386,28 +408,37 @@ export default function News() {
     setSpeakingId(newsId)
   }
 
-  /** 请求 TTS（实时语音生成） */
+  /** 请求 TTS（实时语音生成）- 登录用户只有一次机会）*/
   const requestTTS = async (item: NewsItem, voiceId: string) => {
+    if (!isLoggedIn()) {
+      promptLogin()
+      return
+    }
+
+    // 检查是否已有缓存（同一新闻可直接播放）
+    const cached = getCachedAudio(item.id, voiceId)
+    if (cached) {
+      playSingleAudio(item.id, cached)
+      return
+    }
+
+    // 检查 TTS 机会是否已用完
+    if (isTTSUsed()) {
+      promptTTSLimit()
+      return
+    }
+
     Taro.showToast({ title: t('speakGen'), icon: 'loading', duration: 10000 })
 
     try {
-      if (!isLoggedIn()) {
-        Taro.hideToast()
-        promptLogin()
-        return
-      }
-
-      if (isTTSUsed()) {
-        Taro.hideToast()
-        promptTTSLimit()
-        return
-      }
-
       const text = (item.summary_zh || item.content_zh || item.title_zh || '').slice(0, 800)
       const ttsRes = await ttsSpeak(text, voiceId)
       Taro.hideToast()
 
       if (ttsRes.success && ttsRes.data?.audio_url) {
+        // 缓存音频 URL
+        cacheAudio(item.id, voiceId, ttsRes.data.audio_url)
+        // 标记 TTS 已用完
         markTTSUsed()
         playSingleAudio(item.id, ttsRes.data.audio_url)
       } else {

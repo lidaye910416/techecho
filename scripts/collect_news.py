@@ -16,8 +16,25 @@ import sys
 import os
 from datetime import datetime, timedelta
 
-# Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+# Add src to path - 使用绝对路径避免 __file__ 问题
+# 优先使用环境变量指定项目根目录
+_project_root = os.environ.get('PROJECT_ROOT', None)
+
+if _project_root is None:
+    try:
+        _script_path = os.path.abspath(__file__)
+    except (NameError, AttributeError):
+        _script_path = os.path.abspath('scripts/collect_news.py')
+    _script_dir = os.path.dirname(_script_path)
+    _project_root = os.path.dirname(_script_dir)
+
+# 确保 _project_root 是绝对路径
+if not os.path.isabs(_project_root):
+    _project_root = os.path.abspath(_project_root)
+
+_src_path = os.path.join(_project_root, 'src')
+if _src_path not in sys.path:
+    sys.path.insert(0, _src_path)
 
 async def collect_news(category=None, lang=None, limit=None, min_quality=55):
     """收集新闻的主函数"""
@@ -32,8 +49,42 @@ async def collect_news(category=None, lang=None, limit=None, min_quality=55):
 
     try:
         # 导入新闻收集服务
-        from services.news_collector_v2 import BilingualNewsCollector
-        from services.news_ai_calibrator import NewsAICalibrator
+        import importlib.util
+        import importlib.machinery
+
+        # 尝试标准导入，如果失败则使用 importlib 直接加载
+        try:
+            from src.services.news import BilingualNewsCollector, NewsAICalibrator, save_news_to_db
+        except ModuleNotFoundError:
+            # 直接从文件加载模块
+            news_init_path = os.path.join(_src_path, 'services', 'news', '__init__.py')
+            if os.path.exists(news_init_path):
+                # 创建模块 spec 并加载
+                news_spec = importlib.util.spec_from_file_location("src.services.news", news_init_path)
+                news_module = importlib.util.module_from_spec(news_spec)
+
+                # 先加载父模块
+                src_spec = importlib.util.spec_from_file_location("src", os.path.join(_src_path, '__init__.py'))
+                src_module = importlib.util.module_from_spec(src_spec)
+                sys.modules['src'] = src_module
+                src_spec.loader.exec_module(src_module)
+
+                # 加载 services 模块
+                services_spec = importlib.util.spec_from_file_location("src.services", os.path.join(_src_path, 'services', '__init__.py'))
+                services_module = importlib.util.module_from_spec(services_spec)
+                sys.modules['src.services'] = services_module
+                services_spec.loader.exec_module(services_module)
+
+                # 加载 news 模块
+                sys.modules['src.services.news'] = news_module
+                news_spec.loader.exec_module(news_module)
+
+                # 获取导出对象
+                BilingualNewsCollector = news_module.BilingualNewsCollector
+                NewsAICalibrator = news_module.NewsAICalibrator
+                save_news_to_db = news_module.save_news_to_db
+            else:
+                raise ImportError(f"Cannot find module: {news_init_path}")
 
         collector = BilingualNewsCollector()
         calibrator = NewsAICalibrator()
@@ -103,13 +154,25 @@ async def collect_news(category=None, lang=None, limit=None, min_quality=55):
         }
 
         # 保存到数据库
-        from services.news_database import save_news_to_db
         db_count = save_news_to_db(calibrated_news)
         print(f"   已存入数据库: {db_count} 条")
 
         # TTS 预生成（采集后自动为每条新闻生成语音缓存）
         try:
-            from services.tts_pregen import pre_generate_tts_for_news
+            try:
+                from src.services.tts import pre_generate_tts_for_news
+            except ModuleNotFoundError:
+                # TTS 模块也使用 importlib 加载
+                tts_init_path = os.path.join(_src_path, 'services', 'tts', '__init__.py')
+                if os.path.exists(tts_init_path):
+                    tts_spec = importlib.util.spec_from_file_location("src.services.tts", tts_init_path)
+                    tts_module = importlib.util.module_from_spec(tts_spec)
+                    sys.modules['src.services.tts'] = tts_module
+                    tts_spec.loader.exec_module(tts_module)
+                    pre_generate_tts_for_news = tts_module.pre_generate_tts_for_news
+                else:
+                    raise ImportError(f"Cannot find module: {tts_init_path}")
+
             print("\n[5/5] TTS 语音预生成...")
             tts_stats = await pre_generate_tts_for_news(calibrated_news)
             print(f"   TTS 预生成完成: 成功 {tts_stats['success']}, 跳过 {tts_stats['skipped']}, 失败 {tts_stats['failed']}")
@@ -117,7 +180,7 @@ async def collect_news(category=None, lang=None, limit=None, min_quality=55):
             print(f"   ⚠️ TTS 预生成失败（不阻断流程）: {e}")
 
         # 保存到 app/data/news.json (作为备份和前端兼容)
-        output_path = os.path.join(os.path.dirname(__file__), '..', 'app', 'data', 'news.json')
+        output_path = os.path.join(_project_root, 'app', 'data', 'news.json')
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(output_data, f, ensure_ascii=False, indent=2)
 
@@ -131,7 +194,9 @@ async def collect_news(category=None, lang=None, limit=None, min_quality=55):
         return calibrated_news
         
     except ImportError as e:
+        import traceback
         print(f"\n⚠️  导入错误: {e}")
+        traceback.print_exc()
         print("   请确保已安装依赖: pip install -r requirements.txt")
         return []
     except Exception as e:
@@ -141,6 +206,19 @@ async def collect_news(category=None, lang=None, limit=None, min_quality=55):
         return []
 
 def main():
+    """
+    新闻收集主入口
+
+    服务器部署说明:
+    1. 设置环境变量 PROJECT_ROOT 为项目根目录:
+       export PROJECT_ROOT=/path/to/digital-human-tool
+
+    2. 使用 cron 定时任务调用:
+       30 8 * * * cd /path/to/digital-human-tool && python3 scripts/collect_news.py >> /var/log/news_collect.log 2>&1
+
+    3. 或使用 shell 脚本 (scripts/daily_workflow.sh):
+       ./scripts/daily_workflow.sh
+    """
     parser = argparse.ArgumentParser(description='TechEcho Pro 新闻收集工具')
     parser.add_argument('--category', '-c', help='指定分类 (ai/tools/news/product)')
     parser.add_argument('--lang', '-l', help='指定语言 (zh/en)')

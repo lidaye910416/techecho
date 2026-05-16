@@ -1,0 +1,77 @@
+{
+  "generated_at": "1144113.469735458",
+  "news": [
+    {
+      "id": "1a56189f-340c-4fb9-93eb-29f7d7f6f917",
+      "title_zh": "涨价潮叠加新布局，中芯国际经营拐点将至",
+      "title_en": "",
+      "content_zh": "中芯国际发布亮眼业绩指引，其经营面有望走出“底部”。公司一方面受益于晶圆代工涨价潮，产能利用率持续提升；另一方面在成熟制程领域加速扩产，高端制程研发亦有新突破。分析认为，随着行业景气度回升，中芯国际有望迎来业绩与估值的双重修复。",
+      "content_en": "",
+      "summary_zh": "亮眼指引，经营面有望走出 “底部”",
+      "summary_en": "",
+      "source_zh": "钛媒体",
+      "source_en": "",
+      "source_url": "https://www.tmtpost.com/7989141.html",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "Fri, 15 May 2026 10:14:43 +0800",
+      "created_at": "2026-05-15T12:04:45.989128",
+      "quality": {
+        "total_100": 49.5,
+        "weighted_total": 4.95,
+        "grade": "D",
+        "scores": {
+          "completeness": 0.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 0.0,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "issues": [
+          "内容要素不完整"
+        ],
+        "content_refined": true
+      },
+      "weight": 3
+    },
+    {
+      "id": "e1d21617-e4ab-4f8e-9c7c-f3a94c4d9bb9",
+      "title_zh": "百度VS英伟达：AI评价标准之争，Token还是DAA？",
+      "title_en": "",
+      "content_zh": "百度与英伟达的AI战略路径正形成鲜明对比。百度CEO李彦宏近期强调Token作为大模型的核心度量单位，而英伟达CEO黄仁勋则力推DAA（Data Processing Unit Acceleration）概念。Token代表了大模型训练与推理的精细度，DAA则代表了芯片层面的算力突破。",
+      "content_en": "",
+      "summary_zh": "百度AI的走向，开始变了。",
+      "summary_en": "",
+      "source_zh": "钛媒体",
+      "source_en": "",
+      "source_url": "https://www.tmtpost.com/7988792.html",
+      "lang": "zh",
+      "category": "news",
+      "published_at": "Fri, 15 May 2026 09:39:14 +0800",
+      "created_at": "2026-05-15T12:04:45.989170",
+      "quality": {
+        "total_100": 52.0,
+        "weighted_total": 5.2,
+        "grade": "D",
+        "scores": {
+          "completeness": 0.0,
+          "language": 8.0,
+          "title": 8.5,
+          "source_credibility": 9.0,
+          "info_density": 2.5,
+          "actionability": 5.0,
+          "impact": 5.0,
+          "originality": 5.0
+        },
+        "issues": [
+          "内容要素不完整"
+        ],
+        "content_refined": true
+      },
+      "weight": 3
+    }
+  ]
+}

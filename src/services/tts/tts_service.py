@@ -1,11 +1,12 @@
 """
-统一 TTS 服务
+统一 TTS 服务（仅使用 MiniMax）
 
 功能:
 1. 统一的 TTS 接口
-2. 多引擎支持 (MiniMax, edge-tts, Azure)
-3. 自动降级策略
-4. 音频缓存管理
+2. 仅使用 MiniMax API（不降级）
+3. 音频缓存管理
+
+注意：失败时不使用 edge-tts / Azure 等替代服务，前端会处理用户请求时的 TTS 生成
 """
 
 import asyncio
@@ -17,12 +18,10 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
 
-import edge_tts
 import httpx
 
 from src.services.minimax_client import get_minimax_client
-from src.services.azure_tts_client import get_azure_tts_client
-from src.services.voice_config import VOICE_STYLES, MINIMAX_VOICES, EDGE_VOICES
+from src.services.tts.voice_config import VOICE_STYLES, MINIMAX_VOICES
 
 logger = logging.getLogger(__name__)
 
@@ -57,13 +56,14 @@ class TTSStats:
 
 class TTSService:
     """
-    统一 TTS 服务
+    统一 TTS 服务（仅使用 MiniMax）
 
-    使用策略:
-    1. 优先 MiniMax (高质量)
-    2. MiniMax 失败/配额用尽 → edge-tts (兜底)
-    3. edge-tts 失败 → Azure TTS
-    4. 都失败 → Mock
+    注意：
+    - 只使用 MiniMax API 进行语音合成
+    - 失败时不使用 edge-tts / Azure 等替代服务
+    - 前端会在用户点击时发起新的 TTS 请求（携带登录态）
+
+    MiniMax 不可用时返回失败状态
     """
 
     MAX_TEXT_LENGTH = 500  # 单次 TTS 最大字符数
@@ -199,12 +199,13 @@ class TTSService:
         voice_id: str
     ) -> TTSResult:
         """
-        为指定语音生成 TTS
+        为指定语音生成 TTS（仅使用 MiniMax，不降级）
 
         策略:
         1. 检查缓存
         2. 优先 MiniMax
-        3. 降级 edge-tts
+        3. 如果 MiniMax 失败，不使用 edge-tts 等替代服务
+           前端会在用户点击时发起新的 TTS 请求（携带登录态）
         """
         # 检查缓存
         if self._is_cached(news_id, voice_id):
@@ -219,22 +220,17 @@ class TTSService:
 
         audio_file = self._get_cache_path(news_id, voice_id)
 
-        # 优先 MiniMax
+        # 只使用 MiniMax，不使用替代服务
         if self.minimax_available:
             result = await self._synthesize_minimax(news_id, text, voice_id, audio_file)
             if result.success:
                 logger.info(f"TTS MiniMax success: {voice_id}")
                 return result
-            logger.warning(f"TTS MiniMax failed: {result.message}, falling back to edge-tts")
+            logger.warning(f"TTS MiniMax failed: {result.message}")
+            return result  # 直接返回失败，不使用 edge-tts
 
-        # 降级到 edge-tts
-        result = await self._synthesize_edge_tts(news_id, text, voice_id, audio_file)
-        if result.success:
-            logger.info(f"TTS edge-tts success: {voice_id}")
-        else:
-            logger.error(f"TTS all providers failed: {result.message}")
-
-        return result
+        # MiniMax 不可用，返回失败
+        return TTSResult(False, "", False, "minimax", "MiniMax TTS 不可用")
 
     async def synthesize_for_news(
         self,

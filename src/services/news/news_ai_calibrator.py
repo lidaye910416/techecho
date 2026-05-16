@@ -53,42 +53,30 @@ class CalibrationResult:
 class NewsAICalibrator:
     """AI质量校准器
 
-    支持降级模式:
-    - 有 API Key: 调用 MiniMax API 进行语义校准
-    - 无 API Key: 自动降级为规则截断模式
+    必须使用 API Key: 从环境变量 MINIMAX_API_KEY 读取
+    无 API Key 时抛出异常，终止服务（需要管理员配置）
     """
 
     def __init__(self, api_key: str = None):
+        # 必须提供 API Key，从环境变量获取默认值
         self.api_key = api_key or MINIMAX_API_KEY
-        self.enabled = bool(self.api_key)
+        if not self.api_key:
+            raise ValueError(
+                "MINIMAX_API_KEY 未配置！请在 .env 文件或环境变量中设置 MINIMAX_API_KEY\n"
+                "AI 校准功能需要 MiniMax API Key 才能运行\n"
+                "配置示例: MINIMAX_API_KEY=your_api_key_here"
+            )
+        self.enabled = True  # 有 API Key，始终启用
 
     def calibrate(self, news_item: Dict) -> CalibrationResult:
-        """对单条新闻进行校准
+        """对单条新闻进行校准（调用 MiniMax API）
 
-        - 有 API Key: 调用 MiniMax API
-        - 无 API Key: 降级为规则截断
+        注意：有 API Key 时，API 失败会重试后抛异常，不会降级 fallback。
+        必须确保 API 可用，否则服务不可用。
         """
         original_score = news_item.get('quality', {}).get('total_100', 0)
 
-        # 降级模式: 只做规则截断
-        if not self.enabled:
-            content = news_item.get('content_zh', '')[:500] if news_item.get('lang') == 'zh' \
-                else news_item.get('content_en', '')[:500]
-            refined = self._truncate_at_sentence(content, 150)
-
-            return CalibrationResult(
-                original_score=original_score,
-                calibrated_score=original_score,
-                category=news_item.get('category', 'news'),
-                category_confirmed=False,
-                is_related=True,
-                reason="",
-                action="pass",
-                refined_content=refined,
-                content_refined=True
-            )
-
-        # AI模式: 调用 MiniMax API
+        # 调用 MiniMax API 进行语义校准
         prompt = self._build_unified_prompt(news_item)
 
         last_error = None
@@ -121,21 +109,12 @@ class NewsAICalibrator:
             if attempt < MAX_RETRIES - 1:
                 logger.info(f"[AI校准] 重试中... ({attempt + 2}/{MAX_RETRIES})")
 
-        # 重试耗尽，降级到规则模式
-        content = news_item.get('content_zh', '')[:500] if news_item.get('lang') == 'zh' \
-            else news_item.get('content_en', '')[:500]
-        refined = self._truncate_at_sentence(content, 150)
-
-        return CalibrationResult(
-            original_score=original_score,
-            calibrated_score=original_score,
-            category=news_item.get('category', 'news'),
-            category_confirmed=False,
-            is_related=True,
-            reason=f"降级模式: API失败 - {last_error}",
-            action="pass",
-            refined_content=refined,
-            content_refined=True
+        # 重试耗尽，抛出异常（必须使用 AI 校准，不能降级）
+        raise RuntimeError(
+            f"[AI校准] MiniMax API 调用失败，已重试 {MAX_RETRIES} 次。\n"
+            f"  新闻: {news_item.get('title_zh', '')[:50]}\n"
+            f"  最后错误: {last_error}\n"
+            f"请检查 MiniMax API Key 和网络连接。"
         )
     
     def _build_unified_prompt(self, news: Dict) -> str:
