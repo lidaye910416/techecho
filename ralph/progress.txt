@@ -396,3 +396,23 @@ Total commits: 2
 - **Learnings**:
   - 移除选项比限制滚动范围更彻底解决右边界问题
   - leading spacer 必须 > 0 才能让 item0 居中 (scrollLeft不能为负)
+
+## 2026-05-16 13:25 - US-020, US-021, US-022, US-023
+- What was implemented:
+  - 新闻收集 API 改造：将 collect_news.py 的功能封装为异步 API 接口
+  - 创建 src/services/news_collect_service.py：核心收集逻辑服务层
+  - 创建 src/api/collect_api.py：收集状态查询接口
+  - 修改 src/api/news_api.py：替换 /collect 接口为异步任务
+  - 修改 src/api/routes.py：注册新路由
+- Files changed:
+  - src/services/news_collect_service.py (新增)
+  - src/api/collect_api.py (新增)
+  - src/api/news_api.py (修改)
+  - src/api/routes.py (修改)
+  - ralph/prd.json (更新)
+- **Learnings for future iterations:**
+  - asyncio.create_task() 用于异步后台任务
+  - 数据库目录需要预先创建，否则 sqlite3 报错
+  - 后端启动需要设置 DATA_DIR 环境变量
+  - curl 参数有特殊字符时需要用单引号包裹 URL
+---

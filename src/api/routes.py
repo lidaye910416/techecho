@@ -15,6 +15,7 @@ import os
 from src.api.news_api import router as news_api_router
 from src.api.favorites_api import router as favorites_api_router
 from src.api.auth_api import router as auth_api_router
+from src.api.collect_api import router as collect_api_router
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -26,6 +27,9 @@ router.include_router(favorites_api_router)
 
 # 注册微信认证路由
 router.include_router(auth_api_router)
+
+# 注册新闻收集路由
+router.include_router(collect_api_router)
 
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8001")
 
