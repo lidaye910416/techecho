@@ -841,7 +841,8 @@ useEffect(() => {
                 className={`idx-detail-act ${isSpeaking(detailItem.id) ? 'idx-detail-act--active' : ''}`}
                 onClick={(e: any) => handleSpeak(detailItem, e)}
               >
-                <Text>{speakingId === detailItem.id ? t('stopSpeaking') : pausedId === detailItem.id ? '▶️ ' + t('speak') : '🔊 ' + t('speak')}</Text>
+                <Text>{speakingId === detailItem.id ? '⏹' : pausedId === detailItem.id ? '▶️' : '🔊'}</Text>
+                <Text>{speakingId === detailItem.id ? t('stopSpeaking') : pausedId === detailItem.id ? t('speak') : t('speak')}</Text>
               </View>
               <View
                 className={`idx-detail-act ${isFav(detailItem.id) ? 'idx-detail-act--active' : ''}`}

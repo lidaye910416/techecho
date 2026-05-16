@@ -68,3 +68,6 @@ temp/
 .worktrees/
 data/*.db
 data/*.sqlite*
+
+# Logs
+logs/

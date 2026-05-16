@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-> **当前分支**: `feature/ai-analysis`  
-> **当前版本**: v0.2.0 — TechEcho 科技资讯播报平台
+> **当前分支**: `main`（feature/ai-analysis 已合并）
+> **当前版本**: v0.3.1 — TechEcho 科技资讯播报平台
 
 ---
 
@@ -14,31 +14,7 @@
 | 目标用户 | 科技从业者、资讯追踪者 |
 | 核心链路 | RSS 采集 → 质量评分 → AI 分析 → TTS 语音播报 |
 | 多端支持 | **H5 SPA** (主力) → Taro 打包微信小程序 |
-| 前端入口 | `app/index.html` (纯 HTML/CSS/JS，~2168 行单文件) |
-
----
-
-## 分支目标 (feature/ai-analysis) ✅ 全部完成 (2026-05-09)
-
-收藏新闻 **AI 分析 + 语音播报**：
-
-### H5 核心功能
-| Story | 内容 | 状态 |
-|-------|------|:--:|
-| US-001 | `POST /api/favorites/analyze` — AI 分析收藏新闻 | ✅ |
-| US-002 | `POST /api/favorites/tts` — 分析文本转语音 | ✅ |
-| US-003 | H5 收藏页 — AI 分析按钮 + 五区块结果展示 | ✅ |
-| US-004 | H5 音频播放器 — 进度条/语速/下载/跳过 | ✅ |
-
-### 微信小程序
-| Story | 内容 | 状态 |
-|-------|------|:--:|
-| US-011 | Tab Bar 重新配置 — 对齐 H5「首页」+「收藏」 | ✅ |
-| US-012 | 首页 — H5 逐组件对标 + 下拉刷新 + 音频生命周期 | ✅ |
-| US-013 | 收藏页 — H5 对标 + ⚠️ CRITICAL BUG ×2 修复 + 进度条 | ✅ |
-| US-014 | Taro 编译验证 + 端到端功能测试 | ✅ |
-
-> 📋 原始验收标准: `ralph/prd.json`　📝 实施记录: `ralph/progress.txt`
+| 前端入口 | `app/index.html` (纯 HTML/CSS/JS 单文件) |
 
 ---
 
@@ -97,7 +73,7 @@
 │   └── config/
 │
 ├── src/                          # 后端
-│   ├── main.py                   # FastAPI 入口 (端口 8001)
+│   ├── main.py                   # FastAPI 入口 (端口 8000)
 │   ├── api/
 │   │   ├── routes.py             # 主路由 (/api 前缀，注册所有子路由)
 │   │   ├── favorites_api.py      # ★ 收藏分析 + TTS API
@@ -129,6 +105,8 @@
 │
 ├── scripts/
 │   ├── collect_news.py           # 手动新闻采集
+│   ├── test-docker.sh            # Docker 测试脚本
+│   ├── setup.sh
 │   └── generate_icons.py
 │
 ├── data/database.db              # 新闻数据库 (SQLite)
@@ -142,23 +120,67 @@
 
 ```bash
 # === 后端 ===
-python -m uvicorn src.main:app --reload --port 8001   # 启动 API
-curl http://localhost:8001/health                      # 健康检查
-curl http://localhost:8001/api/status                  # API 状态
-open http://localhost:8001/docs                        # Swagger 文档
+python -m uvicorn src.main:app --reload --port 8000   # 启动 API
+curl http://localhost:8000/health                      # 健康检查
+curl http://localhost:8000/api/status                  # API 状态
+open http://localhost:8000/docs                        # Swagger 文档
 
 # === 新闻采集 ===
 python scripts/collect_news.py                         # 手动采集
+
+# === Docker 测试 ===
+./scripts/test-docker.sh              # 完整测试流程
+./scripts/test-docker.sh --daemon     # 测试 + 保持运行（按 Ctrl+C 清理）
+./scripts/test-docker.sh --reuse     # 使用已有镜像测试
 
 # === H5 前端 (无需构建) ===
 open app/index.html                                    # 直接浏览器打开
 python -m http.server 8080 -d app/                     # 或用 HTTP 服务器
 
 # === Taro 小程序 ===
-cd app && npm run build:weapp                          # 编译微信小程序 → dist/
-# 然后用微信开发者工具打开 app/dist/ 预览
+cd app && npm run dev:weapp                          # 开发模式（localhost:8000）
+cd app && npm run build:weapp                        # 生产构建（云托管地址）
+# 用微信开发者工具打开 app/dist/ 预览
 
 # ⚠️ dist/ 是编译产物，禁止直接修改。只改 app/src/ 下的源码。
+```
+
+---
+
+## 打包文件说明
+
+`techecho-backend.zip` 是可分发的后端部署包：
+
+```
+techecho-backend.zip
+├── Dockerfile
+├── requirements.txt
+├── pyproject.toml
+├── .env.example
+├── CLAUDE.md
+├── src/                    # 全部后端源码
+│   ├── main.py
+│   ├── api/
+│   ├── services/
+│   ├── models/
+│   ├── config/
+│   └── utils/
+└── scripts/
+    ├── test-docker.sh     # Docker 测试脚本
+    ├── collect_news.py    # 手动采集
+    ├── setup.sh
+    └── generate_icons.py
+```
+
+**不含**：`.env`（密钥）、`data/database.db`（数据库）
+
+**部署步骤**：
+```bash
+unzip techecho-backend.zip
+cp .env.example .env
+# 填入 MINIMAX_API_KEY
+docker build -t techecho:latest .
+docker run -d -p 8090:8000 --env-file .env techecho:latest
 ```
 
 ---
@@ -273,7 +295,7 @@ MINIMAX_API_KEY=xxx        # ★ 必需 — MiniMax TTS/Chat API
 WECHAT_APPID=xxx           # 微信小程序 AppID (正式发布时填写)
 WECHAT_SECRET=xxx          # 微信小程序 Secret (正式发布时填写)
 # DATABASE_URL=sqlite:///data/database.db
-# BASE_URL=http://localhost:8001
+# BASE_URL=http://localhost:8000
 ```
 
 当前状态: TTS 可用 (`speech-2.8-hd`)，Chat API 可用 (`MiniMax-M2.7` → `v1/chat/completions`)。
