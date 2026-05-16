@@ -12,7 +12,7 @@ env_path = Path(__file__).parent.parent / ".env"
 if env_path.exists():
     load_dotenv(env_path)
 
-app = FastAPI(title="Tech Echo - 科技资讯播报", version="0.2.0")
+app = FastAPI(title="Tech Echo - 科技资讯播报", version="0.3.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,7 +51,7 @@ if os.path.exists(data_dir):
 async def root():
     return {
         "name": "Tech Echo API",
-        "version": "0.2.0",
+        "version": "0.3.1",
         "description": "科技资讯播报平台 API"
     }
 
