@@ -1,11 +1,11 @@
 """
 TechEcho Pro - API 路由
 
-保留:
-- 用户认证
-- 资讯 API (news_api)
-- TTS 测试
-- 语言服务
+注册所有 API 子路由：
+- 资讯 API (news_api) - 新闻 CRUD + 收集
+- 收藏分析 API (favorites_api)
+- 微信认证 API (auth_api)
+- 通用 API (voices, languages, status)
 """
 
 from fastapi import APIRouter, Body
@@ -15,11 +15,10 @@ import os
 from src.api.news_api import router as news_api_router
 from src.api.favorites_api import router as favorites_api_router
 from src.api.auth_api import router as auth_api_router
-from src.api.collect_api import router as collect_api_router
 
 router = APIRouter(prefix="/api", tags=["api"])
 
-# 注册资讯路由 (JSON数据版)
+# 注册资讯路由 (新闻 CRUD + 收集)
 router.include_router(news_api_router)
 
 # 注册收藏分析路由
@@ -27,9 +26,6 @@ router.include_router(favorites_api_router)
 
 # 注册微信认证路由
 router.include_router(auth_api_router)
-
-# 注册新闻收集路由
-router.include_router(collect_api_router)
 
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8001")
 

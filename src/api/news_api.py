@@ -1,12 +1,18 @@
 """
 TechEcho Pro - 新闻 API 端点
 
-提供新闻相关的 API 接口 - 从数据库读取新闻数据
+提供新闻相关的 API 接口：
+- GET /api/news - 获取新闻列表
+- GET /api/news/stats - 获取新闻统计
+- GET /api/news/dates - 获取可用日期
+- GET /api/news/categories - 获取分类列表
+- GET /api/news/{id} - 获取新闻详情
+- POST /api/news/collect - 触发新闻收集（异步后台）
+- GET /api/news/collect/status - 查询收集任务状态
 """
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import JSONResponse
-from typing import Optional, List
+from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 import sys
 import os
@@ -20,8 +26,15 @@ from src.services.news import (
     get_news_by_id,
     mark_as_read as db_mark_as_read
 )
+from src.services.news_collect_service import (
+    trigger_collect_task,
+    get_task_status,
+    get_current_task,
+)
 
 router = APIRouter(prefix="/news", tags=["news"])
+
+# ============ 新闻查询接口 ============
 
 @router.get("")
 async def get_news_list(
@@ -141,17 +154,48 @@ async def get_news_detail(news_id: str):
         'data': item
     }
 
+@router.put("/{news_id}/read")
+async def mark_as_read(news_id: str):
+    """标记新闻为已读"""
+    success = db_mark_as_read(news_id)
+    return {"success": success, "message": "Marked as read" if success else "News not found"}
+
+# ============ 新闻收集接口 ============
+
 @router.post("/collect")
 async def trigger_collect(
-    category: Optional[str] = None,
-    lang: Optional[str] = None,
-    limit: Optional[int] = None,
-    min_quality: int = Query(default=55, ge=0, le=100),
+    category: Optional[str] = Query(None, description="新闻分类: ai/tools/news/product"),
+    lang: Optional[str] = Query(None, description="语言: zh/en"),
+    limit: Optional[int] = Query(None, description="限制最终保存数量"),
+    min_quality: int = Query(default=55, ge=0, le=100, description="最低质量分数"),
     source_limit: Optional[int] = Query(default=None, ge=1, le=50, description="每个RSS源最多抓取条数")
 ):
-    """触发新闻收集任务（异步后台执行）"""
-    from src.services.news_collect_service import trigger_collect_task
-
+    """
+    触发新闻收集任务（异步后台执行）
+    
+    收集流程：
+    1. 从 RSS 源收集新闻
+    2. AI 质量评分和校准
+    3. 保存到数据库
+    4. TTS 语音预生成
+    
+    使用 curl 测试：
+    ```bash
+    # 基础触发（每个源最多10条）
+    curl -X POST "http://localhost:8000/api/news/collect?source_limit=10"
+    
+    # 快速测试
+    curl -X POST "http://localhost:8000/api/news/collect?source_limit=2&limit=5"
+    
+    # 完整参数
+    curl -X POST "http://localhost:8000/api/news/collect?category=ai&lang=zh&source_limit=5&limit=20&min_quality=55"
+    ```
+    
+    查询任务状态：
+    ```bash
+    curl "http://localhost:8000/api/news/collect/status"
+    ```
+    """
     task_id = await trigger_collect_task(
         category=category,
         lang=lang,
@@ -165,6 +209,47 @@ async def trigger_collect(
         'message': '新闻收集任务已启动，请在 /api/news/collect/status 查看进度',
         'task_id': task_id
     }
+
+@router.get("/collect/status")
+async def get_collect_status(task_id: Optional[str] = Query(None, description="任务ID")):
+    """
+    查询收集任务状态
+    
+    如果不指定 task_id，返回当前任务状态
+    """
+    if task_id:
+        task_status = get_task_status(task_id)
+        if task_status:
+            return {
+                'status': task_status.status,
+                'task_id': task_id,
+                'raw_count': task_status.raw_count,
+                'filtered_count': task_status.filtered_count,
+                'saved_count': task_status.saved_count,
+                'tts_stats': task_status.tts_stats,
+                'error': task_status.error,
+                'started_at': task_status.started_at,
+                'completed_at': task_status.completed_at,
+            }
+        else:
+            return {'status': 'not_found', 'task_id': task_id}
+    else:
+        current = get_current_task()
+        if current:
+            task_id, task_status = current
+            return {
+                'status': 'running',
+                'current_task_id': task_id,
+                'task_id': task_id,
+                'raw_count': task_status.raw_count,
+                'filtered_count': task_status.filtered_count,
+                'saved_count': task_status.saved_count,
+                'started_at': task_status.started_at,
+            }
+        else:
+            return {'status': 'idle'}
+
+# ============ 预留接口 ============
 
 @router.post("/{news_id}/read")
 async def read_news_aloud(
@@ -181,9 +266,3 @@ async def read_news_aloud(
             'voice_id': voice_id
         }
     }
-
-@router.put("/{news_id}/read")
-async def mark_as_read(news_id: str):
-    """标记新闻为已读"""
-    success = db_mark_as_read(news_id)
-    return {"success": success, "message": "Marked as read" if success else "News not found"}
