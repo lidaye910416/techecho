@@ -23,7 +23,7 @@ const zh = {
   cancelFav: '💔 取消收藏',
   removedFav: '已取消收藏',
   emptyFavTitle: '暂无收藏',
-  emptyFavText: '点击新闻卡片的收藏按钮添加收藏',
+  emptyFavText: '点击新闻卡片的收藏按钮，可使用 AI 分析与语音播报',
   emptyTitle: '暂无内容',
   emptyText: '尝试切换日期或分类',
   loading: '加载中...',
