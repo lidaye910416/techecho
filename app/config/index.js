@@ -1,6 +1,6 @@
 // Taro 公共配置
 module.exports = {
-  projectName: 'tech-echo-pro',
+  projectName: 'aiyinbi-pro',
   sourceRoot: 'src',
   outputRoot: 'dist',
   framework: 'react',
@@ -25,7 +25,7 @@ module.exports = {
     backgroundTextStyle: 'light',
     navigationStyle: 'custom',
     navigationBarBackgroundColor: '#1a1a2e',
-    navigationBarTitleText: '科技回声',
+    navigationBarTitleText: 'AI回音壁',
     navigationBarTextStyle: 'white'
   },
   tabBar: {

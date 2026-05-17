@@ -8,7 +8,7 @@ export default defineAppConfig({
     backgroundTextStyle: 'light',
     navigationStyle: 'custom',
     navigationBarBackgroundColor: '#0f0f1a',
-    navigationBarTitleText: '科技回声',
+    navigationBarTitleText: 'AI回音壁',
     navigationBarTextStyle: 'white',
     backgroundColor: '#0f0f1a'
   },

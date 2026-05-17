@@ -6,7 +6,7 @@
 export type Lang = 'zh' | 'en'
 
 const zh = {
-  appName: '科技回声',
+  appName: 'AI回音壁',
   dateToday: '今天',
   dateYesterday: '昨天',
   dateWeek: '本周',
@@ -86,7 +86,7 @@ const zh = {
 
 type ZhType = typeof zh
 const en: Record<keyof ZhType, string> = {
-  appName: 'TechEcho',
+  appName: 'AI Echo Wall',
   dateToday: 'Today',
   dateYesterday: 'Yesterday',
   dateWeek: 'Week',

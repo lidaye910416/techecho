@@ -634,7 +634,7 @@ useEffect(() => {
           微信 TabBar 首页：无需返回/刷新按钮，下拉刷新即可 */}
       <View className="idx-header" style={{ paddingTop: headerPaddingTop }}>
         <View className="idx-header-content">
-          {/* Logo — 对标 H5 SVG gradient icon + 科技回声 */}
+          {/* Logo — 对标 H5 SVG gradient icon + AI回音壁 */}
           <View className="idx-logo-wrap">
             <View className="idx-logo-icon">
               <Text className="idx-logo-icon-text">🎙</Text>

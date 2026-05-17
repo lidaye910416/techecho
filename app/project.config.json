@@ -1,7 +1,7 @@
 {
   "miniprogramRoot": "./",
-  "projectname": "tech-echo-pro",
-  "description": "TechEcho Pro - 智能科技资讯平台",
+  "projectname": "aiyinbi-pro",
+  "description": "AI回音壁 - 智能科技资讯平台",
   "appid": "wxa2b6144208acdcab",
   "setting": {
     "urlCheck": false,

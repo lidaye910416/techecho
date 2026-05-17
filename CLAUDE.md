@@ -139,8 +139,14 @@ python -m http.server 8080 -d app/                     # 或用 HTTP 服务器
 
 # === Taro 小程序 ===
 cd app && npm run dev:weapp                          # 开发模式（localhost:8000）
-cd app && npm run build:weapp                        # 生产构建（云托管地址）
+export TARO_APP_API_BASE=https://your-domain.sh.run.tcloudbase.com  # 设置生产地址
+cd app && npm run build:weapp                        # 生产构建
 # 用微信开发者工具打开 app/dist/ 预览
+
+# ⚠️ 敏感信息说明：
+# - API 地址通过 TARO_APP_API_BASE 环境变量配置
+# - 复制 app/.env.example 为 app/.env 填入实际地址（已被 .gitignore 忽略）
+# - 禁止将 .env 文件提交到 GitHub
 
 # ⚠️ dist/ 是编译产物，禁止直接修改。只改 app/src/ 下的源码。
 ```

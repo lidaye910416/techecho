@@ -35,6 +35,11 @@ app/src/assets/*.png
 *.mp3
 *.wav
 
+# App env (API keys and production URLs)
+app/.env
+app/.env.*
+!.env.example
+
 # Node
 node_modules/
 desktop/node_modules/
