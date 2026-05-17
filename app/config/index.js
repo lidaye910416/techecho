@@ -1,4 +1,23 @@
 // Taro 公共配置
+const fs = require('fs');
+const path = require('path');
+
+// 自动读取 app/.env 文件获取 API 地址
+let apiBase = process.env.TARO_APP_API_BASE || 'http://localhost:8000';
+
+try {
+  const envFile = path.join(__dirname, '.env');
+  if (fs.existsSync(envFile)) {
+    const content = fs.readFileSync(envFile, 'utf-8');
+    const match = content.match(/^TARO_APP_API_BASE\s*=\s*(.+)$/m);
+    if (match && match[1]) {
+      apiBase = match[1].trim();
+    }
+  }
+} catch (e) {
+  // 读取失败时使用默认值
+}
+
 module.exports = {
   projectName: 'aiyinbi-pro',
   sourceRoot: 'src',
@@ -12,9 +31,9 @@ module.exports = {
       chain.optimization.concatenateModules(false)
     }
   },
-  // API 地址通过 package.json 中的环境变量传入
+  // API 地址从 app/.env 文件读取（已被 .gitignore 保护）
   defineConstants: {
-    'process.env.TARO_APP_API_BASE': JSON.stringify(process.env.TARO_APP_API_BASE || 'http://localhost:8000'),
+    'process.env.TARO_APP_API_BASE': JSON.stringify(apiBase),
   },
   pages: [
     'pages/index/index',
