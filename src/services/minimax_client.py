@@ -232,6 +232,7 @@ class MiniMaxClient:
             "api_key_set": bool(self.api_key),
             "base_url": self.base_url,
             "tts": {"available": False, "models": [], "error": None, "endpoint": "v1/t2a_v2"},
+            "text_chat": {"available": False, "models": [], "error": None, "endpoint": "v1/chat/completions"},
             "video": {"available": False, "models": [], "error": None, "endpoint": "v1/video_generation"}
         }
 
@@ -254,8 +255,30 @@ class MiniMaxClient:
                     continue
                 status["tts"]["error"] = error_str
 
-        # 测试视频生成 (仅检查是否存在，不实际调用)
-        # I2V 系列模型需要特定 Token Plan，跳过实际测试避免误报
+        # 测试文本对话 API (新闻质量控制使用的接口)
+        text_models = ["MiniMax-M2.7", "MiniMax-M2.5"]
+        for model in text_models:
+            try:
+                result = await self._make_request("POST", "v1/chat/completions", {
+                    "model": model,
+                    "messages": [{"role": "user", "content": "Hi"}],
+                    "stream": False,
+                    "max_tokens": 5
+                })
+                choices = result.get("choices", [])
+                if choices and choices[0].get("message", {}).get("content"):
+                    status["text_chat"]["available"] = True
+                    status["text_chat"]["models"].append(model)
+                elif result.get("base_resp", {}).get("status_code") == 0:
+                    status["text_chat"]["available"] = True
+                    status["text_chat"]["models"].append(model)
+            except Exception as e:
+                error_str = str(e)
+                if any(kw in error_str for kw in ["not support model", "not authorized"]):
+                    continue
+                status["text_chat"]["error"] = error_str
+
+        # 视频生成是可选功能，不测试避免误报
         status["video"]["available"] = False
         status["video"]["error"] = "需要 Token Plan 授权（可选功能）"
 
