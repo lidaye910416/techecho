@@ -227,35 +227,23 @@ class MiniMaxClient:
         )
 
     async def check_api_status(self) -> Dict[str, Any]:
-        """检查 API 状态"""
+        """检查 API 状态 - 只检查配置，不实际调用 API"""
         status = {
             "api_key_set": bool(self.api_key),
             "base_url": self.base_url,
-            "tts": {"available": False, "models": [], "error": None, "endpoint": "v1/t2a_v2"},
-            "video": {"available": False, "models": [], "error": None, "endpoint": "v1/video_generation"}
+            "tts": {
+                "available": bool(self.api_key),  # 有 API Key 就认为可用
+                "models": self.tts_models if self.api_key else [],
+                "error": None,
+                "endpoint": "v1/t2a_v2"
+            },
+            "video": {
+                "available": False,
+                "models": [],
+                "error": "可选功能，未测试",
+                "endpoint": "v1/video_generation"
+            }
         }
-
-        # 只测试第一个 TTS 模型
-        try:
-            result = await self._make_request("POST", "v1/t2a_v2", {
-                "model": self.tts_models[0],
-                "text": "测试",
-                "stream": False,
-                "voice_setting": {"voice_id": "female-tianmei"},
-                "output_format": "url"
-            })
-            if result.get("base_resp", {}).get("status_code") == 0:
-                status["tts"]["available"] = True
-                status["tts"]["models"] = self.tts_models
-        except Exception as e:
-            error_str = str(e)
-            # 限流错误不需要记录到日志，避免干扰
-            if "usage limit exceeded" not in error_str:
-                status["tts"]["error"] = error_str
-
-        # 视频生成是可选功能，跳过测试
-        status["video"]["available"] = False
-        status["video"]["error"] = "可选功能，未测试"
 
         return status
 
