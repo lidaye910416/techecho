@@ -251,7 +251,7 @@ async def get_collect_status(task_id: Optional[str] = Query(None, description="�
 
 # ============ 预留接口 ============
 
-@router.get("/{news_id}/read")
+@router.put("/{news_id}/read")
 async def read_news_aloud(news_id: str):
     """
     朗读新闻 - 返回音频流

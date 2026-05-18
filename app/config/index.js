@@ -2,39 +2,38 @@
 const fs = require('fs');
 const path = require('path');
 
-// 自动读取 app/.env 文件获取配置
-let apiBase = process.env.TARO_APP_API_BASE || 'http://localhost:8000';
-let useCloud = 'false';
-let cloudEnv = '';
-let cloudService = '';
+// .env 文件在 app 目录下，不是 config 目录
+const envFile = path.join(__dirname, '..', '.env');
+let apiBase = 'http://localhost:8000';
+let cloudEnv = 'prod-d9g7e5osy7b5e7a9c';  // 默认云托管配置
+let cloudService = 'test1';
 
-try {
-  const envFile = path.join(__dirname, '.env');
-  if (fs.existsSync(envFile)) {
-    const content = fs.readFileSync(envFile, 'utf-8');
-    // 读取 API_BASE
-    const apiMatch = content.match(/^TARO_APP_API_BASE\s*=\s*(.+)$/m);
-    if (apiMatch && apiMatch[1]) {
-      apiBase = apiMatch[1].trim();
-    }
-    // 读取 USE_CLOUD
-    const cloudMatch = content.match(/^TARO_APP_USE_CLOUD\s*=\s*(.+)$/m);
-    if (cloudMatch && cloudMatch[1]) {
-      useCloud = cloudMatch[1].trim().toLowerCase();
-    }
-    // 读取 CLOUD_ENV
-    const envMatch = content.match(/^TARO_APP_CLOUD_ENV\s*=\s*(.+)$/m);
-    if (envMatch && envMatch[1]) {
-      cloudEnv = envMatch[1].trim();
-    }
-    // 读取 CLOUD_SERVICE
-    const svcMatch = content.match(/^TARO_APP_CLOUD_SERVICE\s*=\s*(.+)$/m);
-    if (svcMatch && svcMatch[1]) {
-      cloudService = svcMatch[1].trim();
-    }
+if (fs.existsSync(envFile)) {
+  const content = fs.readFileSync(envFile, 'utf-8');
+  console.log('[Config] .env content:', content);
+
+  // 读取 API_BASE
+  const apiMatch = content.match(/^TARO_APP_API_BASE\s*=\s*(.+)$/m);
+  if (apiMatch && apiMatch[1]) {
+    apiBase = apiMatch[1].trim();
+    console.log('[Config] API_BASE:', apiBase);
   }
-} catch (e) {
-  // 读取失败时使用默认值
+
+  // 读取 CLOUD_ENV
+  const envMatch = content.match(/^TARO_APP_CLOUD_ENV\s*=\s*(.+)$/m);
+  if (envMatch && envMatch[1]) {
+    cloudEnv = envMatch[1].trim();
+    console.log('[Config] CLOUD_ENV:', cloudEnv);
+  }
+
+  // 读取 CLOUD_SERVICE
+  const svcMatch = content.match(/^TARO_APP_CLOUD_SERVICE\s*=\s*(.+)$/m);
+  if (svcMatch && svcMatch[1]) {
+    cloudService = svcMatch[1].trim();
+    console.log('[Config] CLOUD_SERVICE:', cloudService);
+  }
+} else {
+  console.log('[Config] .env file not found at:', envFile);
 }
 
 module.exports = {
@@ -53,7 +52,6 @@ module.exports = {
   // 配置常量（从 .env 文件读取）
   defineConstants: {
     'process.env.TARO_APP_API_BASE': JSON.stringify(apiBase),
-    'process.env.TARO_APP_USE_CLOUD': JSON.stringify(useCloud),
     'process.env.TARO_APP_CLOUD_ENV': JSON.stringify(cloudEnv),
     'process.env.TARO_APP_CLOUD_SERVICE': JSON.stringify(cloudService),
   },

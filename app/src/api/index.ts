@@ -69,12 +69,19 @@ async function request<T = any>(
   }
 
   // 根据配置选择调用方式
+  // 云托管模式：音频读取接口使用 PUT 方法（云托管 API Gateway 限制）
+  let effectiveMethod = method
+  if (USE_CLOUD && getCloudContainer() && path.includes('/news/') && path.includes('/read')) {
+    effectiveMethod = 'PUT'
+    console.log('[API] 云托管模式，音频接口改用 PUT 方法')
+  }
+
   if (USE_CLOUD && getCloudContainer()) {
     // 云托管模式
     if (CLOUD_SERVICE) {
       header['X-WX-SERVICE'] = CLOUD_SERVICE
     }
-    return cloudRequest<T>(path, method, data, header)
+    return cloudRequest<T>(path, effectiveMethod, data, header)
   } else {
     // 普通模式（使用 Taro.request 或 fetch）
     return normalRequest<T>(path, method, data, header)
