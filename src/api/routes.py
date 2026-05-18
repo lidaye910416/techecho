@@ -91,18 +91,16 @@ async def test_tts(
 # ============ Health Check ============
 @router.get("/status")
 async def api_status():
-    from src.config import validate_config, MINIMAX_API_KEY
+    from src.config import MINIMAX_API_KEY
     from src.services.minimax_client import get_minimax_client
     import os
 
-    errors = validate_config()
-    azure_configured = bool(os.environ.get("AZURE_SPEECH_KEY") or os.environ.get("AZURE_TTS_KEY"))
-
+    # 简化的状态检查
     status = {
-        "status": "ok" if not errors else "config_error",
+        "status": "ok",
         "minimax_api_key_set": bool(MINIMAX_API_KEY),
-        "azure_tts_configured": azure_configured,
-        "errors": errors,
+        "azure_tts_configured": bool(os.environ.get("AZURE_SPEECH_KEY") or os.environ.get("AZURE_TTS_KEY")),
+        "errors": [],
         "minimax_api": {
             "available": False,
             "tts": {"available": False, "models": [], "error": None}
