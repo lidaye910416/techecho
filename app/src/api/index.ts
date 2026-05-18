@@ -1,21 +1,32 @@
 /**
- * Tech Echo API 接口 — 适配微信小程序 (wx.cloud.callContainer)
+ * Tech Echo API 接口 — 适配微信小程序
  *
- * 微信云托管使用 wx.cloud.callContainer 访问后端服务
+ * 支持两种调用方式：
+ * - 云托管模式：使用 wx.cloud.callContainer（通过内网访问）
+ * - 普通模式：使用 Taro.request（通过公网访问）
  */
 
-// 微信云托管环境 ID（从环境变量或 Taro 编译时配置获取）
-const CLOUD_ENV = process.env.TARO_APP_CLOUD_ENV || 'prod-d9g7e5osy7b5e7a9c'
+// ============ 配置 ============
 
-// 微信云托管服务名称（从环境变量获取）
-const CLOUD_SERVICE = process.env.TARO_APP_CLOUD_SERVICE || 'test1'
+// 是否使用微信云托管
+const USE_CLOUD = process.env.TARO_APP_USE_CLOUD === 'true'
+
+// 普通 API 地址（当 USE_CLOUD=false 时使用）
+const API_BASE = process.env.TARO_APP_API_BASE || 'http://localhost:8000'
+
+// 微信云托管环境 ID（当 USE_CLOUD=true 时使用）
+const CLOUD_ENV = process.env.TARO_APP_CLOUD_ENV || ''
+
+// 微信云托管服务名称（当 USE_CLOUD=true 时使用）
+const CLOUD_SERVICE = process.env.TARO_APP_CLOUD_SERVICE || ''
+
+// ============ 工具函数 ============
 
 /** 获取微信云托管实例 */
 function getCloudContainer() {
   if (typeof wx !== 'undefined' && wx.cloud) {
     return wx.cloud
   }
-  // H5 环境 fallback
   return null
 }
 
@@ -26,7 +37,7 @@ export function getAudioUrl(relativePath: string): string {
   if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
     return relativePath
   }
-  // 转换为完整 URL（使用云托管内网地址，微信自动路由）
+  // 使用配置的 API 地址
   return relativePath
 }
 
@@ -48,17 +59,35 @@ async function request<T = any>(
 
   const header: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-WX-SERVICE': CLOUD_SERVICE, // 云托管服务名称
     ...(options?.header || {}),
   }
   if (token) {
     header['Authorization'] = `Bearer ${token}`
   }
 
+  // 根据配置选择调用方式
+  if (USE_CLOUD && getCloudContainer()) {
+    // 云托管模式
+    if (CLOUD_SERVICE) {
+      header['X-WX-SERVICE'] = CLOUD_SERVICE
+    }
+    return cloudRequest<T>(path, method, data, header)
+  } else {
+    // 普通模式（使用 Taro.request 或 fetch）
+    return normalRequest<T>(path, method, data, header)
+  }
+}
+
+/** 云托管请求 */
+async function cloudRequest<T>(
+  path: string,
+  method: string,
+  data?: any,
+  header?: Record<string, string>
+): Promise<T> {
   const cloud = getCloudContainer()
   if (!cloud) {
-    // 非微信环境，使用普通 fetch
-    return fallbackFetch(method, path, data, header)
+    throw new Error('云托管不可用，切换到普通模式')
   }
 
   try {
@@ -77,7 +106,6 @@ async function request<T = any>(
       return res.data as T
     }
 
-    // 401 → 清除过期 token
     if (res?.statusCode === 401) {
       try {
         Taro.removeStorageSync('auth_token')
@@ -93,10 +121,61 @@ async function request<T = any>(
   }
 }
 
-/** H5 环境 fallback — 使用原生 fetch */
-async function fallbackFetch<T>(
-  method: string,
+/** 普通请求（小程序环境使用 Taro.request，H5 环境使用 fetch） */
+async function normalRequest<T>(
   path: string,
+  method: string,
+  data?: any,
+  header?: Record<string, string>
+): Promise<T> {
+  // 小程序环境使用 Taro.request
+  if (typeof wx !== 'undefined') {
+    return taroRequest<T>(path, method, data, header)
+  }
+
+  // H5 环境使用 fetch
+  return h5Fetch<T>(path, method, data, header)
+}
+
+/** Taro.request 请求（小程序环境） */
+async function taroRequest<T>(
+  path: string,
+  method: string,
+  data?: any,
+  header?: Record<string, string>
+): Promise<T> {
+  try {
+    const res = await Taro.request({
+      url: `${API_BASE}${path}`,
+      method,
+      data,
+      header,
+      timeout: 30000,
+    })
+
+    if (res.statusCode === 200) {
+      return res.data as T
+    }
+
+    if (res.statusCode === 401) {
+      try {
+        Taro.removeStorageSync('auth_token')
+      } catch (_) {
+        /* ignore */
+      }
+    }
+
+    throw new Error(`HTTP ${res.statusCode}: ${JSON.stringify(res.data)}`)
+  } catch (err: any) {
+    console.error('[API] Taro.request 失败:', err)
+    throw err
+  }
+}
+
+/** H5 环境 fetch 请求 */
+async function h5Fetch<T>(
+  path: string,
+  method: string,
   data?: any,
   header?: Record<string, string>
 ): Promise<T> {
@@ -107,8 +186,14 @@ async function fallbackFetch<T>(
   if (data && method !== 'GET') {
     fetchOptions.body = JSON.stringify(data)
   }
-  // H5 环境直接使用相对路径，由 dev server 代理
-  const res = await fetch(path, fetchOptions)
+
+  let url = path
+  // 如果不是完整 URL，加上 base
+  if (!path.startsWith('http://') && !path.startsWith('https://')) {
+    url = `${API_BASE}${path}`
+  }
+
+  const res = await fetch(url, fetchOptions)
   return res.json()
 }
 
