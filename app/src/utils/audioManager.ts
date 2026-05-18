@@ -111,9 +111,8 @@ export function stopAllAudio() {
 /**
  * 播放新闻音频
  * 策略：
- * 1. 同一条新闻暂停中 → resume
- * 2. 同一条新闻播放中 → pause
- * 3. 不同新闻 → stop 后播放
+ * 1. 先下载音频到本地
+ * 2. 播放本地文件（避免跨域和认证问题）
  */
 export function playNewsAudio(newsId: string, url: string, source: string) {
   const audioUrl = url.startsWith('http') ? url : url
@@ -156,9 +155,45 @@ export function playNewsAudio(newsId: string, url: string, source: string) {
   // 通知新音频正在加载
   notifyLoading(newsId)
 
-  // 销毁旧音频，创建新音频
+  // 销毁旧音频
   destroyAudioCtx()
 
+  // 下载音频文件到本地，再播放（避免直接播放远程URL的问题）
+  downloadAndPlay(newsId, audioUrl)
+}
+
+/**
+ * 下载音频文件到本地，然后播放
+ */
+function downloadAndPlay(newsId: string, url: string) {
+  // 如果是相对路径，跳过下载直接播放
+  if (!url.startsWith('http')) {
+    playDirectly(newsId, url)
+    return
+  }
+
+  wx.downloadFile({
+    url: url,
+    success: (res) => {
+      if (res.statusCode === 200 && res.tempFilePath) {
+        playDirectly(newsId, res.tempFilePath)
+      } else {
+        console.error('[Audio] download failed:', res)
+        notifyStop()
+      }
+    },
+    fail: (err) => {
+      console.error('[Audio] download error:', err)
+      // 下载失败时尝试直接播放（某些URL可能可以直接播放）
+      playDirectly(newsId, url)
+    }
+  })
+}
+
+/**
+ * 直接播放音频（本地路径或远程URL）
+ */
+function playDirectly(newsId: string, path: string) {
   setTimeout(() => {
     if (currentNewsId !== newsId) return
 
@@ -167,7 +202,7 @@ export function playNewsAudio(newsId: string, url: string, source: string) {
 
     ctx.volume = 1.0
     ctx.obeyMuteSwitch = false
-    ctx.src = audioUrl
+    ctx.src = path
 
     ctx.onPlay(() => {
       isPaused = false
@@ -186,6 +221,7 @@ export function playNewsAudio(newsId: string, url: string, source: string) {
     })
 
     ctx.onError(() => {
+      console.error('[Audio] play error for:', path)
       isPaused = false
       currentNewsId = null
       globalAudioCtx = null

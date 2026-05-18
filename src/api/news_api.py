@@ -256,13 +256,95 @@ async def read_news_aloud(
     news_id: str,
     voice_id: str = Query("female-tianmei")
 ):
-    """朗读新闻 - 预留接口"""
-    return {
-        'success': True,
-        'message': 'TTS 功能预留',
-        'data': {
-            'news_id': news_id,
-            'audio_url': None,
-            'voice_id': voice_id
-        }
-    }
+    """
+    朗读新闻 - 实时TTS生成
+
+    策略：
+    1. 如果数据库有预存音频URL，下载并返回流
+    2. 否则调用MiniMax TTS API生成新音频，返回流
+
+    前端需要用 downloadFile 下载后播放
+    """
+    from src.services.news import get_news_by_id, get_news_audio_url
+
+    # 获取新闻内容
+    news = get_news_by_id(news_id)
+    if not news:
+        raise HTTPException(status_code=404, detail="News not found")
+
+    # 获取音频文本
+    lang = news.get('lang', 'zh')
+    if lang == 'zh':
+        text = news.get('content_zh') or news.get('summary_zh') or news.get('title_zh', '')
+    else:
+        text = news.get('content_en') or news.get('summary_en') or news.get('title_en', '')
+
+    if not text:
+        return {'success': False, 'message': 'No text to read'}
+
+    # 限制文本长度
+    text = text[:500]
+
+    # 获取预存的音频URL
+    audio_url = get_news_audio_url(news_id)
+
+    # 如果有预存URL，下载并返回
+    if audio_url and audio_url.startswith('http'):
+        try:
+            import httpx
+            client = httpx.AsyncClient(timeout=30.0)
+            response = await client.get(audio_url)
+            await client.aclose()
+
+            if response.status_code == 200:
+                from fastapi.responses import StreamingResponse
+                from io import BytesIO
+
+                return StreamingResponse(
+                    BytesIO(response.content),
+                    media_type="audio/mpeg",
+                    headers={
+                        "Content-Disposition": f"attachment; filename={news_id}.mp3",
+                        "Content-Length": str(len(response.content))
+                    }
+                )
+        except Exception as e:
+            print(f"Failed to fetch cached audio: {e}")
+            # 下载失败，继续调用TTS
+
+    # 调用MiniMax TTS API获取实时音频
+    from src.services.minimax_client import get_minimax_client
+    client = get_minimax_client()
+
+    try:
+        result = await client.text_to_speech(text=text, voice_id=voice_id)
+        audio_url = result.get("data", {}).get("audio_url", "")
+
+        if audio_url:
+            import httpx
+            http_client = httpx.AsyncClient(timeout=30.0)
+            response = await http_client.get(audio_url)
+            await http_client.aclose()
+
+            if response.status_code == 200:
+                from fastapi.responses import StreamingResponse
+                from io import BytesIO
+
+                # 保存到数据库供下次使用
+                from src.services.news import save_news_audio
+                save_news_audio(news_id, audio_url)
+
+                return StreamingResponse(
+                    BytesIO(response.content),
+                    media_type="audio/mpeg",
+                    headers={
+                        "Content-Disposition": f"attachment; filename={news_id}.mp3",
+                        "Content-Length": str(len(response.content))
+                    }
+                )
+
+    except Exception as e:
+        print(f"TTS error: {e}")
+        return {'success': False, 'message': str(e)}
+
+    return {'success': False, 'message': 'TTS failed'}

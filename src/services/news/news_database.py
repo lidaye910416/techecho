@@ -261,6 +261,16 @@ def save_news_audio(news_id: str, audio_url: str) -> bool:
     return affected > 0
 
 
+def get_news_audio_url(news_id: str) -> Optional[str]:
+    """获取新闻的音频URL"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT audio_url FROM news_items WHERE id = ?", (news_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row['audio_url'] if row else None
+
+
 def get_news_without_audio(limit: int = 50) -> List[Dict[str, Any]]:
     """获取没有预生成音频的新闻（用于批量补生成）"""
     conn = get_db_connection()
