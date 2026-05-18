@@ -399,7 +399,7 @@ export default function News() {
   /** 播放音频 */
   const playSingleAudio = (newsId: string, url: string) => {
     const audioUrl = url.startsWith('http') ? url : getAudioUrl(url)
-    console.log('[Fav] playSingleAudio:', newsId)
+    console.log('[Fav] playSingleAudio:', newsId, 'url:', audioUrl)
 
     // 使用全局音频管理器
     playNewsAudio(newsId, audioUrl, AUDIO_SOURCE)

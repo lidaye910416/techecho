@@ -37,7 +37,8 @@ export function getAudioUrl(audioPath: string): string {
   // 如果是本地路径 /data/audio/xxx.mp3，转换为 API 路径
   if (audioPath.startsWith('/data/audio/')) {
     const filename = audioPath.split('/').pop() || ''
-    const newsId = filename.replace('_v3.mp3', '')
+    // 移除 .mp3 后缀和语音风格后缀 (voice1, voice2, voice3, voice4, v3)
+    const newsId = filename.replace(/\.mp3$/, '').replace(/_(voice\d+)$/, '')
     return `/api/news/${newsId}/read`
   }
   // 其他情况直接返回

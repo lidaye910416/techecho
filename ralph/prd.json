@@ -1,0 +1,66 @@
+{
+  "project": "TechEcho Pro",
+  "branchName": "feature/cloud-audio-storage",
+  "status": "pending",
+  "description": "音频上传云存储，前端云存储播放",
+  
+  "goal": "把容器内已有音频上传到微信云存储，前端能正常播放",
+  
+  "steps": [
+    {
+      "step": 1,
+      "title": "数据库新增 cloud_file_id 字段",
+      "file": "src/services/news/news_database.py",
+      "action": "新增 cloud_file_id TEXT 字段",
+      "criteria": "ALTER TABLE news_items ADD COLUMN cloud_file_id TEXT"
+    },
+    {
+      "step": 2,
+      "title": "上传本地音频到云存储",
+      "description": "用 curl 调用微信云存储 API，上传 data/audio/*.mp3",
+      "script": "tools/upload_audio_to_cloud.sh",
+      "criteria": "所有音频文件获取到 cloud://xxx fileID"
+    },
+    {
+      "step": 3,
+      "title": "更新数据库 cloud_file_id",
+      "file": "src/services/news/news_database.py",
+      "action": "新增 update_cloud_file_id 函数",
+      "script": "tools/update_cloud_file_id.py",
+      "criteria": "数据库每个 news 有 cloud_file_id"
+    },
+    {
+      "step": 4,
+      "title": "API 返回 cloud_file_id",
+      "file": "src/api/news_api.py",
+      "action": "查询新闻时返回 cloud_file_id",
+      "criteria": "/api/news 返回数据包含 cloud_file_id"
+    },
+    {
+      "step": 5,
+      "title": "前端支持云存储播放",
+      "file": "app/src/utils/audioManager.ts",
+      "action": "识别 cloud:// 路径，用 wx.cloud.downloadFile 下载",
+      "criteria": "cloud:// 开头用云存储下载，其他用 API 下载"
+    },
+    {
+      "step": 6,
+      "title": "测试播放",
+      "action": "本地模式测试朗读功能",
+      "criteria": "点击朗读按钮能播放音频"
+    }
+  ],
+
+  "dataFlow": {
+    "upload": {
+      "input": "本地 data/audio/*.mp3",
+      "tool": "微信云存储 API (curl 或 wx.cloud.uploadFile)",
+      "output": "cloud://prod-xxx/audio/xxx.mp3",
+      "store": "news_items.cloud_file_id"
+    },
+    "playback": {
+      "query": "GET /api/news → cloud_file_id",
+      "play": "wx.cloud.downloadFile(cloud://xxx) → tempFilePath → audioContext.src"
+    }
+  }
+}

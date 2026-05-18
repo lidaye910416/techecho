@@ -24,7 +24,8 @@ from src.services.news import (
     get_news_from_db,
     get_news_stats,
     get_news_by_id,
-    mark_as_read as db_mark_as_read
+    mark_as_read as db_mark_as_read,
+    get_news_cloud_file_id,
 )
 from src.services.news_collect_service import (
     trigger_collect_task,
@@ -277,3 +278,32 @@ async def read_news_aloud(news_id: str):
             )
 
     return {'success': False, 'message': 'Audio file not found'}
+
+
+# ============ 云存储音频接口 ============
+
+@router.put("/{news_id}/cloud-file")
+async def update_cloud_file_id(news_id: str, cloud_file_id: str = Query(..., description="云存储 fileID")):
+    """
+    更新新闻的云存储 fileID
+    用于前端上传音频到云存储后，回调更新数据库
+    """
+    from src.services.news import save_news_cloud_file_id
+
+    success = save_news_cloud_file_id(news_id, cloud_file_id)
+    if success:
+        return {'success': True, 'message': 'Cloud file ID updated', 'news_id': news_id, 'cloud_file_id': cloud_file_id}
+    else:
+        return {'success': False, 'message': 'News not found'}
+
+
+@router.get("/{news_id}/cloud-file")
+async def get_cloud_file_id(news_id: str):
+    """
+    获取新闻的云存储 fileID
+    """
+    cloud_file_id = get_news_cloud_file_id(news_id)
+    if cloud_file_id:
+        return {'success': True, 'news_id': news_id, 'cloud_file_id': cloud_file_id}
+    else:
+        return {'success': False, 'message': 'No cloud file ID'}

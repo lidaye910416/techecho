@@ -53,6 +53,13 @@ def init_news_table():
     except Exception:
         pass  # 列已存在，忽略
 
+    # 兼容迁移：如果旧表没有 cloud_file_id 列，自动添加
+    try:
+        cursor.execute("ALTER TABLE news_items ADD COLUMN cloud_file_id TEXT DEFAULT NULL")
+        conn.commit()
+    except Exception:
+        pass  # 列已存在，忽略
+
     conn.commit()
     conn.close()
 
@@ -160,7 +167,8 @@ def get_news_from_db(
             },
             'is_read': bool(row['is_read']),
             'is_favorited': bool(row['is_favorited']),
-            'audio_url': row['audio_url'] if 'audio_url' in row.keys() else None
+            'audio_url': row['audio_url'] if 'audio_url' in row.keys() else None,
+            'cloud_file_id': row['cloud_file_id'] if 'cloud_file_id' in row.keys() else None
         }
         # 附加 audio 字段（前端兼容格式）
         if item.get('audio_url'):
@@ -262,13 +270,34 @@ def save_news_audio(news_id: str, audio_url: str) -> bool:
 
 
 def get_news_audio_url(news_id: str) -> Optional[str]:
-    """获取新闻的音频URL"""
+    """获取新闻的音频URL（本地路径）"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT audio_url FROM news_items WHERE id = ?", (news_id,))
     row = cursor.fetchone()
     conn.close()
     return row['audio_url'] if row else None
+
+
+def get_news_cloud_file_id(news_id: str) -> Optional[str]:
+    """获取新闻的云存储 fileID"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT cloud_file_id FROM news_items WHERE id = ?", (news_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row['cloud_file_id'] if row else None
+
+
+def save_news_cloud_file_id(news_id: str, cloud_file_id: str) -> bool:
+    """保存新闻的云存储 fileID"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE news_items SET cloud_file_id = ? WHERE id = ?", (cloud_file_id, news_id))
+    affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return affected > 0
 
 
 def get_news_without_audio(limit: int = 50) -> List[Dict[str, Any]]:
