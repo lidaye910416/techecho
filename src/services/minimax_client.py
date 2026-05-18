@@ -235,28 +235,27 @@ class MiniMaxClient:
             "video": {"available": False, "models": [], "error": None, "endpoint": "v1/video_generation"}
         }
 
-        # 测试 TTS
-        for model in self.tts_models:
-            try:
-                result = await self._make_request("POST", "v1/t2a_v2", {
-                    "model": model,
-                    "text": "测试",
-                    "stream": False,
-                    "voice_setting": {"voice_id": "female-tianmei"},
-                    "output_format": "url"
-                })
-                if result.get("base_resp", {}).get("status_code") == 0:
-                    status["tts"]["available"] = True
-                    status["tts"]["models"].append(model)
-            except Exception as e:
-                error_str = str(e)
-                if "not support model" in error_str:
-                    continue
+        # 只测试第一个 TTS 模型
+        try:
+            result = await self._make_request("POST", "v1/t2a_v2", {
+                "model": self.tts_models[0],
+                "text": "测试",
+                "stream": False,
+                "voice_setting": {"voice_id": "female-tianmei"},
+                "output_format": "url"
+            })
+            if result.get("base_resp", {}).get("status_code") == 0:
+                status["tts"]["available"] = True
+                status["tts"]["models"] = self.tts_models
+        except Exception as e:
+            error_str = str(e)
+            # 限流错误不需要记录到日志，避免干扰
+            if "usage limit exceeded" not in error_str:
                 status["tts"]["error"] = error_str
 
-        # 视频生成是可选功能，跳过测试避免误报
+        # 视频生成是可选功能，跳过测试
         status["video"]["available"] = False
-        status["video"]["error"] = "需要 Token Plan 授权（可选功能）"
+        status["video"]["error"] = "可选功能，未测试"
 
         return status
 
