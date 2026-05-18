@@ -254,23 +254,10 @@ class MiniMaxClient:
                     continue
                 status["tts"]["error"] = error_str
 
-        # 测试视频生成 (需要 first_frame_image 参数)
-        test_image_url = "https://api.dicebear.com/7.x/avataaars/svg?seed=123"
-        for model in self.video_models:
-            try:
-                await self._make_request("POST", "v1/video_generation", {
-                    "model": model,
-                    "prompt": "test",
-                    "first_frame_image": test_image_url
-                })
-                status["video"]["available"] = True
-                status["video"]["models"].append(model)
-            except Exception as e:
-                error_str = str(e)
-                if "not support model" in error_str:
-                    status["video"]["error"] = "Token Plan 不支持视频生成"
-                else:
-                    status["video"]["error"] = error_str
+        # 测试视频生成 (仅检查是否存在，不实际调用)
+        # I2V 系列模型需要特定 Token Plan，跳过实际测试避免误报
+        status["video"]["available"] = False
+        status["video"]["error"] = "需要 Token Plan 授权（可选功能）"
 
         return status
 
