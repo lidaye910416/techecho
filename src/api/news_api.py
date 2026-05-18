@@ -154,12 +154,6 @@ async def get_news_detail(news_id: str):
         'data': item
     }
 
-@router.put("/{news_id}/read")
-async def mark_as_read(news_id: str):
-    """标记新闻为已读"""
-    success = db_mark_as_read(news_id)
-    return {"success": success, "message": "Marked as read" if success else "News not found"}
-
 # ============ 新闻收集接口 ============
 
 @router.post("/collect")
