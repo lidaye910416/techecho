@@ -28,8 +28,6 @@ class MiniMaxClient:
 
         # 支持的 TTS 模型 (按优先级)
         self.tts_models = ["speech-2.8-hd", "speech-2.6-hd", "speech-02-hd"]
-        # 支持的视频模型 (根据官方文档)
-        self.video_models = ["MiniMax-Hailuo-2.3", "MiniMax-Hailuo-2.3-Fast", "I2V-01-Director", "I2V-01-live", "I2V-01"]
         # 文本对话模型（M2.5 非推理模型，输出干净无 <think> 标签）
         self.chat_model = "MiniMax-M2.5"
 
@@ -137,111 +135,16 @@ class MiniMaxClient:
 
         raise Exception("所有 TTS 模型都不可用")
 
-    async def video_generation(
-        self,
-        prompt: str,
-        model: str = None
-    ) -> Dict[str, Any]:
-        """
-        视频生成 - 提交视频生成任务
-
-        API: POST https://api.minimaxi.com/v1/video_generation
-        """
-        logger.info(f"Video generation: {prompt[:50]}...")
-
-        # 尝试不同的模型
-        video_models = model and [model] or self.video_models
-
-        for vm in video_models:
-            try:
-                data = {
-                    "model": vm,
-                    "prompt": prompt
-                }
-                result = await self._make_request("POST", "v1/video_generation", data)
-                logger.info(f"Video model {vm} success: task_id={result.get('task_id')}")
-                return result
-            except Exception as e:
-                error_str = str(e)
-                if "not support model" in error_str:
-                    logger.warning(f"Model {vm} not supported, trying next...")
-                    continue
-                else:
-                    raise
-
-        raise Exception("所有视频模型都不可用 (Token Plan 问题)")
-
-    async def video_generation_i2v(
-        self,
-        prompt: str,
-        image_url: str,
-        model: str = "MiniMax-Hailuo-2.3"
-    ) -> Dict[str, Any]:
-        """
-        图生视频 - 根据图片生成视频
-
-        API: POST https://api.minimaxi.com/v1/video_generation
-        支持模型: MiniMax-Hailuo-2.3, MiniMax-Hailuo-2.3-Fast, I2V-01-Director, I2V-01-live, I2V-01
-        """
-        logger.info(f"I2V: {prompt[:50]}... (image: {image_url})")
-
-        # 尝试不同的模型
-        for video_model in ["MiniMax-Hailuo-2.3", "MiniMax-Hailuo-2.3-Fast", "I2V-01-Director", "I2V-01-live", "I2V-01"]:
-            try:
-                data = {
-                    "model": video_model,
-                    "prompt": prompt,
-                    "first_frame_image": image_url
-                }
-
-                # MiniMax-Hailuo 系列需要 duration 和 resolution
-                if "Hailuo" in video_model:
-                    data["duration"] = 6
-                    data["resolution"] = "768P"
-
-                result = await self._make_request("POST", "v1/video_generation", data)
-                logger.info(f"Video model {video_model} success: {result}")
-                return result
-            except Exception as e:
-                error_str = str(e)
-                if "not support model" in error_str or "incorrect model" in error_str:
-                    logger.warning(f"Model {video_model} not supported, trying next...")
-                    continue
-                else:
-                    raise
-
-        raise Exception("所有视频模型都不可用 (Token Plan 问题)")
-
-    async def speech_to_video(self, audio_url: str, image_url: str) -> Dict[str, Any]:
-        """
-        唇形同步 - 根据音频和图片生成视频
-
-        这是简化版本，实际需要使用视频生成 API
-        """
-        logger.info(f"Speech to video: audio={audio_url}, image={image_url}")
-
-        # 使用 I2V (图生视频) 模式
-        return await self.video_generation_i2v(
-            prompt="A person speaking naturally with lip-sync",
-            image_url=image_url
-        )
-
     async def check_api_status(self) -> Dict[str, Any]:
         """检查 API 状态 - 只检查配置，不实际调用 API"""
         status = {
             "api_key_set": bool(self.api_key),
             "base_url": self.base_url,
             "tts": {
-                "available": bool(self.api_key),  # 有 API Key 就认为可用
+                "available": bool(self.api_key),
                 "models": self.tts_models if self.api_key else [],
                 "error": None,
                 "endpoint": "v1/t2a_v2"
-            },
-            "video": {
-                "available": False,
-                "models": [],
-                "error": "可选功能，未测试",
-                "endpoint": "v1/video_generation"
             }
         }
 

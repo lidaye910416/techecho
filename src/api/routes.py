@@ -130,3 +130,33 @@ async def api_status():
         )
 
     return status
+
+# ============ MiniMax API 测试接口 ============
+@router.get("/test/minimax")
+async def test_minimax():
+    """测试 MiniMax API Key 是否可用（实际调用 API）"""
+    from src.services.minimax_client import get_minimax_client
+
+    client = get_minimax_client()
+
+    if not client.api_key:
+        return {"success": False, "error": "MINIMAX_API_KEY 未配置"}
+
+    try:
+        # 测试文本对话 API (新闻质量控制使用的接口)
+        result = await client.chat(
+            messages=[{"role": "user", "content": "Hi"}],
+            model="MiniMax-M2.5"
+        )
+        return {
+            "success": True,
+            "model": "MiniMax-M2.5",
+            "response": result.get("content", ""),
+            "message": "API Key 正常工作"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "API Key 无效或已过期"
+        }
