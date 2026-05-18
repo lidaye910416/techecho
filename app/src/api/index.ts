@@ -20,6 +20,9 @@ const CLOUD_ENV = process.env.TARO_APP_CLOUD_ENV || ''
 // 微信云托管服务名称（当 USE_CLOUD=true 时使用）
 const CLOUD_SERVICE = process.env.TARO_APP_CLOUD_SERVICE || ''
 
+// 云托管静态文件基础URL（用于音频等静态资源）
+const CLOUD_STATIC_BASE = `https://${CLOUD_SERVICE}-${CLOUD_ENV}.tcloudbase.com`
+
 // ============ 工具函数 ============
 
 /** 获取微信云托管实例 */
@@ -37,7 +40,11 @@ export function getAudioUrl(relativePath: string): string {
   if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
     return relativePath
   }
-  // 相对路径（如 /data/audio/xxx.mp3）直接返回，由云托管服务处理
+  // 云托管模式：使用静态文件服务
+  if (USE_CLOUD && CLOUD_STATIC_BASE) {
+    return `${CLOUD_STATIC_BASE}${relativePath}`
+  }
+  // 普通模式：直接返回相对路径
   return relativePath
 }
 
