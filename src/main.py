@@ -5,14 +5,18 @@ from src.api.routes import router as api_router
 import os
 from pathlib import Path
 
-# 自动加载 .env 文件
+# 自动加载 .env 文件（仅用于本地开发，云托管环境变量由容器注入）
 from dotenv import load_dotenv
-import os as _os
 env_path = Path(__file__).parent.parent / ".env"
 if env_path.exists():
-    load_dotenv(env_path)
+    load_dotenv(env_path, override=False)  # 不覆盖已有的环境变量
 
 app = FastAPI(title="Tech Echo - 科技资讯播报", version="0.3.1")
+
+# 启动时打印环境变量调试信息
+print(f"[TechEcho] PYTHONPATH: {os.getenv('PYTHONPATH', 'not set')}")
+print(f"[TechEcho] DATA_DIR: {os.getenv('DATA_DIR', 'not set')}")
+print(f"[TechEcho] MINIMAX_API_KEY: {'***' if os.getenv('MINIMAX_API_KEY') else 'NOT SET'}")
 
 app.add_middleware(
     CORSMiddleware,
