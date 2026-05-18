@@ -783,7 +783,7 @@ useEffect(() => {
                       onClick={(e: any) => toggleFavorite(item.id, e)}
                     >
                       <Text className="idx-act-text">
-                        {fav ? t('favorited') : '🤍 ' + t('favorite')}
+                        {fav ? '❤️ 已收藏' : '🤍 收藏'}
                       </Text>
                     </View>
                   </View>
@@ -848,8 +848,7 @@ useEffect(() => {
                 className={`idx-detail-act ${isFav(detailItem.id) ? 'idx-detail-act--active' : ''}`}
                 onClick={(e: any) => toggleFavorite(detailItem.id, e)}
               >
-                <Text>{isFav(detailItem.id) ? '❤️' : '🤍'}</Text>
-                <Text>{isFav(detailItem.id) ? t('favorited') : t('favorite')}</Text>
+                <Text>{isFav(detailItem.id) ? '❤️ 已收藏' : '🤍 收藏'}</Text>
               </View>
               <View className="idx-detail-act idx-detail-act--primary" onClick={closeDetail}>
                 <Text>✓</Text>

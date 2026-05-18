@@ -1,13 +1,23 @@
 /**
- * Tech Echo API 接口 — 适配微信小程序 (Taro.request)
+ * Tech Echo API 接口 — 适配微信小程序 (wx.cloud.callContainer)
  *
- * H5 开发环境使用 fetch，小程序编译后自动使用 Taro.request
+ * 微信云托管使用 wx.cloud.callContainer 访问后端服务
  */
 
-import Taro from '@tarojs/taro'
+// 微信云托管环境 ID（从环境变量或 Taro 编译时配置获取）
+const CLOUD_ENV = process.env.TARO_APP_CLOUD_ENV || 'prod-d9g7e5osy7b5e7a9c'
 
-// 微信云托管后端地址
-const BASE_URL = process.env.TARO_APP_API_BASE || ''
+// 微信云托管服务名称（从环境变量获取）
+const CLOUD_SERVICE = process.env.TARO_APP_CLOUD_SERVICE || 'test1'
+
+/** 获取微信云托管实例 */
+function getCloudContainer() {
+  if (typeof wx !== 'undefined' && wx.cloud) {
+    return wx.cloud
+  }
+  // H5 环境 fallback
+  return null
+}
 
 /** 将相对路径转换为完整音频 URL */
 export function getAudioUrl(relativePath: string): string {
@@ -16,8 +26,8 @@ export function getAudioUrl(relativePath: string): string {
   if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
     return relativePath
   }
-  // 转换为完整 URL
-  return `${BASE_URL}${relativePath}`
+  // 转换为完整 URL（使用云托管内网地址，微信自动路由）
+  return relativePath
 }
 
 // ============ 通用请求封装 ============
@@ -38,27 +48,37 @@ async function request<T = any>(
 
   const header: Record<string, string> = {
     'Content-Type': 'application/json',
+    'X-WX-SERVICE': CLOUD_SERVICE, // 云托管服务名称
     ...(options?.header || {}),
   }
   if (token) {
     header['Authorization'] = `Bearer ${token}`
   }
 
+  const cloud = getCloudContainer()
+  if (!cloud) {
+    // 非微信环境，使用普通 fetch
+    return fallbackFetch(method, path, data, header)
+  }
+
   try {
-    const res = await Taro.request({
-      url: `${BASE_URL}${path}`,
+    const res = await cloud.callContainer({
+      config: {
+        env: CLOUD_ENV,
+      },
+      path,
       method,
       data,
       header,
-      timeout: 30000,
+      timeout: 15000,
     })
 
-    if (res.statusCode === 200) {
+    if (res?.statusCode === 200) {
       return res.data as T
     }
 
     // 401 → 清除过期 token
-    if (res.statusCode === 401) {
+    if (res?.statusCode === 401) {
       try {
         Taro.removeStorageSync('auth_token')
       } catch (_) {
@@ -66,13 +86,9 @@ async function request<T = any>(
       }
     }
 
-    throw new Error(`HTTP ${res.statusCode}: ${JSON.stringify(res.data)}`)
+    throw new Error(`HTTP ${res?.statusCode}: ${JSON.stringify(res?.data)}`)
   } catch (err: any) {
-    // 开发阶段 H5 降级到 fetch（Taro.request 在 H5 也有效，此处为兜底）
-    if (err?.errMsg?.includes?.('request:fail') && typeof fetch !== 'undefined') {
-      console.warn('[API] Taro.request 失败，降级到 fetch:', err.errMsg)
-      return fallbackFetch(method, path, data, header)
-    }
+    console.error('[API] cloud.callContainer 失败:', err)
     throw err
   }
 }
@@ -91,7 +107,8 @@ async function fallbackFetch<T>(
   if (data && method !== 'GET') {
     fetchOptions.body = JSON.stringify(data)
   }
-  const res = await fetch(`${BASE_URL}${path}`, fetchOptions)
+  // H5 环境直接使用相对路径，由 dev server 代理
+  const res = await fetch(path, fetchOptions)
   return res.json()
 }
 
