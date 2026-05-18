@@ -17,6 +17,8 @@ from src.services.news.news_database import (
     mark_as_read,
     save_news_audio,
     get_news_audio_url,
+    get_news_cloud_file_id,
+    save_news_cloud_file_id,
     get_news_without_audio,
 )
 
@@ -32,5 +34,7 @@ __all__ = [
     'mark_as_read',
     'save_news_audio',
     'get_news_audio_url',
+    'get_news_cloud_file_id',
+    'save_news_cloud_file_id',
     'get_news_without_audio',
 ]
