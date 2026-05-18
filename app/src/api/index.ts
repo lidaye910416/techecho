@@ -6,19 +6,20 @@
  * - 普通模式：使用 Taro.request（通过公网访问）
  */
 
+import Taro from '@tarojs/taro'
+
 // ============ 配置 ============
+// 注意：微信小程序中没有 process.env，使用配置对象
 
-// 是否使用微信云托管
-const USE_CLOUD = process.env.TARO_APP_USE_CLOUD === 'true'
-
-// 普通 API 地址（当 USE_CLOUD=false 时使用）
+// API 地址（从编译时常量读取）
 const API_BASE = process.env.TARO_APP_API_BASE || 'http://localhost:8000'
 
-// 微信云托管环境 ID（当 USE_CLOUD=true 时使用）
+// 微信云托管配置（从编译时常量读取）
 const CLOUD_ENV = process.env.TARO_APP_CLOUD_ENV || ''
-
-// 微信云托管服务名称（当 USE_CLOUD=true 时使用）
 const CLOUD_SERVICE = process.env.TARO_APP_CLOUD_SERVICE || ''
+
+// 是否使用云托管（从编译时常量读取）
+const USE_CLOUD = CLOUD_ENV !== '' && CLOUD_SERVICE !== ''
 
 // ============ 工具函数 ============
 
@@ -30,15 +31,17 @@ function getCloudContainer() {
   return null
 }
 
-/** 将相对路径转换为完整音频 URL */
-export function getAudioUrl(relativePath: string): string {
-  if (!relativePath) return ''
-  // 如果已经是完整 URL（MiniMax 直返的 URL），直接返回
-  if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
-    return relativePath
+/** 将音频路径转换为完整 HTTP URL */
+export function getAudioUrl(audioPath: string): string {
+  if (!audioPath) return ''
+  // 如果是本地路径 /data/audio/xxx.mp3，转换为 API 路径
+  if (audioPath.startsWith('/data/audio/')) {
+    const filename = audioPath.split('/').pop() || ''
+    const newsId = filename.replace('_v3.mp3', '')
+    return `/api/news/${newsId}/read`
   }
-  // 相对路径（本地文件访问，仅用于开发调试）
-  return relativePath
+  // 其他情况直接返回
+  return audioPath
 }
 
 // ============ 通用请求封装 ============

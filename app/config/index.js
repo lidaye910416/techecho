@@ -2,16 +2,35 @@
 const fs = require('fs');
 const path = require('path');
 
-// 自动读取 app/.env 文件获取 API 地址
+// 自动读取 app/.env 文件获取配置
 let apiBase = process.env.TARO_APP_API_BASE || 'http://localhost:8000';
+let useCloud = 'false';
+let cloudEnv = '';
+let cloudService = '';
 
 try {
   const envFile = path.join(__dirname, '.env');
   if (fs.existsSync(envFile)) {
     const content = fs.readFileSync(envFile, 'utf-8');
-    const match = content.match(/^TARO_APP_API_BASE\s*=\s*(.+)$/m);
-    if (match && match[1]) {
-      apiBase = match[1].trim();
+    // 读取 API_BASE
+    const apiMatch = content.match(/^TARO_APP_API_BASE\s*=\s*(.+)$/m);
+    if (apiMatch && apiMatch[1]) {
+      apiBase = apiMatch[1].trim();
+    }
+    // 读取 USE_CLOUD
+    const cloudMatch = content.match(/^TARO_APP_USE_CLOUD\s*=\s*(.+)$/m);
+    if (cloudMatch && cloudMatch[1]) {
+      useCloud = cloudMatch[1].trim().toLowerCase();
+    }
+    // 读取 CLOUD_ENV
+    const envMatch = content.match(/^TARO_APP_CLOUD_ENV\s*=\s*(.+)$/m);
+    if (envMatch && envMatch[1]) {
+      cloudEnv = envMatch[1].trim();
+    }
+    // 读取 CLOUD_SERVICE
+    const svcMatch = content.match(/^TARO_APP_CLOUD_SERVICE\s*=\s*(.+)$/m);
+    if (svcMatch && svcMatch[1]) {
+      cloudService = svcMatch[1].trim();
     }
   }
 } catch (e) {
@@ -31,9 +50,12 @@ module.exports = {
       chain.optimization.concatenateModules(false)
     }
   },
-  // API 地址从 app/.env 文件读取（已被 .gitignore 保护）
+  // 配置常量（从 .env 文件读取）
   defineConstants: {
     'process.env.TARO_APP_API_BASE': JSON.stringify(apiBase),
+    'process.env.TARO_APP_USE_CLOUD': JSON.stringify(useCloud),
+    'process.env.TARO_APP_CLOUD_ENV': JSON.stringify(cloudEnv),
+    'process.env.TARO_APP_CLOUD_SERVICE': JSON.stringify(cloudService),
   },
   pages: [
     'pages/index/index',

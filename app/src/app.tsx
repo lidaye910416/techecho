@@ -13,13 +13,12 @@ class App extends Component<PropsWithChildren> {
   }
 }
 
-// 初始化微信云开发环境（仅在云托管模式下）
-const USE_CLOUD = process.env.TARO_APP_USE_CLOUD === 'true'
-const CLOUD_ENV = process.env.TARO_APP_CLOUD_ENV || ''
+// 是否使用云托管
+const USE_CLOUD = process.env.TARO_APP_CLOUD_ENV !== '' && process.env.TARO_APP_CLOUD_SERVICE !== ''
 
-if (USE_CLOUD && typeof wx !== 'undefined' && wx.cloud && CLOUD_ENV) {
+if (USE_CLOUD && typeof wx !== 'undefined' && wx.cloud) {
   wx.cloud.init({
-    env: CLOUD_ENV,
+    env: process.env.TARO_APP_CLOUD_ENV,
     traceUser: true,
   })
 }

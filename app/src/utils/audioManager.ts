@@ -5,6 +5,7 @@
  * 1. 明确区分播放/暂停/停止状态
  * 2. pause/resume 用于同一条新闻的暂停/继续
  * 3. 停止/切换新闻时 destroy 并重建
+ * 4. 云托管模式：通过 callContainer 下载音频到本地播放
  */
 
 import Taro from '@tarojs/taro'
@@ -17,6 +18,12 @@ export const AUDIO_SWITCH_EVENT = 'techecho_audio_switch'
 export const AUDIO_LOADING_EVENT = 'techecho_audio_loading'
 export const AUDIO_REPORT_PAUSE_EVENT = 'techecho_audio_report_pause'
 export const AUDIO_REPORT_RESUME_EVENT = 'techecho_audio_report_resume'
+
+// 云托管配置（从编译时常量读取）
+const CLOUD_ENV = process.env.TARO_APP_CLOUD_ENV || ''
+const CLOUD_SERVICE = process.env.TARO_APP_CLOUD_SERVICE || ''
+// 是否使用云托管
+const USE_CLOUD = CLOUD_ENV !== '' && CLOUD_SERVICE !== ''
 
 export interface AudioItem {
   newsId: string
@@ -109,14 +116,68 @@ export function stopAllAudio() {
 }
 
 /**
+ * 下载音频文件（支持云托管和本地模式）
+ */
+async function downloadAudio(path: string, newsId: string): Promise<string> {
+  if (USE_CLOUD && wx.cloud) {
+    // 云托管模式：通过 callContainer 获取音频数据
+    try {
+      const res = await wx.cloud.callContainer({
+        config: { env: CLOUD_ENV },
+        path: path,
+        method: 'GET',
+      })
+      // callContainer 返回的是二进制数据，需要写入临时文件
+      const tempFilePath = `${wx.env.USER_DATA_PATH}/${newsId}.mp3`
+      const fs = wx.getFileSystemManager()
+      fs.writeFile({
+        filePath: tempFilePath,
+        data: res.buffer,
+        encoding: 'binary',
+        success: () => {
+          console.log('[Audio] Downloaded to:', tempFilePath)
+        },
+        fail: (err) => {
+          console.error('[Audio] Write file failed:', err)
+        }
+      })
+      return tempFilePath
+    } catch (err) {
+      console.error('[Audio] Cloud download failed:', err)
+      throw err
+    }
+  } else {
+    // 本地模式：使用 Taro.request 下载
+    return new Promise((resolve, reject) => {
+      Taro.request({
+        url: `http://localhost:8000${path}`,
+        method: 'GET',
+        responseType: 'arraybuffer',
+        success: (res) => {
+          const tempFilePath = `${wx.env.USER_DATA_PATH}/${newsId}.mp3`
+          const fs = wx.getFileSystemManager()
+          fs.writeFile({
+            filePath: tempFilePath,
+            data: res.data as ArrayBuffer,
+            encoding: 'binary',
+            success: () => resolve(tempFilePath),
+            fail: (err) => reject(err)
+          })
+        },
+        fail: (err) => reject(err)
+      })
+    })
+  }
+}
+
+/**
  * 播放新闻音频
  * 策略：
- * 1. 先下载音频到本地
- * 2. 播放本地文件（避免跨域和认证问题）
+ * 1. 同一条新闻暂停中 → resume
+ * 2. 同一条新闻播放中 → pause
+ * 3. 不同新闻 → stop 后播放
  */
 export function playNewsAudio(newsId: string, url: string, source: string) {
-  const audioUrl = url.startsWith('http') ? url : url
-
   // 情况1: 同一条新闻暂停中 → 继续播放
   if (currentNewsId === newsId && isPaused && globalAudioCtx) {
     isPaused = false
@@ -142,101 +203,59 @@ export function playNewsAudio(newsId: string, url: string, source: string) {
   // 情况3: 不同新闻 → 停止旧音频，播放新音频
   const oldNewsId = currentNewsId
 
-  // 立即更新状态
   currentNewsId = newsId
-  currentAudioUrl = audioUrl
+  currentAudioUrl = url
   isPaused = false
 
-  // 通知旧音频被停止
   if (oldNewsId && oldNewsId !== newsId) {
     notifySwitch(oldNewsId, newsId)
   }
 
-  // 通知新音频正在加载
   notifyLoading(newsId)
-
-  // 销毁旧音频
   destroyAudioCtx()
 
-  // 下载音频文件到本地，再播放（避免直接播放远程URL的问题）
-  downloadAndPlay(newsId, audioUrl)
-}
+  // 下载音频文件到本地，然后播放
+  downloadAudio(url, newsId)
+    .then((localPath) => {
+      if (currentNewsId !== newsId) return
 
-/**
- * 下载音频文件到本地，然后播放
- */
-function downloadAndPlay(newsId: string, url: string) {
-  // 如果是相对路径，跳过下载直接播放
-  if (!url.startsWith('http')) {
-    playDirectly(newsId, url)
-    return
-  }
+      const ctx = Taro.createInnerAudioContext()
+      globalAudioCtx = ctx
+      ctx.volume = 1.0
+      ctx.obeyMuteSwitch = false
+      ctx.src = localPath
 
-  wx.downloadFile({
-    url: url,
-    success: (res) => {
-      if (res.statusCode === 200 && res.tempFilePath) {
-        playDirectly(newsId, res.tempFilePath)
-      } else {
-        console.error('[Audio] download failed:', res)
+      ctx.onPlay(() => {
+        isPaused = false
+      })
+
+      ctx.onEnded(() => {
+        isPaused = false
+        currentNewsId = null
+        currentAudioUrl = null
+        globalAudioCtx = null
         notifyStop()
-      }
-    },
-    fail: (err) => {
-      console.error('[Audio] download error:', err)
-      // 下载失败时尝试直接播放（某些URL可能可以直接播放）
-      playDirectly(newsId, url)
-    }
-  })
-}
+      })
 
-/**
- * 直接播放音频（本地路径或远程URL）
- */
-function playDirectly(newsId: string, path: string) {
-  setTimeout(() => {
-    if (currentNewsId !== newsId) return
+      ctx.onError(() => {
+        isPaused = false
+        currentNewsId = null
+        globalAudioCtx = null
+        notifyStop()
+      })
 
-    const ctx = Taro.createInnerAudioContext()
-    globalAudioCtx = ctx
-
-    ctx.volume = 1.0
-    ctx.obeyMuteSwitch = false
-    ctx.src = path
-
-    ctx.onPlay(() => {
-      isPaused = false
+      setTimeout(() => {
+        if (globalAudioCtx === ctx && currentNewsId === newsId) {
+          try {
+            ctx.play()
+          } catch (e) { /* ignore */ }
+        }
+      }, 100)
     })
-
-    ctx.onEnded(() => {
-      isPaused = false
-      currentNewsId = null
-      currentAudioUrl = null
-      globalAudioCtx = null
+    .catch((err) => {
+      console.error('[Audio] Download failed:', err)
       notifyStop()
     })
-
-    ctx.onStop(() => {
-      // ignore
-    })
-
-    ctx.onError(() => {
-      console.error('[Audio] play error for:', path)
-      isPaused = false
-      currentNewsId = null
-      globalAudioCtx = null
-      notifyStop()
-    })
-
-    // 延迟播放
-    setTimeout(() => {
-      if (globalAudioCtx === ctx && currentNewsId === newsId) {
-        try {
-          ctx.play()
-        } catch (e) { /* ignore */ }
-      }
-    }, 100)
-  }, 50)
 }
 
 /**

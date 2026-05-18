@@ -9,9 +9,13 @@
 """
 
 import os
+from pathlib import Path
 
 # 数据目录配置
 DATA_DIR = os.getenv('DATA_DIR', '/app/data')
+
+# 确保目录存在
+Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
 
 # 数据库路径
 DB_PATH = os.path.join(DATA_DIR, 'database.db')
