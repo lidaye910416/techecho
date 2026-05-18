@@ -117,7 +117,7 @@ async def api_status():
         except Exception as e:
             status["minimax_api"]["error"] = str(e)
 
-    if azure_configured:
+    if status["azure_tts_configured"]:
         status["tts_provider"] = "azure"
     elif status["minimax_api"].get("tts", {}).get("available"):
         status["tts_provider"] = "minimax"
