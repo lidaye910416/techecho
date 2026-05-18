@@ -46,9 +46,13 @@ async def shutdown_event():
 # 注册 API 路由
 app.include_router(api_router)
 
-# 挂载静态文件目录 (用于头像图片)
+# 挂载静态文件目录 (用于头像图片和音频)
 data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 if os.path.exists(data_dir):
+    app.mount("/data", StaticFiles(directory=data_dir), name="data")
+else:
+    # 确保目录存在
+    os.makedirs(data_dir, exist_ok=True)
     app.mount("/data", StaticFiles(directory=data_dir), name="data")
 
 @app.get("/")

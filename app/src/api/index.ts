@@ -37,7 +37,7 @@ export function getAudioUrl(relativePath: string): string {
   if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
     return relativePath
   }
-  // 使用配置的 API 地址
+  // 相对路径（如 /data/audio/xxx.mp3）直接返回，由云托管服务处理
   return relativePath
 }
 
