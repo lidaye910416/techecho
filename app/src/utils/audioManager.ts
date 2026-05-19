@@ -5,7 +5,8 @@
  * 1. 明确区分播放/暂停/停止状态
  * 2. pause/resume 用于同一条新闻的暂停/继续
  * 3. 停止/切换新闻时 destroy 并重建
- * 4. 使用 wx.cloud.callContainer 下载音频（云托管模式）
+ * 4. 支持云存储 fileID（cloud:// 格式）直接播放
+ * 5. 降级使用 wx.cloud.callContainer 下载音频
  */
 
 import Taro from '@tarojs/taro'
@@ -28,6 +29,9 @@ export interface AudioItem {
   url: string
   source: string
 }
+
+// 云存储 fileID 类型
+export type CloudFileId = string // 格式: cloud://{env}/{bucket}/{path}
 
 // 全局状态
 let currentNewsId: string | null = null
@@ -114,12 +118,126 @@ export function stopAllAudio() {
 }
 
 /**
- * 下载音频文件（使用 wx.cloud.callContainer）
+ * 下载音频文件（支持云存储 fileID）
+ *
+ * 策略:
+ * 1. 如果是 cloud:// 格式的 fileID，使用 wx.cloud.downloadFile 直接下载
+ * 2. 否则使用 wx.cloud.callContainer 方式下载
  */
-async function downloadAudio(path: string, newsId: string): Promise<string> {
-  console.log('[Audio] downloadAudio called:', { path, newsId, CLOUD_ENV, CLOUD_SERVICE })
+async function downloadAudio(urlOrFileId: string, newsId: string): Promise<string> {
+  console.log('[Audio] downloadAudio called:', { urlOrFileId, newsId, CLOUD_ENV, CLOUD_SERVICE })
 
-  // 使用 wx.cloud.callContainer 下载音频（PUT 方法）
+  // 优先使用云存储下载（cloud:// 格式）
+  if (urlOrFileId.startsWith('cloud://')) {
+    return downloadFromCloudStorage(urlOrFileId, newsId)
+  }
+
+  // 降级: 使用 wx.cloud.callContainer 下载
+  return downloadViaCallContainer(urlOrFileId, newsId)
+}
+
+/**
+ * 使用 wx.cloud.downloadFile 从云存储下载
+ * 参考: https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/development/storage/miniapp/download.html
+ */
+async function downloadFromCloudStorage(cloudFileId: string, newsId: string): Promise<string> {
+  console.log('[Audio] Downloading from cloud storage:', cloudFileId)
+
+  try {
+    // wx.cloud.downloadFile 会自动处理 cloud:// 格式的 fileID
+    const res = await wx.cloud.downloadFile({
+      fileID: cloudFileId,
+    })
+
+    console.log('[Audio] wx.cloud.downloadFile response:', {
+      statusCode: res.statusCode,
+      tempFilePath: res.tempFilePath,
+    })
+
+    if (res.statusCode !== 200 || !res.tempFilePath) {
+      throw new Error(`Download failed: ${res.statusCode}`)
+    }
+
+    console.log('[Audio] Downloaded from cloud storage:', res.tempFilePath)
+    return res.tempFilePath
+
+  } catch (err) {
+    console.error('[Audio] Cloud storage download failed, falling back to callContainer:', err)
+    // 下载失败时，尝试从 API 获取临时链接
+    return downloadViaApiTempUrl(cloudFileId, newsId)
+  }
+}
+
+/**
+ * 从 API 获取云存储文件的临时链接后下载
+ */
+async function downloadViaApiTempUrl(cloudFileId: string, newsId: string): Promise<string> {
+  console.log('[Audio] Getting temp URL from API for:', cloudFileId)
+
+  try {
+    // 调用后端 API 获取临时链接
+    const res = await wx.cloud.callContainer({
+      config: { env: CLOUD_ENV },
+      path: `/api/news/${newsId}/cloud-file`,
+      method: 'GET',
+      header: { 'X-WX-SERVICE': CLOUD_SERVICE },
+    })
+
+    if (res?.data?.temp_url) {
+      // 使用临时链接下载
+      const tempUrl = res.data.temp_url
+      console.log('[Audio] Got temp URL:', tempUrl)
+
+      // 下载到本地
+      const tempFilePath = await downloadFromUrl(tempUrl, newsId)
+      return tempFilePath
+    }
+
+    throw new Error('No temp URL in response')
+
+  } catch (err) {
+    console.error('[Audio] Get temp URL failed:', err)
+    throw err
+  }
+}
+
+/**
+ * 从 URL 下载文件
+ */
+async function downloadFromUrl(url: string, newsId: string): Promise<string> {
+  const tempFilePath = `${wx.env.USER_DATA_PATH}/${newsId}.mp3`
+  const fs = wx.getFileSystemManager()
+
+  // 使用 wx.downloadFile 下载
+  await new Promise<void>((resolve, reject) => {
+    wx.downloadFile({
+      url,
+      filePath: tempFilePath,
+      success: (res) => {
+        if (res.statusCode === 200) {
+          console.log('[Audio] Downloaded from URL:', res.tempFilePath)
+          resolve()
+        } else {
+          reject(new Error(`Download failed: ${res.statusCode}`))
+        }
+      },
+      fail: (err) => {
+        console.error('[Audio] downloadFile failed:', err)
+        reject(err)
+      }
+    })
+  })
+
+  return tempFilePath
+}
+
+/**
+ * 使用 wx.cloud.callContainer 下载音频（PUT 方法，降级方案）
+ * 参考: https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/development/storage/miniapp/download.html
+ */
+async function downloadViaCallContainer(path: string, newsId: string): Promise<string> {
+  console.log('[Audio] Downloading via callContainer:', path)
+
   const res = await wx.cloud.callContainer({
     config: {
       env: CLOUD_ENV,
@@ -132,7 +250,7 @@ async function downloadAudio(path: string, newsId: string): Promise<string> {
     },
     responseType: 'arraybuffer',
   })
-  
+
   console.log('[Audio] cloud.callContainer response:', {
     statusCode: res.statusCode,
     dataType: typeof res.data,
@@ -148,11 +266,11 @@ async function downloadAudio(path: string, newsId: string): Promise<string> {
   const tempFilePath = `${wx.env.USER_DATA_PATH}/${newsId}.mp3`
   const fs = wx.getFileSystemManager()
   const buffer = res.buffer || res.data
-  
+
   if (!buffer) {
     throw new Error('No audio data received')
   }
-  
+
   const base64 = wx.arrayBufferToBase64(buffer)
   console.log('[Audio] Converted to base64, length:', base64.length)
 

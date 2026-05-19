@@ -22,6 +22,7 @@ import httpx
 
 from src.services.minimax_client import get_minimax_client
 from src.services.tts.voice_config import VOICE_STYLES, MINIMAX_VOICES
+from src.services.cloud_storage import get_cloud_storage
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class TTSResult:
     cached: bool
     engine: str
     message: str = ""
+    cloud_file_id: Optional[str] = None  # 云存储 fileID
 
 
 @dataclass
@@ -105,6 +107,53 @@ class TTSService:
         """检查是否已缓存"""
         return self._get_cache_path(news_id, voice_id).exists()
 
+    async def _upload_to_cloud(
+        self,
+        audio_file: Path,
+        news_id: str,
+        voice_id: str
+    ) -> Optional[str]:
+        """
+        上传音频文件到云存储
+
+        Args:
+            audio_file: 本地音频文件路径
+            news_id: 新闻ID
+            voice_id: 语音ID
+
+        Returns:
+            cloud_file_id: 云存储 fileID
+            None: 上传失败或未配置云存储
+        """
+        cloud_storage = get_cloud_storage()
+        if not cloud_storage:
+            logger.info(f"[TTS] Cloud storage not configured, skipping upload")
+            return None
+
+        # 生成云存储路径
+        cloud_path = f"audio/{news_id}_{voice_id}.mp3"
+
+        try:
+            cloud_file_id = await cloud_storage.upload_file(audio_file, cloud_path)
+            if cloud_file_id:
+                logger.info(f"[TTS] Uploaded to cloud: {cloud_file_id}")
+
+                # 保存 cloud_file_id 到数据库
+                try:
+                    from src.services.news import save_news_cloud_file_id
+                    save_news_cloud_file_id(news_id, cloud_file_id)
+                    logger.info(f"[TTS] Saved cloud_file_id to DB: {news_id}")
+                except Exception as e:
+                    logger.error(f"[TTS] Failed to save cloud_file_id to DB: {e}")
+
+                return cloud_file_id
+            else:
+                logger.warning(f"[TTS] Cloud upload returned None")
+                return None
+        except Exception as e:
+            logger.error(f"[TTS] Cloud upload failed: {e}")
+            return None
+
     def _get_text_for_tts(self, news_dict: Dict) -> str:
         """从新闻字典获取 TTS 文本"""
         lang = news_dict.get('lang', 'zh')
@@ -146,11 +195,16 @@ class TTSService:
             if response.status_code == 200:
                 with open(audio_file, 'wb') as f:
                     f.write(response.content)
+
+                # 上传到云存储（如果已配置）
+                cloud_file_id = await self._upload_to_cloud(audio_file, news_id, voice_id)
+
                 return TTSResult(
                     success=True,
                     audio_url=f"/data/audio/{audio_file.name}",
                     cached=False,
-                    engine="minimax"
+                    engine="minimax",
+                    cloud_file_id=cloud_file_id
                 )
 
             return TTSResult(False, "", False, "minimax", f"下载失败: {response.status_code}")

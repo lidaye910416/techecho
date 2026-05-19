@@ -11,12 +11,18 @@ env_path = Path(__file__).parent.parent / ".env"
 if env_path.exists():
     load_dotenv(env_path, override=False)  # 不覆盖已有的环境变量
 
-app = FastAPI(title="Tech Echo - 科技资讯播报", version="0.3.1")
+app = FastAPI(title="Tech Echo - 科技资讯播报", version="0.3.2")
 
 # 启动时打印环境变量调试信息
 print(f"[TechEcho] PYTHONPATH: {os.getenv('PYTHONPATH', 'not set')}")
 print(f"[TechEcho] DATA_DIR: {os.getenv('DATA_DIR', 'not set')}")
 print(f"[TechEcho] MINIMAX_API_KEY: {'***' if os.getenv('MINIMAX_API_KEY') else 'NOT SET'}")
+
+# 检查云存储配置
+from src.config.settings import CLOUD_STORAGE_ENABLED, WECHAT_CLOUD_SECRET_ID
+print(f"[TechEcho] CLOUD_STORAGE_ENABLED: {CLOUD_STORAGE_ENABLED}")
+if CLOUD_STORAGE_ENABLED:
+    print(f"[TechEcho] Cloud storage secret: {'***' + WECHAT_CLOUD_SECRET_ID[-4:] if WECHAT_CLOUD_SECRET_ID else 'NOT SET'}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,25 +53,45 @@ async def shutdown_event():
 app.include_router(api_router)
 
 # 挂载静态文件目录 (用于头像图片和音频)
-data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
-if os.path.exists(data_dir):
-    app.mount("/data", StaticFiles(directory=data_dir), name="data")
+# 如果启用了云存储，则静默跳过静态文件挂载（文件已上传到云端）
+if not CLOUD_STORAGE_ENABLED:
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    if os.path.exists(data_dir):
+        app.mount("/data", StaticFiles(directory=data_dir), name="data")
+        print(f"[TechEcho] Static files mounted: {data_dir}")
+    else:
+        # 确保目录存在
+        os.makedirs(data_dir, exist_ok=True)
+        app.mount("/data", StaticFiles(directory=data_dir), name="data")
+        print(f"[TechEcho] Static files mounted (created): {data_dir}")
 else:
-    # 确保目录存在
-    os.makedirs(data_dir, exist_ok=True)
-    app.mount("/data", StaticFiles(directory=data_dir), name="data")
+    print("[TechEcho] Cloud storage enabled, skipping static files mount")
 
 @app.get("/")
 async def root():
     return {
         "name": "Tech Echo API",
-        "version": "0.3.1",
+        "version": "0.3.2",
         "description": "科技资讯播报平台 API"
     }
 
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+@app.get("/api/status")
+async def get_status():
+    """获取服务状态，包括云存储配置"""
+    from src.services.cloud_storage import is_cloud_storage_available
+
+    return {
+        "status": "healthy",
+        "version": "0.3.2",
+        "cloud_storage": {
+            "enabled": CLOUD_STORAGE_ENABLED,
+            "available": is_cloud_storage_available(),
+        }
+    }
 
 if __name__ == "__main__":
     import uvicorn

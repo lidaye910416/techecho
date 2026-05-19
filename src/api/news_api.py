@@ -300,10 +300,38 @@ async def update_cloud_file_id(news_id: str, cloud_file_id: str = Query(..., des
 @router.get("/{news_id}/cloud-file")
 async def get_cloud_file_id(news_id: str):
     """
-    获取新闻的云存储 fileID
+    获取新闻的云存储 fileID 和临时访问链接
+
+    前端可以通过返回的 temp_url 直接访问音频文件，
+    或者使用 cloud_file_id 通过 wx.cloud.downloadFile 下载。
     """
     cloud_file_id = get_news_cloud_file_id(news_id)
-    if cloud_file_id:
-        return {'success': True, 'news_id': news_id, 'cloud_file_id': cloud_file_id}
-    else:
+    if not cloud_file_id:
         return {'success': False, 'message': 'No cloud file ID'}
+
+    result = {
+        'success': True,
+        'news_id': news_id,
+        'cloud_file_id': cloud_file_id,
+        'temp_url': None,
+    }
+
+    # 如果配置了云存储，尝试获取临时链接
+    try:
+        from src.services.cloud_storage import get_cloud_storage
+
+        cloud_storage = get_cloud_storage()
+        if cloud_storage and cloud_file_id.startswith('cloud://'):
+            # 从 cloud:// 格式提取路径
+            # 格式: cloud://{env}/{bucket}/{path}
+            parts = cloud_file_id.replace('cloud://', '').split('/', 2)
+            if len(parts) >= 3:
+                cloud_path = parts[2]
+                temp_url = await cloud_storage.get_temp_url(cloud_path, expires=3600)
+                if temp_url:
+                    result['temp_url'] = temp_url
+    except Exception as e:
+        import logging
+        logging.warning(f"[API] Failed to get temp URL: {e}")
+
+    return result
