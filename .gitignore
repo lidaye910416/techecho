@@ -78,3 +78,7 @@ data/*.sqlite*
 
 # Logs
 logs/
+
+# Claude Code skills (personal, not project code)
+.claude/commands/
+.agents/
