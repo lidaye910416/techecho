@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Switch, Slider, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { wechatLogin, LoginResult } from '../../api'
+import { wechatLogin, getNewsList, LoginResult } from '../../api'
 import { t } from '../../i18n'
 import './mine.scss'
 
@@ -48,14 +48,47 @@ export default function Mine() {
 
   useEffect(() => { loadPersistedState() }, [])
 
-  // Tab 切换回"我的"页面时刷新收藏数
-  useDidShow(() => {
+  // 计算有效收藏数量（只统计新闻列表中存在的收藏）
+  const calculateValidFavCount = async () => {
     try {
       const favs = Taro.getStorageSync('techecho_favorites')
-      if (favs) setFavCount(JSON.parse(favs).length)
-      else setFavCount(0)
+      const favList: string[] = favs ? JSON.parse(favs) : []
+      if (favList.length === 0) {
+        setFavCount(0)
+        return
+      }
+      // 获取新闻列表，检查哪些收藏ID仍然有效
+      const res = await getNewsList({ limit: 500 })
+      if (res.success && Array.isArray(res.data)) {
+        const validIds = new Set(res.data.map((n: any) => n.id))
+        const validCount = favList.filter(id => validIds.has(id)).length
+        setFavCount(validCount)
+        // 如果有效数量为0，清除过期的收藏ID
+        if (validCount === 0) {
+          Taro.removeStorageSync('techecho_favorites')
+        }
+      } else {
+        setFavCount(favList.length)
+      }
     } catch (_) { /* ignore */ }
+  }
+
+  // Tab 切换回"我的"页面时刷新收藏数
+  useDidShow(() => {
+    calculateValidFavCount()
   })
+
+  // 监听收藏数据变化（实时更新徽章数量）
+  useEffect(() => {
+    const favChangeHandler = () => {
+      console.log('[Mine] 收到收藏变化事件')
+      calculateValidFavCount()
+    }
+    Taro.eventCenter.on('techecho_favorites_changed', favChangeHandler)
+    return () => {
+      Taro.eventCenter.off('techecho_favorites_changed', favChangeHandler)
+    }
+  }, [])
 
   // 监听来自其他页面的主题变更和设置变更
   useEffect(() => {

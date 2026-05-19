@@ -250,14 +250,19 @@ export default function News() {
 
   // ============ 缓存恢复 (路径B) ============
 
+  const clearAnalysisState = () => {
+    Taro.removeStorageSync(ANALYSIS_STATE_KEY)
+    setHasCachedAnalysis(false)
+    setAnalysisMeta(null)  // 清除显示的元信息
+  }
+
   const restoreAnalysisCache = () => {
     try {
       // 无收藏时不恢复分析缓存（对标 H5: clearAnalysisState on fav change）
       const favs = Taro.getStorageSync(FAV_STORAGE_KEY)
       const favList: string[] = favs ? JSON.parse(favs) : []
       if (favList.length === 0) {
-        Taro.removeStorageSync(ANALYSIS_STATE_KEY)
-        setHasCachedAnalysis(false)
+        clearAnalysisState()
         return
       }
 
@@ -499,6 +504,15 @@ export default function News() {
     const updated = favorites.filter((fid) => fid !== id)
     setFavorites(updated)
     Taro.setStorageSync(FAV_STORAGE_KEY, JSON.stringify(updated))
+
+    // 通知其他页面收藏数据已变化
+    Taro.eventCenter.trigger('techecho_favorites_changed')
+
+    // 如果取消所有收藏，清除分析缓存
+    if (updated.length === 0) {
+      clearAnalysisState()
+    }
+
     Taro.showToast({ title: t('removedFav'), icon: 'none', duration: 1500 })
 
     // 如果正在看报告，关闭它
@@ -509,7 +523,6 @@ export default function News() {
       setReportCurrentTime(0)
       setReportDuration(0)
     }
-    // 不清除 ANALYSIS_STATE_KEY，保留缓存
   }
 
   // ============ 导航 — 底部弹出卡片（对标首页）============

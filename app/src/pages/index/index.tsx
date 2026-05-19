@@ -544,6 +544,9 @@ useEffect(() => {
     setFavorites(updated)
     Taro.setStorageSync(FAV_STORAGE_KEY, JSON.stringify(updated))
 
+    // 通知其他页面收藏数据已变化
+    Taro.eventCenter.trigger('techecho_favorites_changed')
+
     // 对标 H5 clearAnalysisState
     try { Taro.removeStorageSync(ANALYSIS_STATE_KEY) } catch (_) { /* ignore */ }
   }
