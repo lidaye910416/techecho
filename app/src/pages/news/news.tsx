@@ -526,11 +526,45 @@ export default function News() {
 
   // ============ 格式化 ============
 
-  const parseDate = (dateStr: string) => {
+  /** 安全解析日期字符串（兼容 iOS 和各种格式） */
+  const safeParseDate = (dateStr: string): Date | null => {
+    if (!dateStr) return null
+
+    // 优先匹配 ISO 格式（iOS 支持）
+    const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (isoMatch) {
+      const [, y, m, d] = isoMatch
+      return new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
+    }
+
+    // 解析 RFC 2822 格式（iOS 不支持，需手动解析）
+    // 格式: "Wed, 13 May 2026 07:59:36 +0800"
+    const rfcMatch = dateStr.match(/^[A-Za-z]{3},\s+(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/)
+    if (rfcMatch) {
+      const [, day, monthStr, year, hour, min, sec] = rfcMatch
+      const monthMap: Record<string, number> = {
+        Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+        Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+      }
+      const month = monthMap[monthStr]
+      if (month !== undefined) {
+        return new Date(parseInt(year), month, parseInt(day), parseInt(hour), parseInt(min), parseInt(sec))
+      }
+    }
+
+    // 尝试标准解析（兜底）
     try {
       const d = new Date(dateStr)
-      return `${d.getMonth() + 1}月${d.getDate()}日`
-    } catch (_) { return dateStr.slice(0, 10) }
+      if (!isNaN(d.getTime())) return d
+    } catch (_) { /* ignore */ }
+
+    return null
+  }
+
+  const parseDate = (dateStr: string) => {
+    const d = safeParseDate(dateStr)
+    if (!d) return dateStr.slice(0, 10)
+    return `${d.getMonth() + 1}月${d.getDate()}日`
   }
 
   const formatTime = (seconds: number) => {

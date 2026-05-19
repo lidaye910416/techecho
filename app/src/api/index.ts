@@ -1,9 +1,9 @@
 /**
- * Tech Echo API 接口 — 适配微信小程序
+ * Tech Echo API 接口 — 微信云托管模式
  *
- * 支持两种调用方式：
- * - 云托管模式：使用 wx.cloud.callContainer（通过内网访问）
- * - 普通模式：使用 Taro.request（通过公网访问）
+ * 使用 wx.cloud.callContainer 访问云托管服务
+ * - 内网通信，无需配置域名
+ * - 自动携带用户信息（openid 等）
  */
 
 import Taro from '@tarojs/taro'
@@ -11,15 +11,9 @@ import Taro from '@tarojs/taro'
 // ============ 配置 ============
 // 注意：微信小程序中没有 process.env，使用配置对象
 
-// API 地址（从编译时常量读取）
-const API_BASE = process.env.TARO_APP_API_BASE || 'http://localhost:8000'
-
-// 微信云托管配置（从编译时常量读取）
+// 云托管配置（从编译时常量读取）
 const CLOUD_ENV = process.env.TARO_APP_CLOUD_ENV || ''
 const CLOUD_SERVICE = process.env.TARO_APP_CLOUD_SERVICE || ''
-
-// 是否使用云托管（从编译时常量读取）
-const USE_CLOUD = CLOUD_ENV !== '' && CLOUD_SERVICE !== ''
 
 // ============ 工具函数 ============
 
@@ -31,14 +25,14 @@ function getCloudContainer() {
   return null
 }
 
-/** 将音频路径转换为完整 HTTP URL */
+/** 将音频路径转换为完整 HTTP URL（公网模式用） */
 export function getAudioUrl(audioPath: string): string {
   if (!audioPath) return ''
   // 如果是本地路径 /data/audio/xxx.mp3，转换为 API 路径
   if (audioPath.startsWith('/data/audio/')) {
     const filename = audioPath.split('/').pop() || ''
-    // 移除 .mp3 后缀和语音风格后缀 (voice1, voice2, voice3, voice4, v3)
-    const newsId = filename.replace(/\.mp3$/, '').replace(/_(voice\d+)$/, '')
+    // 移除 .mp3 后缀和语音风格后缀 (_voice1, _voice2, _v3, _voice3 等)
+    const newsId = filename.replace(/\.mp3$/, '').replace(/_(voice\d+|v\d+)$/, '')
     return `/api/news/${newsId}/read`
   }
   // 其他情况直接返回
@@ -53,39 +47,14 @@ async function request<T = any>(
   data?: any,
   options?: { header?: Record<string, string> }
 ): Promise<T> {
-  // 检查 token（微信登录后存于 storage）
-  let token = ''
-  try {
-    token = Taro.getStorageSync('auth_token') || ''
-  } catch (_) {
-    /* 未登录 */
-  }
-
-  const header: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options?.header || {}),
-  }
-  if (token) {
-    header['Authorization'] = `Bearer ${token}`
-  }
-
-  // 根据配置选择调用方式
-  // 云托管模式：音频读取接口使用 PUT 方法（云托管 API Gateway 限制）
-  let effectiveMethod = method
-  if (USE_CLOUD && getCloudContainer() && path.includes('/news/') && path.includes('/read')) {
-    effectiveMethod = 'PUT'
-    console.log('[API] 云托管模式，音频接口改用 PUT 方法')
-  }
-
-  if (USE_CLOUD && getCloudContainer()) {
+  const cloud = getCloudContainer()
+  
+  if (cloud && CLOUD_ENV && CLOUD_SERVICE) {
     // 云托管模式
-    if (CLOUD_SERVICE) {
-      header['X-WX-SERVICE'] = CLOUD_SERVICE
-    }
-    return cloudRequest<T>(path, effectiveMethod, data, header)
+    return cloudRequest<T>(path, method, data)
   } else {
-    // 普通模式（使用 Taro.request 或 fetch）
-    return normalRequest<T>(path, method, data, header)
+    // 普通模式（使用 Taro.request 作为降级）
+    return normalRequest<T>(path, method, data)
   }
 }
 
@@ -94,14 +63,15 @@ async function cloudRequest<T>(
   path: string,
   method: string,
   data?: any,
-  header?: Record<string, string>
 ): Promise<T> {
   const cloud = getCloudContainer()
   if (!cloud) {
-    throw new Error('云托管不可用，切换到普通模式')
+    throw new Error('云托管不可用')
   }
 
   try {
+    console.log('[API] cloud.callContainer:', { path, method, CLOUD_ENV, CLOUD_SERVICE })
+    
     const res = await cloud.callContainer({
       config: {
         env: CLOUD_ENV,
@@ -109,9 +79,14 @@ async function cloudRequest<T>(
       path,
       method,
       data,
-      header,
+      header: {
+        'X-WX-SERVICE': CLOUD_SERVICE,
+        'Content-Type': 'application/json',
+      },
       timeout: 15000,
     })
+
+    console.log('[API] cloud.callContainer response:', res.errMsg, res.statusCode)
 
     if (res?.statusCode === 200) {
       return res.data as T
@@ -137,15 +112,16 @@ async function normalRequest<T>(
   path: string,
   method: string,
   data?: any,
-  header?: Record<string, string>
 ): Promise<T> {
+  const API_BASE = process.env.TARO_APP_API_BASE || 'http://localhost:8000'
+  
   // 小程序环境使用 Taro.request
   if (typeof wx !== 'undefined') {
-    return taroRequest<T>(path, method, data, header)
+    return taroRequest<T>(path, method, data, API_BASE)
   }
 
   // H5 环境使用 fetch
-  return h5Fetch<T>(path, method, data, header)
+  return h5Fetch<T>(path, method, data, API_BASE)
 }
 
 /** Taro.request 请求（小程序环境） */
@@ -153,14 +129,16 @@ async function taroRequest<T>(
   path: string,
   method: string,
   data?: any,
-  header?: Record<string, string>
+  apiBase: string
 ): Promise<T> {
   try {
     const res = await Taro.request({
-      url: `${API_BASE}${path}`,
+      url: `${apiBase}${path}`,
       method,
       data,
-      header,
+      header: {
+        'Content-Type': 'application/json',
+      },
       timeout: 30000,
     })
 
@@ -188,20 +166,21 @@ async function h5Fetch<T>(
   path: string,
   method: string,
   data?: any,
-  header?: Record<string, string>
+  apiBase: string
 ): Promise<T> {
   const fetchOptions: RequestInit = {
     method,
-    headers: header,
+    headers: {
+      'Content-Type': 'application/json',
+    },
   }
   if (data && method !== 'GET') {
     fetchOptions.body = JSON.stringify(data)
   }
 
   let url = path
-  // 如果不是完整 URL，加上 base
   if (!path.startsWith('http://') && !path.startsWith('https://')) {
-    url = `${API_BASE}${path}`
+    url = `${apiBase}${path}`
   }
 
   const res = await fetch(url, fetchOptions)

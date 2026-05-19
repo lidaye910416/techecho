@@ -52,6 +52,89 @@
 | AI 服务 | MiniMax API (TTS: `speech-2.8-hd`, Chat: `MiniMax-M2.7`) |
 | 新闻采集 | feedparser (RSS) / httpx |
 | 定时任务 | APScheduler (每日 08:30) |
+| 部署 | **微信云托管** (小程序/公众号后端服务) |
+
+---
+
+## 微信云托管规范 ⚠️
+
+> **重要**：只要使用微信云托管服务，**必须使用 `wx.cloud.callContainer`** 访问后端 API，禁止使用 `Taro.request` 或 `fetch`。
+
+### 优势（对比 wx.request）
+
+| 优势 | 说明 |
+|------|------|
+| **无需域名配置** | 体验版/正式版无需在管理后台配置服务器域名 |
+| **内网通信** | 前后端走微信内网，不耗费公网流量 |
+| **安全** | 天然免疫 DDoS，仅授权小程序可访问 |
+| **就近接入** | 微信自动选择最近节点，无跨地域延迟 |
+| **自动用户识别** | Header 自动携带 openid，无需登录接口 |
+
+### 必需配置
+
+```typescript
+// app/.env
+TARO_APP_CLOUD_ENV=your-env-id        # 云托管环境ID（例：test1-258814-7）
+TARO_APP_CLOUD_SERVICE=your-service   # 云托管服务名称（例：test1）
+```
+
+### 必用代码模式
+
+```typescript
+// 1. app.tsx - 初始化云托管（全局执行一次）
+if (wx.cloud && CLOUD_ENV) {
+  wx.cloud.init({
+    env: CLOUD_ENV,
+    traceUser: true,
+  })
+}
+
+// 2. API 请求 - 使用 wx.cloud.callContainer
+const res = await wx.cloud.callContainer({
+  config: {
+    env: CLOUD_ENV,           // 环境ID
+  },
+  path: '/api/news',         // 业务路径
+  method: 'GET',             // HTTP 方法
+  header: {
+    'X-WX-SERVICE': CLOUD_SERVICE,  // 服务名称
+  },
+  timeout: 15000,
+})
+```
+
+### 音频下载特殊处理
+
+音频接口需要 **PUT 方法**（云托管 API Gateway 限制）：
+
+```typescript
+// audioManager.ts
+const res = await wx.cloud.callContainer({
+  config: { env: CLOUD_ENV },
+  path: '/api/news/{id}/read',
+  method: 'PUT',  // ⚠️ 必须用 PUT
+  header: {
+    'X-WX-SERVICE': CLOUD_SERVICE,
+  },
+  responseType: 'arraybuffer',
+})
+```
+
+### 何时使用
+
+| 场景 | 使用方式 |
+|------|---------|
+| **微信云托管** | `wx.cloud.callContainer` ✅ |
+| **其他云服务** | `Taro.request` / `fetch` ✅ |
+| **本地开发** | `Taro.request` → `localhost:8000`（作为降级）|
+
+### 常见错误
+
+| 错误码 | 原因 | 解决方案 |
+|--------|------|---------|
+| `-501000 Invalid host` | `X-WX-SERVICE` 配置错误 | 确认服务名称（不是环境ID）|
+| `ERR_CONNECTION_REFUSED` | 网络/域名问题 | 检查是否配置了正确的 env 和 service |
+| `405 Method Not Allowed` | 使用了 GET 方法 | 音频接口必须用 PUT |
 
 ---
 
@@ -139,10 +222,13 @@ python -m http.server 8080 -d app/                     # 或用 HTTP 服务器
 
 # === Taro 小程序 ===
 cd app && npm run dev:weapp                          # 开发模式（localhost:8000）
-export TARO_APP_API_BASE=https://your-domain.sh.run.tcloudbase.com  # 设置生产地址
-cd app && npm run build:weapp                        # 生产构建
+# 生产构建（使用微信云托管，配置 app/.env）
+cd app && npm run build:weapp                        # 使用 .env 中的 CLOUD_ENV/CLOUD_SERVICE
 # 用微信开发者工具打开 app/dist/ 预览
 
+# ⚠️ 小程序必须配置微信云托管环境（app/.env）：
+#   TARO_APP_CLOUD_ENV=环境ID
+#   TARO_APP_CLOUD_SERVICE=服务名称
 # ⚠️ 敏感信息说明：
 # - API 地址通过 TARO_APP_API_BASE 环境变量配置
 # - 复制 app/.env.example 为 app/.env 填入实际地址（已被 .gitignore 忽略）
@@ -302,6 +388,11 @@ WECHAT_APPID=xxx           # 微信小程序 AppID (正式发布时填写)
 WECHAT_SECRET=xxx          # 微信小程序 Secret (正式发布时填写)
 # DATABASE_URL=sqlite:///data/database.db
 # BASE_URL=http://localhost:8000
+
+# ★ 微信云托管配置（必须从云托管控制台获取正确值）
+TARO_APP_CLOUD_ENV=prod-d9g7e5osy7b5e7a9c  # 环境ID（注意不是服务名）
+TARO_APP_CLOUD_SERVICE=test1               # 服务名称
+TARO_APP_API_BASE=https://test1-258814-7-1433977056.sh.run.tcloudbase.com  # 公网地址（可选）
 ```
 
 当前状态: TTS 可用 (`speech-2.8-hd`)，Chat API 可用 (`MiniMax-M2.7` → `v1/chat/completions`)。

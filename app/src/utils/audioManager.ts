@@ -5,7 +5,7 @@
  * 1. 明确区分播放/暂停/停止状态
  * 2. pause/resume 用于同一条新闻的暂停/继续
  * 3. 停止/切换新闻时 destroy 并重建
- * 4. 云托管模式：通过 callContainer 下载音频到本地播放
+ * 4. 使用 wx.cloud.callContainer 下载音频（云托管模式）
  */
 
 import Taro from '@tarojs/taro'
@@ -22,8 +22,6 @@ export const AUDIO_REPORT_RESUME_EVENT = 'techecho_audio_report_resume'
 // 云托管配置（从编译时常量读取）
 const CLOUD_ENV = process.env.TARO_APP_CLOUD_ENV || ''
 const CLOUD_SERVICE = process.env.TARO_APP_CLOUD_SERVICE || ''
-// 是否使用云托管
-const USE_CLOUD = CLOUD_ENV !== '' && CLOUD_SERVICE !== ''
 
 export interface AudioItem {
   newsId: string
@@ -116,148 +114,65 @@ export function stopAllAudio() {
 }
 
 /**
- * 下载音频文件（支持云托管和本地模式）
+ * 下载音频文件（使用 wx.cloud.callContainer）
  */
 async function downloadAudio(path: string, newsId: string): Promise<string> {
-  console.log('[Audio] downloadAudio called:', { path, newsId, USE_CLOUD })
+  console.log('[Audio] downloadAudio called:', { path, newsId, CLOUD_ENV, CLOUD_SERVICE })
 
-  // 云托管模式
-  if (USE_CLOUD && wx.cloud) {
-    // 检查是否是云存储 fileID (cloud:// 开头)
-    if (path.startsWith('cloud://')) {
-      console.log('[Audio] Downloading from cloud storage, fileID:', path)
-      try {
-        const res = await wx.cloud.downloadFile({
-          fileID: path,
-          config: { env: CLOUD_ENV },
-        })
-        console.log('[Audio] cloud.downloadFile response:', {
-          statusCode: res.statusCode,
-          tempFilePath: res.tempFilePath,
-        })
-        if (res.statusCode === 200 && res.tempFilePath) {
-          console.log('[Audio] Cloud download success:', res.tempFilePath)
-          return res.tempFilePath
-        } else {
-          throw new Error(`Download failed: ${res.statusCode}`)
-        }
-      } catch (err) {
-        console.error('[Audio] Cloud download failed:', err)
-        throw err
-      }
-    }
+  // 使用 wx.cloud.callContainer 下载音频（PUT 方法）
+  const res = await wx.cloud.callContainer({
+    config: {
+      env: CLOUD_ENV,
+    },
+    path: path,
+    method: 'PUT',
+    header: {
+      'X-WX-SERVICE': CLOUD_SERVICE,
+      'Content-Type': 'application/json',
+    },
+    responseType: 'arraybuffer',
+  })
+  
+  console.log('[Audio] cloud.callContainer response:', {
+    statusCode: res.statusCode,
+    dataType: typeof res.data,
+    hasBuffer: !!res.buffer,
+    bufferLength: res.buffer?.byteLength,
+    dataLength: res.data?.byteLength,
+  })
 
-    // 如果是 API 路径，用 callContainer
-    try {
-      console.log('[Audio] Using callContainer mode, path:', path)
-      const res = await wx.cloud.callContainer({
-        config: { env: CLOUD_ENV },
-        path: path,
-        method: 'GET',
-        responseType: 'arraybuffer',
-      })
-      console.log('[Audio] cloud.callContainer response:', {
-        statusCode: res.statusCode,
-        dataType: typeof res.data,
-        hasBuffer: !!res.buffer,
-        bufferLength: res.buffer?.byteLength,
-        dataLength: res.data?.byteLength,
-      })
-
-      if (res.statusCode !== 200) {
-        throw new Error(`API request failed: ${res.statusCode}`)
-      }
-
-      const tempFilePath = `${wx.env.USER_DATA_PATH}/${newsId}.mp3`
-      const fs = wx.getFileSystemManager()
-      const buffer = res.buffer || res.data
-      if (!buffer) {
-        throw new Error('No audio data received')
-      }
-      const base64 = wx.arrayBufferToBase64(buffer)
-      console.log('[Audio] Converted to base64, length:', base64.length)
-
-      await new Promise<void>((resolve, reject) => {
-        fs.writeFile({
-          filePath: tempFilePath,
-          data: base64,
-          encoding: 'base64',
-          success: () => {
-            console.log('[Audio] Write file success:', tempFilePath)
-            resolve()
-          },
-          fail: (err) => {
-            console.error('[Audio] Write file failed:', err)
-            reject(err)
-          }
-        })
-      })
-
-      return tempFilePath
-    } catch (err) {
-      console.error('[Audio] Cloud download failed:', err)
-      throw err
-    }
-  } else {
-    // 本地模式：使用 Taro.request 下载
-    console.log('[Audio] Using local mode, calling Taro.request...')
-    return new Promise((resolve, reject) => {
-      Taro.request({
-        url: `http://localhost:8000${path}`,
-        method: 'GET',
-        responseType: 'arraybuffer',
-        success: (res) => {
-          console.log('[Audio] Taro.request success:', {
-            statusCode: res.statusCode,
-            dataType: typeof res.data,
-            dataLength: res.data instanceof ArrayBuffer ? res.data.byteLength : 'not ArrayBuffer',
-          })
-          const tempFilePath = `${wx.env.USER_DATA_PATH}/${newsId}.mp3`
-          const fs = wx.getFileSystemManager()
-
-          // 将 ArrayBuffer 转为 base64 后写入（更可靠）
-          const buffer = res.data
-          if (buffer instanceof ArrayBuffer) {
-            // 在微信小程序中，需要使用 ArrayBuffer 转 base64
-            const base64 = wx.arrayBufferToBase64(buffer)
-            console.log('[Audio] Converted to base64, length:', base64.length)
-            fs.writeFile({
-              filePath: tempFilePath,
-              data: base64,
-              encoding: 'base64',
-              success: () => {
-                console.log('[Audio] Write file success:', tempFilePath)
-                resolve(tempFilePath)
-              },
-              fail: (err) => {
-                console.error('[Audio] Write file failed:', err)
-                reject(err)
-              }
-            })
-          } else {
-            // 降级：直接写入
-            fs.writeFile({
-              filePath: tempFilePath,
-              data: res.data,
-              encoding: 'binary',
-              success: () => {
-                console.log('[Audio] Write file success:', tempFilePath)
-                resolve(tempFilePath)
-              },
-              fail: (err) => {
-                console.error('[Audio] Write file failed:', err)
-                reject(err)
-              }
-            })
-          }
-        },
-        fail: (err) => {
-          console.error('[Audio] Taro.request failed:', err)
-          reject(err)
-        }
-      })
-    })
+  if (res.statusCode !== 200) {
+    throw new Error(`API request failed: ${res.statusCode}`)
   }
+
+  const tempFilePath = `${wx.env.USER_DATA_PATH}/${newsId}.mp3`
+  const fs = wx.getFileSystemManager()
+  const buffer = res.buffer || res.data
+  
+  if (!buffer) {
+    throw new Error('No audio data received')
+  }
+  
+  const base64 = wx.arrayBufferToBase64(buffer)
+  console.log('[Audio] Converted to base64, length:', base64.length)
+
+  await new Promise<void>((resolve, reject) => {
+    fs.writeFile({
+      filePath: tempFilePath,
+      data: base64,
+      encoding: 'base64',
+      success: () => {
+        console.log('[Audio] Write file success:', tempFilePath)
+        resolve()
+      },
+      fail: (err) => {
+        console.error('[Audio] Write file failed:', err)
+        reject(err)
+      }
+    })
+  })
+
+  return tempFilePath
 }
 
 /**
