@@ -6,7 +6,7 @@ const path = require('path');
 const envFile = path.join(__dirname, '..', '.env');
 let apiBase = 'http://localhost:8000';
 let cloudEnv = 'prod-d9g7e5osy7b5e7a9c';  // 默认云托管配置
-let cloudService = 'test1';
+let cloudService = 'test';
 
 if (fs.existsSync(envFile)) {
   const content = fs.readFileSync(envFile, 'utf-8');
