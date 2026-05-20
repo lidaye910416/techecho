@@ -318,18 +318,13 @@ async def get_cloud_file_id(news_id: str):
 
     # 如果配置了云存储，尝试获取临时链接
     try:
-        from src.services.cloud_storage import get_cloud_storage
+        from src.services.tts.tts_service import get_wechat_cloud_storage
 
-        cloud_storage = get_cloud_storage()
+        cloud_storage = get_wechat_cloud_storage()
         if cloud_storage and cloud_file_id.startswith('cloud://'):
-            # 从 cloud:// 格式提取路径
-            # 格式: cloud://{env}/{bucket}/{path}
-            parts = cloud_file_id.replace('cloud://', '').split('/', 2)
-            if len(parts) >= 3:
-                cloud_path = parts[2]
-                temp_url = await cloud_storage.get_temp_url(cloud_path, expires=3600)
-                if temp_url:
-                    result['temp_url'] = temp_url
+            temp_url = await cloud_storage.get_temp_file_url(cloud_file_id, max_age=3600)
+            if temp_url:
+                result['temp_url'] = temp_url
     except Exception as e:
         import logging
         logging.warning(f"[API] Failed to get temp URL: {e}")

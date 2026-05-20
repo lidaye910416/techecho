@@ -30,17 +30,17 @@ PORT = int(os.getenv('PORT', 8000))
 MINIMAX_API_KEY = os.getenv('MINIMAX_API_KEY', '')
 MINIMAX_BASE_URL = os.getenv('MINIMAX_BASE_URL', 'https://api.minimaxi.com')
 
-# ============ 微信云存储配置 ============
-# 用于后端将音频文件上传到微信云托管对象存储
-# 获取方式：微信云托管控制台 -> 环境 -> 对象存储 -> 访问密钥
-WECHAT_CLOUD_SECRET_ID = os.getenv('WECHAT_CLOUD_SECRET_ID', '')
-WECHAT_CLOUD_SECRET_KEY = os.getenv('WECHAT_CLOUD_SECRET_KEY', '')
-WECHAT_CLOUD_BUCKET = os.getenv('WECHAT_CLOUD_BUCKET', '')  # 如: techecho-audio-12345678
-WECHAT_CLOUD_REGION = os.getenv('WECHAT_CLOUD_REGION', 'ap-shanghai')
-WECHAT_CLOUD_ENV = os.getenv('WECHAT_CLOUD_ENV', '')  # 环境ID，如: test1-258814-7
+# ============ 微信小程序配置 ============
+WECHAT_APPID = os.getenv('WECHAT_APPID', '')
+WECHAT_SECRET = os.getenv('WECHAT_SECRET', '')
 
-# 云存储是否启用 (未配置凭证时降级为本地存储)
-CLOUD_STORAGE_ENABLED = bool(WECHAT_CLOUD_SECRET_ID and WECHAT_CLOUD_SECRET_KEY and WECHAT_CLOUD_BUCKET)
+# ============ 微信云托管对象存储配置 ============
+# 存储桶 ID: 7072-prod-d9g7e5osy7b5e7a9c-1433977056
+# 环境 ID: prod-d9g7e5osy7b5e7a9c
+WECHAT_CLOUD_ENV = os.getenv('WECHAT_CLOUD_ENV', 'prod-d9g7e5osy7b5e7a9c')
+
+# 微信 access_token（需要通过 WECHAT_APPID + WECHAT_SECRET 获取）
+WECHAT_ACCESS_TOKEN = os.getenv('WECHAT_ACCESS_TOKEN', '')
 
 # 注意：目录创建由启动脚本或 Dockerfile 负责
 # 这里只定义路径，不自动创建

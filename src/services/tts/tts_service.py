@@ -5,6 +5,7 @@
 1. 统一的 TTS 接口
 2. 仅使用 MiniMax API（不降级）
 3. 音频缓存管理
+4. 生成后自动上传到微信云托管对象存储
 
 注意：失败时不使用 edge-tts / Azure 等替代服务，前端会处理用户请求时的 TTS 生成
 """
@@ -22,7 +23,6 @@ import httpx
 
 from src.services.minimax_client import get_minimax_client
 from src.services.tts.voice_config import VOICE_STYLES, MINIMAX_VOICES
-from src.services.cloud_storage import get_cloud_storage
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,159 @@ class TTSStats:
     azure: int = 0
     cached: int = 0
     failed: int = 0
+
+
+class WeChatCloudStorage:
+    """
+    微信云托管对象存储客户端
+
+    使用微信云存储 API 上传和获取文件:
+    - 上传: https://api.weixin.qq.com/tcb/uploadfile
+    - 下载: https://api.weixin.qq.com/tcb/batchdownloadfile
+    """
+
+    def __init__(self, appid: str, access_token: str, env: str):
+        self.appid = appid
+        self.access_token = access_token
+        self.env = env
+        self.client = httpx.AsyncClient(timeout=60.0)
+
+    async def upload_file(self, local_file: Path, cloud_path: str) -> Optional[str]:
+        """
+        上传文件到微信云托管对象存储
+
+        Args:
+            local_file: 本地文件路径
+            cloud_path: 云存储路径 (如 audio/xxx.mp3)
+
+        Returns:
+            cloud_file_id: 格式 cloud://{env}/{cloud_path}
+            None: 上传失败
+        """
+        if not local_file.exists():
+            logger.error(f"[WeChatCloudStorage] File not found: {local_file}")
+            return None
+
+        try:
+            # 读取文件内容
+            with open(local_file, 'rb') as f:
+                file_content = f.read()
+
+            # 调用微信云存储上传 API
+            url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={self.access_token}"
+            data = {
+                "env": self.env,
+                "path": cloud_path,
+            }
+            files = {
+                "file": (cloud_path.split("/")[-1], file_content, "audio/mpeg")
+            }
+
+            response = await self.client.post(url, data=data, files=files)
+            result = response.json()
+
+            if result.get("errcode") == 0:
+                # 成功，返回 cloud:// 格式的 fileID
+                cloud_file_id = f"cloud://{self.env}/{cloud_path}"
+                logger.info(f"[WeChatCloudStorage] Uploaded: {cloud_path} -> {cloud_file_id}")
+                return cloud_file_id
+            else:
+                logger.error(f"[WeChatCloudStorage] Upload failed: {result}")
+                return None
+
+        except Exception as e:
+            logger.error(f"[WeChatCloudStorage] Upload error: {e}")
+            return None
+
+    async def get_temp_file_url(self, cloud_file_id: str, max_age: int = 3600) -> Optional[str]:
+        """
+        获取云存储文件的临时访问链接
+
+        Args:
+            cloud_file_id: 云存储 fileID (cloud://env/path 格式)
+            max_age: 有效期（秒）
+
+        Returns:
+            temp_file_url: 临时访问 URL
+            None: 获取失败
+        """
+        try:
+            # 从 fileID 提取 path
+            # 格式: cloud://{env}/{path}
+            path = cloud_file_id.replace(f"cloud://{self.env}/", "")
+
+            url = f"https://api.weixin.qq.com/tcb/batchdownloadfile?access_token={self.access_token}"
+            data = {
+                "env": self.env,
+                "file_list": [
+                    {"fileid": cloud_file_id, "max_age": max_age}
+                ]
+            }
+
+            response = await self.client.post(url, json=data)
+            result = response.json()
+
+            if result.get("errcode") == 0 and result.get("file_list"):
+                file_info = result["file_list"][0]
+                if file_info.get("status") == 0:
+                    return file_info.get("download_url")
+                else:
+                    logger.error(f"[WeChatCloudStorage] Get URL failed: {file_info}")
+            else:
+                logger.error(f"[WeChatCloudStorage] Get URL error: {result}")
+
+            return None
+
+        except Exception as e:
+            logger.error(f"[WeChatCloudStorage] Get URL error: {e}")
+            return None
+
+    async def close(self):
+        """关闭 HTTP 客户端"""
+        await self.client.aclose()
+
+
+# 全局云存储客户端
+_wechat_cloud_storage: Optional[WeChatCloudStorage] = None
+
+
+def get_wechat_cloud_storage() -> Optional[WeChatCloudStorage]:
+    """获取微信云存储客户端单例"""
+    global _wechat_cloud_storage
+
+    if _wechat_cloud_storage is not None:
+        return _wechat_cloud_storage
+
+    from src.config.settings import (
+        WECHAT_APPID,
+        WECHAT_CLOUD_ENV,
+        MINIMAX_API_KEY,  # 复用作为 access_token 占位
+    )
+
+    # 从数据库或缓存获取 access_token
+    # 实际项目中应该调用微信 API 获取，这里简化处理
+    # TODO: 实现 access_token 获取逻辑
+    access_token = os.getenv("WECHAT_ACCESS_TOKEN", "")
+
+    if not WECHAT_APPID or not WECHAT_CLOUD_ENV:
+        logger.info("[WeChatCloudStorage] Not configured, skipping")
+        return None
+
+    if not access_token:
+        logger.warning("[WeChatCloudStorage] Access token not configured")
+        return None
+
+    try:
+        _wechat_cloud_storage = WeChatCloudStorage(
+            appid=WECHAT_APPID,
+            access_token=access_token,
+            env=WECHAT_CLOUD_ENV,
+        )
+        logger.info("[WeChatCloudStorage] Initialized")
+        return _wechat_cloud_storage
+    except Exception as e:
+        logger.error(f"[WeChatCloudStorage] Init failed: {e}")
+        return None
 
 
 class TTSService:
@@ -114,7 +267,7 @@ class TTSService:
         voice_id: str
     ) -> Optional[str]:
         """
-        上传音频文件到云存储
+        上传音频文件到微信云存储
 
         Args:
             audio_file: 本地音频文件路径
@@ -125,9 +278,9 @@ class TTSService:
             cloud_file_id: 云存储 fileID
             None: 上传失败或未配置云存储
         """
-        cloud_storage = get_cloud_storage()
+        cloud_storage = get_wechat_cloud_storage()
         if not cloud_storage:
-            logger.info(f"[TTS] Cloud storage not configured, skipping upload")
+            logger.info(f"[TTS] WeChat cloud storage not configured, skipping upload")
             return None
 
         # 生成云存储路径
