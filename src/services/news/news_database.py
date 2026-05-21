@@ -345,9 +345,21 @@ async def _get_news_without_audio(limit: int = 50) -> List[Dict[str, Any]]:
 
 
 # 同步包装函数（保持向后兼容）
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 def save_news_to_db(news_list: List[Dict[str, Any]]) -> int:
     """同步版本的 save_news_to_db"""
-    return asyncio.run(_save_news_to_db(news_list))
+    logger.info(f"[DB] save_news_to_db called with {len(news_list)} items")
+    try:
+        result = asyncio.run(_save_news_to_db(news_list))
+        logger.info(f"[DB] save_news_to_db completed: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"[DB] save_news_to_db failed: {e}")
+        raise
 
 
 def get_news_from_db(
@@ -358,12 +370,26 @@ def get_news_from_db(
     limit: Optional[int] = None
 ) -> List[Dict[str, Any]]:
     """同步版本的 get_news_from_db"""
-    return asyncio.run(_get_news_from_db(lang, category, date, min_quality, limit))
+    logger.info(f"[DB] get_news_from_db called: lang={lang}, category={category}, min_quality={min_quality}, limit={limit}")
+    try:
+        result = asyncio.run(_get_news_from_db(lang, category, date, min_quality, limit))
+        logger.info(f"[DB] get_news_from_db completed: {len(result)} items")
+        return result
+    except Exception as e:
+        logger.error(f"[DB] get_news_from_db failed: {e}")
+        raise
 
 
 def get_news_stats() -> Dict[str, Any]:
     """同步版本的 get_news_stats"""
-    return asyncio.run(_get_news_stats())
+    logger.info("[DB] get_news_stats called")
+    try:
+        result = asyncio.run(_get_news_stats())
+        logger.info(f"[DB] get_news_stats completed: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"[DB] get_news_stats failed: {e}")
+        raise
 
 
 def get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
