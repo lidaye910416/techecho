@@ -47,7 +47,7 @@
       "id": "DB-2",
       "title": "创建数据库连接模块",
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "description": "创建 src/services/db.py，实现 MySQL 连接管理",
       "files": ["src/services/db.py"],
       "changes": [
