@@ -15,3 +15,27 @@
   - Keep existing SQLite configs intact for migration script compatibility
   - PRD file location is ralph/prd.json, not prd.json at root
 ---
+
+## 2026/05/21 21:50 - DB-2, DB-3, DB-4, DB-5, DB-6, DB-7
+- What was implemented: 
+  - Created db.py with SQLAlchemy async engine and connection management
+  - Created models.py with News ORM model
+  - Rewrote news_database.py to use MySQL instead of SQLite
+  - Updated requirements.txt with aiomysql and sqlalchemy[asyncio]
+  - Updated .env.example with MySQL configuration
+  - Created migration script scripts/migrate_sqlite_to_mysql.py
+- Files changed:
+  - src/services/db.py (new - MySQL connection management with retry logic)
+  - src/services/models.py (new - SQLAlchemy ORM model for news)
+  - src/services/news/news_database.py (rewrote from SQLite to MySQL)
+  - requirements.txt (added aiomysql, sqlalchemy[asyncio])
+  - .env.example (added MySQL config)
+  - scripts/migrate_sqlite_to_mysql.py (new - migration tool)
+- **Learnings for future iterations:**
+  - SQLite uses synchronous API, MySQL uses SQLAlchemy async
+  - Use sync_* wrapper functions to maintain backward compatibility with sync callers
+  - MySQL boolean columns need special handling (is_read, is_favorited)
+  - Use `asyncio.get_running_loop()` to detect if already in async context
+  - MySQL uses `ON DUPLICATE KEY UPDATE` for upsert operations
+  - aiomysql requires `mysql+aiomysql://` connection URL scheme
+---
