@@ -21,16 +21,19 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.services.news import (
-    get_news_from_db,
-    get_news_stats,
-    get_news_by_id,
-    mark_as_read as db_mark_as_read,
-    get_news_cloud_file_id,
+    _get_news_from_db,
+    _get_news_stats,
+    _get_news_by_id,
+    _mark_as_read,
+    _get_news_cloud_file_id,
 )
 from src.services.news_collect_service import (
     trigger_collect_task,
     get_task_status,
     get_current_task,
+)
+from src.services.news.news_database import (
+    save_news_cloud_file_id,
 )
 
 router = APIRouter(prefix="/news", tags=["news"])
@@ -50,7 +53,7 @@ async def get_news_list(
     特殊逻辑: 如果请求今天但没有今天的新闻，自动返回昨天的新闻
     (因为新闻通常在当天上午收集，但内容是昨天的)
     """
-    news = get_news_from_db(
+    news = await _get_news_from_db(
         lang=lang,
         category=category,
         date=date,
@@ -63,7 +66,7 @@ async def get_news_list(
 
     # 如果请求今天但没有今天的新闻，返回昨天的
     if date == today and not news:
-        news = get_news_from_db(
+        news = await _get_news_from_db(
             lang=lang,
             category=category,
             date=yesterday,
@@ -80,8 +83,8 @@ async def get_news_list(
 @router.get("/dates")
 async def get_available_dates():
     """获取有新闻的日期列表"""
-    stats = get_news_stats()
-    news = get_news_from_db(limit=1000)
+    stats = await _get_news_stats()
+    news = await _get_news_from_db(limit=1000)
 
     dates = set()
     today = datetime.now().strftime('%Y-%m-%d')
@@ -106,7 +109,7 @@ async def get_available_dates():
 @router.get("/stats")
 async def get_stats():
     """获取新闻统计"""
-    stats = get_news_stats()
+    stats = await _get_news_stats()
     return {
         'success': True,
         'data': {
@@ -127,7 +130,7 @@ async def get_categories():
         'product': {'name': '产品', 'emoji': '💡'}
     }
 
-    stats = get_news_stats()
+    stats = await _get_news_stats()
     result = []
     for cat in stats.get('categories', []):
         info = CATEGORY_MAP.get(cat, {'name': cat, 'emoji': '📰'})
@@ -145,7 +148,7 @@ async def get_categories():
 @router.get("/{news_id}")
 async def get_news_detail(news_id: str):
     """获取新闻详情"""
-    item = get_news_by_id(news_id)
+    item = await _get_news_by_id(news_id)
 
     if not item:
         raise HTTPException(status_code=404, detail="News not found")
@@ -256,7 +259,7 @@ async def read_news_aloud(news_id: str):
     from src.services.news import get_news_audio_url
 
     # 获取预存的音频路径
-    audio_url = get_news_audio_url(news_id)
+    audio_url = await _get_news_audio_url(news_id)
     if not audio_url:
         return {'success': False, 'message': 'No audio available'}
 
@@ -305,7 +308,7 @@ async def get_cloud_file_id(news_id: str):
     前端可以通过返回的 temp_url 直接访问音频文件，
     或者使用 cloud_file_id 通过 wx.cloud.downloadFile 下载。
     """
-    cloud_file_id = get_news_cloud_file_id(news_id)
+    cloud_file_id = await _get_news_cloud_file_id(news_id)
     if not cloud_file_id:
         return {'success': False, 'message': 'No cloud file ID'}
 
