@@ -35,7 +35,7 @@
       "id": "DB-1",
       "title": "更新配置 - 添加 MySQL 连接配置",
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "description": "在 settings.py 中添加 MySQL 连接配置（HOST, PORT, USER, PASSWORD, DATABASE）",
       "files": ["src/config/settings.py"],
       "changes": [

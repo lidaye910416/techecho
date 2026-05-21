@@ -1,0 +1,17 @@
+## Codebase Patterns
+- This codebase uses `src/config/settings.py` for all configuration
+- Settings are imported from `src.config.settings` using relative paths with `sys.path.insert`
+- Use Python's built-in `sqlite3` for local DB, SQLAlchemy async for MySQL
+- All database connections are created/closed per request (no global connection pool for SQLite)
+
+## 2026/05/21 21:30 - DB-1
+- What was implemented: Added MySQL connection configuration to settings.py and .env.example
+- Files changed: 
+  - src/config/settings.py (added MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE)
+  - .env.example (added MySQL config documentation)
+  - ralph/prd.json (updated story status)
+- **Learnings for future iterations:**
+  - Settings file uses os.getenv() with defaults for all configs
+  - Keep existing SQLite configs intact for migration script compatibility
+  - PRD file location is ralph/prd.json, not prd.json at root
+---
