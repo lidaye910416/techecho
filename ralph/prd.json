@@ -1,161 +1,165 @@
 {
-  "project": "TechEcho Pro",
+  "project": "TechEcho Pro - 数据库持久化改造",
   "branchName": "feature/backend-storage",
   "status": "in_progress",
-  "description": "将音频存储从云托管容器迁移到微信云托管对象存储",
+  "description": "将新闻数据存储从容器内 SQLite 迁移到微信云托管 MySQL，实现容器级持久化",
 
-  "goal": "把音频文件从云托管容器内存储改为存储在微信云托管对象存储桶内，确保镜像重新部署不会丢失音频数据",
+  "goal": "解决 SQLite 数据库在容器重新部署后丢失的问题，改用微信云托管 MySQL 实现数据持久化",
 
   "background": {
-    "problem": "当前所有音频文件存储在容器内的 /app/data/audio/ 目录，镜像重新部署后数据丢失",
-    "solution": "使用微信云托管内置对象存储，存储桶ID: 7072-prod-d9g7e5osy7b5e7a9c-1433977056"
+    "problem": "当前 SQLite 数据库存储在容器内的 /app/data/database.db，镜像重新部署后数据丢失。音频已迁移到微信云存储（cloud://），但数据库仍是短板。",
+    "solution": "使用微信云托管内置 MySQL 数据库，支持 Serverless 架构，内网访问无额外费用"
+  },
+
+  "mysqlConfig": {
+    "host": "MYSQL_HOST (从环境变量获取)",
+    "port": 3306,
+    "database": "techecho",
+    "version": "8.0",
+    "autoPause": true,
+    "coldStartRetry": true
   },
 
   "constraints": {
     "unchanged": [
       "前端 UI 和交互逻辑不变",
       "新闻采集和 AI 评分逻辑不变",
-      "TTS 生成逻辑不变（仍使用 MiniMax API）",
-      "数据库表结构不变（已有 cloud_file_id 字段）",
-      "API 接口路径不变",
-      "前端 audioManager.ts 播放逻辑不变（只是下载方式变化）"
+      "TTS 生成和云存储上传逻辑不变",
+      "API 接口路径不变"
     ],
-    "changeOnly": "音频存储位置和上传方式"
+    "changeOnly": "数据库存储从 SQLite 改为 MySQL"
   },
 
-  "dataFlow": {
-    "before": {
-      "tts": "MiniMax API → 本地文件 /app/data/audio/*.mp3",
-      "playback": "GET /api/news/{id}/read → 容器内文件"
-    },
-    "after": {
-      "tts": "MiniMax API → 本地文件 → wx.cloud.uploadFile → 云存储",
-      "playback": "GET /api/news → cloud_file_id → wx.cloud.downloadFile → 播放"
-    }
-  },
-
-  "steps": [
+  "stories": [
     {
-      "step": 1,
-      "title": "删除腾讯云 COS SDK 相关代码",
-      "files": [
-        "src/services/cloud_storage.py"
-      ],
-      "action": "删除使用腾讯云 COS SDK 的云存储客户端",
-      "reason": "改用微信云托管内置对象存储，不需要腾讯云凭证"
-    },
-    {
-      "step": 2,
-      "title": "更新 TTS 服务集成微信云存储",
-      "file": "src/services/tts/tts_service.py",
-      "action": "修改 _synthesize_minimax 方法",
+      "id": "DB-1",
+      "title": "更新配置 - 添加 MySQL 连接配置",
+      "priority": 1,
+      "passes": false,
+      "description": "在 settings.py 中添加 MySQL 连接配置（HOST, PORT, USER, PASSWORD, DATABASE）",
+      "files": ["src/config/settings.py"],
       "changes": [
-        "生成音频文件后，使用 httpx 调用微信云存储上传 API",
-        "上传成功返回 cloud:// 格式的 fileID",
-        "保存 fileID 到数据库"
-      ],
-      "api": "POST https://api.weixin.qq.com/tcb/uploadfile",
-      "parameters": {
-        "env": "prod-d9g7e5osy7b5e7a9c",
-        "path": "audio/{news_id}.mp3"
-      }
-    },
-    {
-      "step": 3,
-      "title": "添加获取云存储临时链接接口",
-      "file": "src/api/news_api.py",
-      "action": "修改 GET /api/news/{id}/cloud-file 接口",
-      "changes": [
-        "调用 wx.cloud.getTempFileURL 获取临时访问链接",
-        "返回 temp_url 供前端使用"
-      ],
-      "api": "POST https://api.weixin.qq.com/tcb/batchdownloadfile"
-    },
-    {
-      "step": 4,
-      "title": "更新前端音频上传逻辑",
-      "file": "app/src/utils/audioManager.ts",
-      "action": "新增 uploadToCloudStorage 函数",
-      "changes": [
-        "TTS 生成后调用 wx.cloud.uploadFile 上传到云存储",
-        "上传成功后调用后端 API 保存 cloud_file_id"
+        "添加 MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE 配置",
+        "保持原有 SQLite 配置不变（兼容迁移脚本）"
       ]
     },
     {
-      "step": 5,
-      "title": "更新配置和依赖",
-      "files": [
-        "requirements.txt",
-        "src/config/settings.py"
-      ],
-      "action": "移除 cos-python-sdk-v5，添加微信 API 相关配置",
+      "id": "DB-2",
+      "title": "创建数据库连接模块",
+      "priority": 2,
+      "passes": false,
+      "description": "创建 src/services/db.py，实现 MySQL 连接管理",
+      "files": ["src/services/db.py"],
       "changes": [
-        "删除 cos-python-sdk-v5 依赖",
-        "添加 WECHAT_APPID 配置（用于云存储 API）"
+        "使用 SQLAlchemy AsyncEngine + AsyncSession",
+        "实现连接池管理",
+        "添加自动重试逻辑（应对 Serverless 冷启动）",
+        "创建上下文管理器 get_db_session()"
       ]
     },
     {
-      "step": 6,
+      "id": "DB-3",
+      "title": "创建 ORM 模型",
+      "priority": 3,
+      "passes": false,
+      "description": "创建 src/services/models.py，定义新闻表 ORM 模型",
+      "files": ["src/services/models.py"],
+      "changes": [
+        "创建 News 类，与现有 SQLite 表结构一致",
+        "字段包括: id, title_zh, title_en, content_zh, content_en, source_zh, source_en, source_url, lang, category, published_at, created_at, quality_score, quality_grade, quality_scores, is_read, is_favorited, audio_url, cloud_file_id"
+      ]
+    },
+    {
+      "id": "DB-4",
+      "title": "重写数据库操作 - 改为异步 MySQL",
+      "priority": 4,
+      "passes": false,
+      "description": "重写 src/services/news/news_database.py，从 SQLite 改为 MySQL",
+      "files": ["src/services/news/news_database.py"],
+      "changes": [
+        "替换 sqlite3 为 SQLAlchemy async",
+        "保留原有函数签名（save_news_to_db, get_news_from_db 等）",
+        "添加重试逻辑应对冷启动",
+        "保持与 news_collect_service.py 的兼容性"
+      ]
+    },
+    {
+      "id": "DB-5",
+      "title": "更新依赖",
+      "priority": 5,
+      "passes": false,
+      "description": "更新 requirements.txt 添加 aiomysql 依赖",
+      "files": ["requirements.txt"],
+      "changes": [
+        "添加 aiomysql>=0.2.0",
+        "确保 sqlalchemy[asyncio] 存在"
+      ]
+    },
+    {
+      "id": "DB-6",
+      "title": "更新环境变量示例",
+      "priority": 6,
+      "passes": false,
+      "description": "更新 .env.example 添加 MySQL 配置示例",
+      "files": [".env.example"],
+      "changes": [
+        "添加 MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE 配置说明"
+      ]
+    },
+    {
+      "id": "DB-7",
+      "title": "创建数据迁移脚本",
+      "priority": 7,
+      "passes": false,
+      "description": "创建 scripts/migrate_sqlite_to_mysql.py，一次性迁移脚本",
+      "files": ["scripts/migrate_sqlite_to_mysql.py"],
+      "changes": [
+        "从 SQLite 导出数据",
+        "创建 MySQL 表结构",
+        "导入数据到 MySQL",
+        "验证数据一致性"
+      ]
+    },
+    {
+      "id": "DB-8",
       "title": "测试验证",
-      "action": "端到端测试音频生成和播放",
-      "checks": [
-        "curl http://localhost:8000/health",
-        "curl -X POST http://localhost:8000/api/news/collect?source_limit=1",
-        "检查日志确认 audio 上传到云存储",
-        "检查数据库 cloud_file_id 字段有值"
+      "priority": 8,
+      "passes": false,
+      "description": "端到端测试新闻收集和数据持久化",
+      "files": ["src/api/news_api.py"],
+      "changes": [
+        "触发 /api/news/collect 测试",
+        "验证数据保存到 MySQL",
+        "重启容器后验证数据未丢失"
       ]
     }
   ],
-
-  "wechatCloudStorage": {
-    "bucketId": "7072-prod-d9g7e5osy7b5e7a9c-1433977056",
-    "env": "prod-d9g7e5osy7b5e7a9c",
-    "uploadApi": "https://api.weixin.qq.com/tcb/uploadfile",
-    "downloadApi": "https://api.weixin.qq.com/tcb/batchdownloadfile",
-    "getTempUrlApi": "https://api.weixin.qq.com/tcb/batchdownloadfile"
-  },
 
   "filesToModify": [
-    {
-      "file": "src/services/tts/tts_service.py",
-      "changes": "音频生成后上传到微信云存储"
-    },
-    {
-      "file": "src/api/news_api.py",
-      "changes": "cloud-file 接口支持获取临时链接"
-    },
-    {
-      "file": "app/src/utils/audioManager.ts",
-      "changes": "新增 wx.cloud.uploadFile 上传逻辑"
-    },
-    {
-      "file": "requirements.txt",
-      "changes": "移除 cos-python-sdk-v5"
-    },
-    {
-      "file": "src/config/settings.py",
-      "changes": "移除 COS 配置，添加微信 API 配置"
-    }
+    {"file": "src/config/settings.py", "action": "添加 MySQL 配置"},
+    {"file": "src/services/db.py", "action": "新增 - 数据库连接管理"},
+    {"file": "src/services/models.py", "action": "新增 - ORM 模型"},
+    {"file": "src/services/news/news_database.py", "action": "重写 - SQLite 改为 MySQL"},
+    {"file": "requirements.txt", "action": "添加 aiomysql"},
+    {"file": ".env.example", "action": "添加 MySQL 配置示例"}
   ],
 
-  "filesToDelete": [
-    {
-      "file": "src/services/cloud_storage.py",
-      "reason": "改用微信云托管内置对象存储"
-    }
+  "filesToCreate": [
+    {"file": "src/services/db.py", "reason": "数据库连接管理（重试逻辑）"},
+    {"file": "src/services/models.py", "reason": "ORM 模型定义"},
+    {"file": "scripts/migrate_sqlite_to_mysql.py", "reason": "一次性数据迁移"}
   ],
 
   "criteria": {
     "functional": [
-      "TTS 生成后音频自动上传到微信云存储",
-      "cloud_file_id 保存到数据库",
-      "前端能通过 cloud:// fileID 播放音频",
-      "镜像重新部署后音频不丢失"
+      "新闻收集后数据保存到 MySQL 数据库",
+      "重启容器后数据不丢失",
+      "API 接口正常工作"
     ],
     "nonFunctional": [
-      "其他前后端逻辑不变",
-      "不依赖腾讯云账号",
-      "API 接口路径不变"
+      "冷启动时自动重试",
+      "保留原有接口签名",
+      "代码改动最小化"
     ]
   }
 }

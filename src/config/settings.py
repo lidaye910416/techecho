@@ -42,5 +42,13 @@ WECHAT_CLOUD_ENV = os.getenv('WECHAT_CLOUD_ENV', 'prod-d9g7e5osy7b5e7a9c')
 # 微信 access_token（需要通过 WECHAT_APPID + WECHAT_SECRET 获取）
 WECHAT_ACCESS_TOKEN = os.getenv('WECHAT_ACCESS_TOKEN', '')
 
+# ============ MySQL 数据库配置 (微信云托管) ============
+# 使用微信云托管内置 MySQL，容器重新部署后数据持久化
+MYSQL_HOST = os.getenv('MYSQL_HOST', '')
+MYSQL_PORT = int(os.getenv('MYSQL_PORT', 3306))
+MYSQL_USER = os.getenv('MYSQL_USER', '')
+MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', '')
+MYSQL_DATABASE = os.getenv('MYSQL_DATABASE', 'techecho')
+
 # 注意：目录创建由启动脚本或 Dockerfile 负责
 # 这里只定义路径，不自动创建
