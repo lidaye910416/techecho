@@ -50,10 +50,10 @@ WECHAT_ACCESS_TOKEN = os.getenv('WECHAT_ACCESS_TOKEN', '')
 #
 # 部署时通过环境变量 MYSQL_HOST 指定，生产用内网地址
 
-MYSQL_HOST = os.getenv('MYSQL_HOST', '')
+MYSQL_HOST = os.getenv('MYSQL_HOST', '10.37.107.121')
 MYSQL_PORT = int(os.getenv('MYSQL_PORT', 3306))
-MYSQL_USER = os.getenv('MYSQL_USER', '')
-MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', '')
+MYSQL_USER = os.getenv('MYSQL_USER', 'root')
+MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', 'adminlbW===')
 MYSQL_DATABASE = os.getenv('MYSQL_DATABASE', 'techecho')
 
 # 注意：目录创建由启动脚本或 Dockerfile 负责
