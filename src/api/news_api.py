@@ -256,7 +256,6 @@ async def read_news_aloud(news_id: str):
     前端直接用 ctx.src = "/api/news/{id}/read" 播放
     """
     from pathlib import Path
-    from src.services.news import get_news_audio_url
 
     # 获取预存的音频路径
     audio_url = await _get_news_audio_url(news_id)
@@ -291,9 +290,7 @@ async def update_cloud_file_id(news_id: str, cloud_file_id: str = Query(..., des
     更新新闻的云存储 fileID
     用于前端上传音频到云存储后，回调更新数据库
     """
-    from src.services.news import save_news_cloud_file_id
-
-    success = save_news_cloud_file_id(news_id, cloud_file_id)
+    success = await _save_news_cloud_file_id(news_id, cloud_file_id)
     if success:
         return {'success': True, 'message': 'Cloud file ID updated', 'news_id': news_id, 'cloud_file_id': cloud_file_id}
     else:
