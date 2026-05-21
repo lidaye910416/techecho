@@ -47,13 +47,14 @@ def get_engine() -> AsyncEngine:
     global _engine
     if _engine is None:
         database_url = get_database_url()
+        logger.info(f"[DB] Creating engine with URL: mysql+aiomysql://***:***@{os.getenv('MYSQL_HOST', 'not set')}:{os.getenv('MYSQL_PORT', '3306')}/***")
         _engine = create_async_engine(
             database_url,
             pool_size=POOL_SIZE,
             max_overflow=MAX_OVERFLOW,
             pool_timeout=POOL_TIMEOUT,
             pool_recycle=POOL_RECYCLE,
-            echo=False,  # 生产环境关闭 SQL 日志
+            echo=True,  # 开启 SQL 日志便于调试
         )
     return _engine
 
