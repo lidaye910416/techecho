@@ -7,19 +7,12 @@ MySQL 数据库连接管理模块
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-
-from src.config.settings import (
-    MYSQL_DATABASE,
-    MYSQL_HOST,
-    MYSQL_PASSWORD,
-    MYSQL_PORT,
-    MYSQL_USER,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +27,17 @@ POOL_RECYCLE = 3600  # 1小时，避免连接过期
 
 
 def get_database_url() -> str:
-    """构建 MySQL 连接 URL"""
+    """构建 MySQL 连接 URL（运行时获取环境变量）"""
+    # 运行时获取环境变量，支持动态配置
+    host = os.getenv('MYSQL_HOST', '')
+    port = int(os.getenv('MYSQL_PORT', 3306))
+    user = os.getenv('MYSQL_USER', '')
+    password = os.getenv('MYSQL_PASSWORD', '')
+    database = os.getenv('MYSQL_DATABASE', 'techecho')
+
     return (
-        f"mysql+aiomysql://{MYSQL_USER}:{MYSQL_PASSWORD}@"
-        f"{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+        f"mysql+aiomysql://{user}:{password}@"
+        f"{host}:{port}/{database}"
         f"?charset=utf8mb4"
     )
 

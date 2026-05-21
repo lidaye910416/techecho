@@ -11,17 +11,17 @@
 import os
 from pathlib import Path
 
-# 数据目录配置
+# 数据目录配置 (仅在容器环境使用，本地测试可忽略)
 DATA_DIR = os.getenv('DATA_DIR', '/app/data')
-
-# 确保目录存在
-Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
 
 # 数据库路径
 DB_PATH = os.path.join(DATA_DIR, 'database.db')
 
 # 音频目录
 AUDIO_DIR = os.path.join(DATA_DIR, 'audio')
+
+# 不再自动创建目录，避免本地环境报错
+# 目录创建由启动脚本或 Dockerfile 负责
 
 # 服务配置
 PORT = int(os.getenv('PORT', 8000))
@@ -44,6 +44,12 @@ WECHAT_ACCESS_TOKEN = os.getenv('WECHAT_ACCESS_TOKEN', '')
 
 # ============ MySQL 数据库配置 (微信云托管) ============
 # 使用微信云托管内置 MySQL，容器重新部署后数据持久化
+#
+# 内网地址(生产): 10.37.107.121:3306 (需在微信云托管环境内访问)
+# 公网地址(开发测试): sh-cynosdbmysql-grp-0w2n1paw.sql.tencentcdb.com:22718
+#
+# 部署时通过环境变量 MYSQL_HOST 指定，生产用内网地址
+
 MYSQL_HOST = os.getenv('MYSQL_HOST', '')
 MYSQL_PORT = int(os.getenv('MYSQL_PORT', 3306))
 MYSQL_USER = os.getenv('MYSQL_USER', '')

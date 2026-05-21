@@ -91,18 +91,15 @@ async def _row_to_news_dict(row: News) -> Dict[str, Any]:
     }
 
 
-async def save_news_to_db(news_list: List[Dict[str, Any]]) -> int:
+async def _save_news_to_db(news_list: List[Dict[str, Any]]) -> int:
     """
     保存新闻列表到数据库（异步 MySQL）
-    
-    与 SQLite 版本签名一致：
-        save_news_to_db(news_list: List[Dict[str, Any]]) -> int
     """
     if not news_list:
         return 0
-    
+
     saved_count = 0
-    
+
     async with get_db_session(max_retries=MAX_RETRIES) as session:
         for item in news_list:
             quality = item.get('quality', {})
@@ -138,7 +135,7 @@ async def save_news_to_db(news_list: List[Dict[str, Any]]) -> int:
     return saved_count
 
 
-async def get_news_from_db(
+async def _get_news_from_db(
     lang: Optional[str] = None,
     category: Optional[str] = None,
     date: Optional[str] = None,
@@ -175,7 +172,7 @@ async def get_news_from_db(
     return news_list
 
 
-async def get_news_stats() -> Dict[str, Any]:
+async def _get_news_stats() -> Dict[str, Any]:
     """
     获取新闻统计（异步 MySQL）
     
@@ -216,7 +213,7 @@ async def get_news_stats() -> Dict[str, Any]:
         }
 
 
-async def get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
+async def _get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
     """
     根据ID获取单条新闻（异步 MySQL）
     """
@@ -231,7 +228,7 @@ async def get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
         return _row_to_news_dict(row)
 
 
-async def mark_as_read(news_id: str) -> bool:
+async def _mark_as_read(news_id: str) -> bool:
     """
     标记新闻为已读（异步 MySQL）
     """
@@ -242,7 +239,7 @@ async def mark_as_read(news_id: str) -> bool:
         return result.rowcount > 0
 
 
-async def save_news_audio(news_id: str, audio_url: str) -> bool:
+async def _save_news_audio(news_id: str, audio_url: str) -> bool:
     """
     保存新闻的预生成 TTS 音频 URL（异步 MySQL）
     """
@@ -253,7 +250,7 @@ async def save_news_audio(news_id: str, audio_url: str) -> bool:
         return result.rowcount > 0
 
 
-async def get_news_audio_url(news_id: str) -> Optional[str]:
+async def _get_news_audio_url(news_id: str) -> Optional[str]:
     """
     获取新闻的音频URL（异步 MySQL）
     """
@@ -264,7 +261,7 @@ async def get_news_audio_url(news_id: str) -> Optional[str]:
         return row
 
 
-async def get_news_cloud_file_id(news_id: str) -> Optional[str]:
+async def _get_news_cloud_file_id(news_id: str) -> Optional[str]:
     """
     获取新闻的云存储 fileID（异步 MySQL）
     """
@@ -275,7 +272,7 @@ async def get_news_cloud_file_id(news_id: str) -> Optional[str]:
         return row
 
 
-async def save_news_cloud_file_id(news_id: str, cloud_file_id: str) -> bool:
+async def _save_news_cloud_file_id(news_id: str, cloud_file_id: str) -> bool:
     """
     保存新闻的云存储 fileID（异步 MySQL）
     """
@@ -286,7 +283,7 @@ async def save_news_cloud_file_id(news_id: str, cloud_file_id: str) -> bool:
         return result.rowcount > 0
 
 
-async def get_news_without_audio(limit: int = 50) -> List[Dict[str, Any]]:
+async def _get_news_without_audio(limit: int = 50) -> List[Dict[str, Any]]:
     """
     获取没有预生成音频的新闻（异步 MySQL）
     
@@ -316,22 +313,14 @@ async def get_news_without_audio(limit: int = 50) -> List[Dict[str, Any]]:
         return news_list
 
 
+
 # 同步包装函数（保持向后兼容）
-# 注意：这些函数会在调用时自动创建事件循环
-
-def sync_save_news_to_db(news_list: List[Dict[str, Any]]) -> int:
+def save_news_to_db(news_list: List[Dict[str, Any]]) -> int:
     """同步版本的 save_news_to_db"""
-    try:
-        loop = asyncio.get_running_loop()
-        # 如果已经在事件循环中，直接返回 future
-        future = asyncio.ensure_future(save_news_to_db(news_list))
-        return loop.run_until_complete(future)
-    except RuntimeError:
-        # 没有事件循环，创建一个
-        return asyncio.run(save_news_to_db(news_list))
+    return asyncio.run(_save_news_to_db(news_list))
 
 
-def sync_get_news_from_db(
+def get_news_from_db(
     lang: Optional[str] = None,
     category: Optional[str] = None,
     date: Optional[str] = None,
@@ -339,112 +328,51 @@ def sync_get_news_from_db(
     limit: Optional[int] = None
 ) -> List[Dict[str, Any]]:
     """同步版本的 get_news_from_db"""
-    try:
-        loop = asyncio.get_running_loop()
-        future = asyncio.ensure_future(
-            get_news_from_db(lang, category, date, min_quality, limit)
-        )
-        return loop.run_until_complete(future)
-    except RuntimeError:
-        return asyncio.run(
-            get_news_from_db(lang, category, date, min_quality, limit)
-        )
+    return asyncio.run(_get_news_from_db(lang, category, date, min_quality, limit))
 
 
-def sync_get_news_stats() -> Dict[str, Any]:
+def get_news_stats() -> Dict[str, Any]:
     """同步版本的 get_news_stats"""
-    try:
-        loop = asyncio.get_running_loop()
-        future = asyncio.ensure_future(get_news_stats())
-        return loop.run_until_complete(future)
-    except RuntimeError:
-        return asyncio.run(get_news_stats())
+    return asyncio.run(_get_news_stats())
 
 
-def sync_get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
+def get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
     """同步版本的 get_news_by_id"""
-    try:
-        loop = asyncio.get_running_loop()
-        future = asyncio.ensure_future(get_news_by_id(news_id))
-        return loop.run_until_complete(future)
-    except RuntimeError:
-        return asyncio.run(get_news_by_id(news_id))
+    return asyncio.run(_get_news_by_id(news_id))
 
 
-def sync_mark_as_read(news_id: str) -> bool:
+def mark_as_read(news_id: str) -> bool:
     """同步版本的 mark_as_read"""
-    try:
-        loop = asyncio.get_running_loop()
-        future = asyncio.ensure_future(mark_as_read(news_id))
-        return loop.run_until_complete(future)
-    except RuntimeError:
-        return asyncio.run(mark_as_read(news_id))
+    return asyncio.run(_mark_as_read(news_id))
 
 
-def sync_save_news_audio(news_id: str, audio_url: str) -> bool:
+def save_news_audio(news_id: str, audio_url: str) -> bool:
     """同步版本的 save_news_audio"""
-    try:
-        loop = asyncio.get_running_loop()
-        future = asyncio.ensure_future(save_news_audio(news_id, audio_url))
-        return loop.run_until_complete(future)
-    except RuntimeError:
-        return asyncio.run(save_news_audio(news_id, audio_url))
+    return asyncio.run(_save_news_audio(news_id, audio_url))
 
 
-def sync_get_news_audio_url(news_id: str) -> Optional[str]:
+def get_news_audio_url(news_id: str) -> Optional[str]:
     """同步版本的 get_news_audio_url"""
-    try:
-        loop = asyncio.get_running_loop()
-        future = asyncio.ensure_future(get_news_audio_url(news_id))
-        return loop.run_until_complete(future)
-    except RuntimeError:
-        return asyncio.run(get_news_audio_url(news_id))
+    return asyncio.run(_get_news_audio_url(news_id))
 
 
-def sync_get_news_cloud_file_id(news_id: str) -> Optional[str]:
+def get_news_cloud_file_id(news_id: str) -> Optional[str]:
     """同步版本的 get_news_cloud_file_id"""
-    try:
-        loop = asyncio.get_running_loop()
-        future = asyncio.ensure_future(get_news_cloud_file_id(news_id))
-        return loop.run_until_complete(future)
-    except RuntimeError:
-        return asyncio.run(get_news_cloud_file_id(news_id))
+    return asyncio.run(_get_news_cloud_file_id(news_id))
 
 
-def sync_save_news_cloud_file_id(news_id: str, cloud_file_id: str) -> bool:
+def save_news_cloud_file_id(news_id: str, cloud_file_id: str) -> bool:
     """同步版本的 save_news_cloud_file_id"""
-    try:
-        loop = asyncio.get_running_loop()
-        future = asyncio.ensure_future(save_news_cloud_file_id(news_id, cloud_file_id))
-        return loop.run_until_complete(future)
-    except RuntimeError:
-        return asyncio.run(save_news_cloud_file_id(news_id, cloud_file_id))
+    return asyncio.run(_save_news_cloud_file_id(news_id, cloud_file_id))
 
 
-def sync_get_news_without_audio(limit: int = 50) -> List[Dict[str, Any]]:
+def get_news_without_audio(limit: int = 50) -> List[Dict[str, Any]]:
     """同步版本的 get_news_without_audio"""
-    try:
-        loop = asyncio.get_running_loop()
-        future = asyncio.ensure_future(get_news_without_audio(limit))
-        return loop.run_until_complete(future)
-    except RuntimeError:
-        return asyncio.run(get_news_without_audio(limit))
+    return asyncio.run(_get_news_without_audio(limit))
 
 
-# 向后兼容别名（供现有代码使用）
-# 注意：原有代码使用同步调用，需要通过 sync_ 前缀访问
-save_news_to_db = sync_save_news_to_db
-get_news_from_db = sync_get_news_from_db
-get_news_stats = sync_get_news_stats
-get_news_by_id = sync_get_news_by_id
-mark_as_read = sync_mark_as_read
-save_news_audio = sync_save_news_audio
-get_news_audio_url = sync_get_news_audio_url
-get_news_cloud_file_id = sync_get_news_cloud_file_id
-save_news_cloud_file_id = sync_save_news_cloud_file_id
-get_news_without_audio = sync_get_news_without_audio
 
-
+# 同步函数已直接定义在上面
 # 初始化表（首次导入时执行）
 # 注意：异步函数不能在模块级别调用，放到应用启动时处理
 # asyncio.run(init_news_table())

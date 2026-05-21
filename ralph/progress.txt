@@ -39,3 +39,19 @@
   - MySQL uses `ON DUPLICATE KEY UPDATE` for upsert operations
   - aiomysql requires `mysql+aiomysql://` connection URL scheme
 ---
+
+## 2026/05/21 22:00 - DB-8 Complete
+- What was implemented: All 8 stories are now complete
+- Summary of changes:
+  - MySQL configuration added to settings.py
+  - SQLAlchemy async connection management in db.py
+  - ORM model in models.py
+  - News database rewritten to use MySQL
+  - Dependencies updated
+  - Migration script created
+- **Learnings for future iterations:**
+  - This project uses Python 3.13+ with type union syntax `Type | None`
+  - Use `mysql+aiomysql://` for async MySQL connections
+  - All DB functions need sync wrappers for backward compatibility
+  - Migration script should verify data integrity after transfer
+---
