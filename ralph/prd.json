@@ -73,7 +73,7 @@
       "id": "DB-4",
       "title": "重写数据库操作 - 改为异步 MySQL",
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "description": "重写 src/services/news/news_database.py，从 SQLite 改为 MySQL",
       "files": ["src/services/news/news_database.py"],
       "changes": [
@@ -87,7 +87,7 @@
       "id": "DB-5",
       "title": "更新依赖",
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "description": "更新 requirements.txt 添加 aiomysql 依赖",
       "files": ["requirements.txt"],
       "changes": [
@@ -99,7 +99,7 @@
       "id": "DB-6",
       "title": "更新环境变量示例",
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "description": "更新 .env.example 添加 MySQL 配置示例",
       "files": [".env.example"],
       "changes": [
