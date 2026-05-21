@@ -91,6 +91,36 @@ async def _row_to_news_dict(row: News) -> Dict[str, Any]:
     }
 
 
+def _sync_row_to_news_dict(row: News) -> Dict[str, Any]:
+    """同步版本的行转换（用于不需要 async 的场景）"""
+    audio_url = row.audio_url
+    cloud_file_id = row.cloud_file_id
+    return {
+        'id': row.id,
+        'title_zh': row.title_zh,
+        'title_en': row.title_en,
+        'content_zh': row.content_zh,
+        'content_en': row.content_en,
+        'source_zh': row.source_zh,
+        'source_en': row.source_en,
+        'source_url': row.source_url,
+        'lang': row.lang,
+        'category': row.category,
+        'published_at': row.published_at,
+        'created_at': row.created_at,
+        'quality': {
+            'total_100': row.quality_score,
+            'grade': row.quality_grade,
+            'scores': json.loads(row.quality_scores) if row.quality_scores else {}
+        },
+        'is_read': bool(row.is_read),
+        'is_favorited': bool(row.is_favorited),
+        'audio_url': audio_url,
+        'cloud_file_id': cloud_file_id,
+        'audio': {'voice3': audio_url} if audio_url else {}
+    }
+
+
 async def _save_news_to_db(news_list: List[Dict[str, Any]]) -> int:
     """
     保存新闻列表到数据库（异步 MySQL）
@@ -167,7 +197,7 @@ async def _get_news_from_db(
         result = await session.execute(query)
         rows = result.scalars().all()
         
-        news_list = [_row_to_news_dict(row) for row in rows]
+        news_list = [_sync_row_to_news_dict(row) for row in rows]
     
     return news_list
 
@@ -225,7 +255,7 @@ async def _get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
         if not row:
             return None
         
-        return _row_to_news_dict(row)
+        return _sync_row_to_news_dict(row)
 
 
 async def _mark_as_read(news_id: str) -> bool:
