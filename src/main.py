@@ -3,7 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from src.api.routes import router as api_router
 import os
+import logging
 from pathlib import Path
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # 自动加载 .env 文件（仅用于本地开发，云托管环境变量由容器注入）
 from dotenv import load_dotenv
@@ -19,6 +27,10 @@ print(f"[TechEcho] DATA_DIR: {os.getenv('DATA_DIR', 'not set')}")
 print(f"[TechEcho] MINIMAX_API_KEY: {'***' if os.getenv('MINIMAX_API_KEY') else 'NOT SET'}")
 print(f"[TechEcho] WECHAT_APPID: {'***' if os.getenv('WECHAT_APPID') else 'NOT SET'}")
 print(f"[TechEcho] WECHAT_CLOUD_ENV: {os.getenv('WECHAT_CLOUD_ENV', 'not set')}")
+print(f"[TechEcho] MYSQL_HOST: {os.getenv('MYSQL_HOST', 'NOT SET')}")
+print(f"[TechEcho] MYSQL_PORT: {os.getenv('MYSQL_PORT', 'NOT SET')}")
+print(f"[TechEcho] MYSQL_DATABASE: {os.getenv('MYSQL_DATABASE', 'NOT SET')}")
+print(f"[TechEcho] MYSQL_USER: {os.getenv('MYSQL_USER', 'NOT SET')}")
 
 app.add_middleware(
     CORSMiddleware,
