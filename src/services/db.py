@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 logger = logging.getLogger(__name__)
 
 # 全局异步引擎（延迟初始化）
-_engine: AsyncEngine | None = None
+_engine = None
 
 # 连接池配置
 POOL_SIZE = 5
@@ -29,11 +29,15 @@ POOL_RECYCLE = 3600  # 1小时，避免连接过期
 def get_database_url() -> str:
     """构建 MySQL 连接 URL（运行时获取环境变量）"""
     # 运行时获取环境变量，支持动态配置
-    host = os.getenv('MYSQL_HOST', '')
-    port = int(os.getenv('MYSQL_PORT', 3306))
-    user = os.getenv('MYSQL_USER', '')
-    password = os.getenv('MYSQL_PASSWORD', '')
-    database = os.getenv('MYSQL_DATABASE', 'techecho')
+    # 从 settings 导入默认值
+    from src.config.settings import (
+        MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
+    )
+    host = os.getenv('MYSQL_HOST') or MYSQL_HOST
+    port = int(os.getenv('MYSQL_PORT') or MYSQL_PORT)
+    user = os.getenv('MYSQL_USER') or MYSQL_USER
+    password = os.getenv('MYSQL_PASSWORD') or MYSQL_PASSWORD
+    database = os.getenv('MYSQL_DATABASE') or MYSQL_DATABASE
 
     return (
         f"mysql+aiomysql://{user}:{password}@"
