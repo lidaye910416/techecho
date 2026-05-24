@@ -21,19 +21,16 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.services.news import (
-    _get_news_from_db,
-    _get_news_stats,
-    _get_news_by_id,
-    _mark_as_read,
-    _get_news_cloud_file_id,
+    get_news_from_db,
+    get_news_stats,
+    get_news_by_id,
+    mark_as_read as db_mark_as_read,
+    get_news_cloud_file_id,
 )
 from src.services.news_collect_service import (
     trigger_collect_task,
     get_task_status,
     get_current_task,
-)
-from src.services.news.news_database import (
-    save_news_cloud_file_id,
 )
 
 router = APIRouter(prefix="/news", tags=["news"])
@@ -53,7 +50,7 @@ async def get_news_list(
     特殊逻辑: 如果请求今天但没有今天的新闻，自动返回昨天的新闻
     (因为新闻通常在当天上午收集，但内容是昨天的)
     """
-    news = await _get_news_from_db(
+    news = get_news_from_db(
         lang=lang,
         category=category,
         date=date,
@@ -66,7 +63,7 @@ async def get_news_list(
 
     # 如果请求今天但没有今天的新闻，返回昨天的
     if date == today and not news:
-        news = await _get_news_from_db(
+        news = get_news_from_db(
             lang=lang,
             category=category,
             date=yesterday,
@@ -83,8 +80,8 @@ async def get_news_list(
 @router.get("/dates")
 async def get_available_dates():
     """获取有新闻的日期列表"""
-    stats = await _get_news_stats()
-    news = await _get_news_from_db(limit=1000)
+    stats = get_news_stats()
+    news = get_news_from_db(limit=1000)
 
     dates = set()
     today = datetime.now().strftime('%Y-%m-%d')
@@ -109,7 +106,7 @@ async def get_available_dates():
 @router.get("/stats")
 async def get_stats():
     """获取新闻统计"""
-    stats = await _get_news_stats()
+    stats = get_news_stats()
     return {
         'success': True,
         'data': {
@@ -130,7 +127,7 @@ async def get_categories():
         'product': {'name': '产品', 'emoji': '💡'}
     }
 
-    stats = await _get_news_stats()
+    stats = get_news_stats()
     result = []
     for cat in stats.get('categories', []):
         info = CATEGORY_MAP.get(cat, {'name': cat, 'emoji': '📰'})
@@ -148,7 +145,7 @@ async def get_categories():
 @router.get("/{news_id}")
 async def get_news_detail(news_id: str):
     """获取新闻详情"""
-    item = await _get_news_by_id(news_id)
+    item = get_news_by_id(news_id)
 
     if not item:
         raise HTTPException(status_code=404, detail="News not found")
@@ -252,24 +249,64 @@ async def get_collect_status(task_id: Optional[str] = Query(None, description="�
 @router.put("/{news_id}/read")
 async def read_news_aloud(news_id: str):
     """
-    朗读新闻 - 返回音频流
-    前端直接用 ctx.src = "/api/news/{id}/read" 播放
+    朗读新闻 - 返回音频 URL
+
+    优先级：
+    1. 微信云存储 cloud_file_id → 获取临时下载 URL
+    2. MiniMax OSS URL (backup_audio_url) → 直接返回
+    3. 容器内本地文件 → 返回文件流
     """
-    from pathlib import Path
+    from src.services.news import get_news_cloud_file_id, get_backup_audio_url, get_news_audio_url
+    from src.services.wechat_token import get_access_token
+    import httpx
 
-    # 获取预存的音频路径
-    audio_url = await _get_news_audio_url(news_id)
-    if not audio_url:
-        return {'success': False, 'message': 'No audio available'}
+    # 1. 尝试从云存储获取临时 URL
+    cloud_file_id = get_news_cloud_file_id(news_id)
+    if cloud_file_id and cloud_file_id.startswith('cloud://'):
+        access_token = await get_access_token()
+        if access_token:
+            try:
+                # 从 fileID 提取路径
+                env = cloud_file_id.split('://')[1].split('/')[0]
+                path = cloud_file_id.replace(f'cloud://{env}/', '')
 
-    # 解析音频文件路径 - 使用项目根目录作为基准
-    if audio_url.startswith('/data/audio/'):
-        # 获取项目根目录 (src/api/../.. = 项目根目录)
+                # 调用微信云存储 API 获取临时 URL
+                url = f"https://api.weixin.qq.com/tcb/batchdownloadfile?access_token={access_token}"
+                data = {
+                    "env": env,
+                    "file_list": [{"fileid": cloud_file_id, "max_age": 3600}]
+                }
+
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(url, json=data)
+                    result = response.json()
+
+                if result.get("errcode") == 0 and result.get("file_list"):
+                    file_info = result["file_list"][0]
+                    if file_info.get("status") == 0:
+                        temp_url = file_info.get("download_url")
+                        logger.info(f"[Read] Cloud URL for {news_id[:24]}: {temp_url[:60]}...")
+                        return {"success": True, "audio_url": temp_url, "source": "cloud"}
+
+            except Exception as e:
+                logger.warning(f"[Read] Cloud storage error: {e}")
+
+    # 2. Fallback: 使用 MiniMax OSS URL
+    backup_url = get_backup_audio_url(news_id)
+    if backup_url:
+        logger.info(f"[Read] Using backup URL for {news_id[:24]}")
+        return {"success": True, "audio_url": backup_url, "source": "backup"}
+
+    # 3. Fallback: 容器内本地文件
+    audio_url = get_news_audio_url(news_id)
+    if audio_url and audio_url.startswith('/data/audio/'):
+        from pathlib import Path
         project_root = Path(__file__).parent.parent.parent
         audio_file = project_root / audio_url.lstrip('/')
 
         if audio_file.exists():
             from fastapi.responses import StreamingResponse
+            logger.info(f"[Read] Using local file for {news_id[:24]}")
             return StreamingResponse(
                 open(audio_file, 'rb'),
                 media_type="audio/mpeg",
@@ -279,7 +316,7 @@ async def read_news_aloud(news_id: str):
                 }
             )
 
-    return {'success': False, 'message': 'Audio file not found'}
+    return {"success": False, "message": "No audio available"}
 
 
 # ============ 云存储音频接口 ============
@@ -290,7 +327,9 @@ async def update_cloud_file_id(news_id: str, cloud_file_id: str = Query(..., des
     更新新闻的云存储 fileID
     用于前端上传音频到云存储后，回调更新数据库
     """
-    success = await _save_news_cloud_file_id(news_id, cloud_file_id)
+    from src.services.news import save_news_cloud_file_id
+
+    success = save_news_cloud_file_id(news_id, cloud_file_id)
     if success:
         return {'success': True, 'message': 'Cloud file ID updated', 'news_id': news_id, 'cloud_file_id': cloud_file_id}
     else:
@@ -300,33 +339,10 @@ async def update_cloud_file_id(news_id: str, cloud_file_id: str = Query(..., des
 @router.get("/{news_id}/cloud-file")
 async def get_cloud_file_id(news_id: str):
     """
-    获取新闻的云存储 fileID 和临时访问链接
-
-    前端可以通过返回的 temp_url 直接访问音频文件，
-    或者使用 cloud_file_id 通过 wx.cloud.downloadFile 下载。
+    获取新闻的云存储 fileID
     """
-    cloud_file_id = await _get_news_cloud_file_id(news_id)
-    if not cloud_file_id:
+    cloud_file_id = get_news_cloud_file_id(news_id)
+    if cloud_file_id:
+        return {'success': True, 'news_id': news_id, 'cloud_file_id': cloud_file_id}
+    else:
         return {'success': False, 'message': 'No cloud file ID'}
-
-    result = {
-        'success': True,
-        'news_id': news_id,
-        'cloud_file_id': cloud_file_id,
-        'temp_url': None,
-    }
-
-    # 如果配置了云存储，尝试获取临时链接
-    try:
-        from src.services.tts.tts_service import get_wechat_cloud_storage
-
-        cloud_storage = get_wechat_cloud_storage()
-        if cloud_storage and cloud_file_id.startswith('cloud://'):
-            temp_url = await cloud_storage.get_temp_file_url(cloud_file_id, max_age=3600)
-            if temp_url:
-                result['temp_url'] = temp_url
-    except Exception as e:
-        import logging
-        logging.warning(f"[API] Failed to get temp URL: {e}")
-
-    return result
