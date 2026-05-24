@@ -249,25 +249,64 @@ async def get_collect_status(task_id: Optional[str] = Query(None, description="�
 @router.put("/{news_id}/read")
 async def read_news_aloud(news_id: str):
     """
-    朗读新闻 - 返回音频流
-    前端直接用 ctx.src = "/api/news/{id}/read" 播放
+    朗读新闻 - 返回音频 URL
+
+    优先级：
+    1. 微信云存储 cloud_file_id → 获取临时下载 URL
+    2. MiniMax OSS URL (backup_audio_url) → 直接返回
+    3. 容器内本地文件 → 返回文件流
     """
-    from pathlib import Path
-    from src.services.news import get_news_audio_url
+    from src.services.news import get_news_cloud_file_id, get_backup_audio_url, get_news_audio_url
+    from src.services.wechat_token import get_access_token
+    import httpx
 
-    # 获取预存的音频路径
+    # 1. 尝试从云存储获取临时 URL
+    cloud_file_id = get_news_cloud_file_id(news_id)
+    if cloud_file_id and cloud_file_id.startswith('cloud://'):
+        access_token = await get_access_token()
+        if access_token:
+            try:
+                # 从 fileID 提取路径
+                env = cloud_file_id.split('://')[1].split('/')[0]
+                path = cloud_file_id.replace(f'cloud://{env}/', '')
+
+                # 调用微信云存储 API 获取临时 URL
+                url = f"https://api.weixin.qq.com/tcb/batchdownloadfile?access_token={access_token}"
+                data = {
+                    "env": env,
+                    "file_list": [{"fileid": cloud_file_id, "max_age": 3600}]
+                }
+
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(url, json=data)
+                    result = response.json()
+
+                if result.get("errcode") == 0 and result.get("file_list"):
+                    file_info = result["file_list"][0]
+                    if file_info.get("status") == 0:
+                        temp_url = file_info.get("download_url")
+                        logger.info(f"[Read] Cloud URL for {news_id[:24]}: {temp_url[:60]}...")
+                        return {"success": True, "audio_url": temp_url, "source": "cloud"}
+
+            except Exception as e:
+                logger.warning(f"[Read] Cloud storage error: {e}")
+
+    # 2. Fallback: 使用 MiniMax OSS URL
+    backup_url = get_backup_audio_url(news_id)
+    if backup_url:
+        logger.info(f"[Read] Using backup URL for {news_id[:24]}")
+        return {"success": True, "audio_url": backup_url, "source": "backup"}
+
+    # 3. Fallback: 容器内本地文件
     audio_url = get_news_audio_url(news_id)
-    if not audio_url:
-        return {'success': False, 'message': 'No audio available'}
-
-    # 解析音频文件路径 - 使用项目根目录作为基准
-    if audio_url.startswith('/data/audio/'):
-        # 获取项目根目录 (src/api/../.. = 项目根目录)
+    if audio_url and audio_url.startswith('/data/audio/'):
+        from pathlib import Path
         project_root = Path(__file__).parent.parent.parent
         audio_file = project_root / audio_url.lstrip('/')
 
         if audio_file.exists():
             from fastapi.responses import StreamingResponse
+            logger.info(f"[Read] Using local file for {news_id[:24]}")
             return StreamingResponse(
                 open(audio_file, 'rb'),
                 media_type="audio/mpeg",
@@ -277,7 +316,7 @@ async def read_news_aloud(news_id: str):
                 }
             )
 
-    return {'success': False, 'message': 'Audio file not found'}
+    return {"success": False, "message": "No audio available"}
 
 
 # ============ 云存储音频接口 ============

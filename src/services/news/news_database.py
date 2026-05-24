@@ -60,6 +60,13 @@ def init_news_table():
     except Exception:
         pass  # 列已存在，忽略
 
+    # 兼容迁移：如果旧表没有 backup_audio_url 列，自动添加
+    try:
+        cursor.execute("ALTER TABLE news_items ADD COLUMN backup_audio_url TEXT DEFAULT NULL")
+        conn.commit()
+    except Exception:
+        pass  # 列已存在，忽略
+
     conn.commit()
     conn.close()
 
@@ -168,7 +175,8 @@ def get_news_from_db(
             'is_read': bool(row['is_read']),
             'is_favorited': bool(row['is_favorited']),
             'audio_url': row['audio_url'] if 'audio_url' in row.keys() else None,
-            'cloud_file_id': row['cloud_file_id'] if 'cloud_file_id' in row.keys() else None
+            'cloud_file_id': row['cloud_file_id'] if 'cloud_file_id' in row.keys() else None,
+            'backup_audio_url': row['backup_audio_url'] if 'backup_audio_url' in row.keys() else None,
         }
         # 附加 audio 字段（前端兼容格式）
         if item.get('audio_url'):
@@ -298,6 +306,37 @@ def save_news_cloud_file_id(news_id: str, cloud_file_id: str) -> bool:
     conn.commit()
     conn.close()
     return affected > 0
+
+
+def save_news_audio_urls(news_id: str, audio_url: str, backup_audio_url: str) -> bool:
+    """
+    保存新闻的音频 URL（云存储 + 备份）
+
+    Args:
+        news_id: 新闻 ID
+        audio_url: 微信云存储 cloud:// 路径
+        backup_audio_url: MiniMax OSS URL（备份）
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE news_items SET audio_url = ?, cloud_file_id = ?, backup_audio_url = ? WHERE id = ?",
+        (audio_url, audio_url, backup_audio_url, news_id)
+    )
+    affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return affected > 0
+
+
+def get_backup_audio_url(news_id: str) -> Optional[str]:
+    """获取新闻的 MiniMax OSS 备份 URL"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT backup_audio_url FROM news_items WHERE id = ?", (news_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row['backup_audio_url'] if row else None
 
 
 def get_news_without_audio(limit: int = 50) -> List[Dict[str, Any]]:

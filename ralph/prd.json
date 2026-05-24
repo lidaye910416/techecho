@@ -2,65 +2,178 @@
   "project": "TechEcho Pro",
   "branchName": "feature/cloud-audio-storage",
   "status": "pending",
-  "description": "音频上传云存储，前端云存储播放",
+  "description": "TTS 音频迁移微信云存储，修复容器内存储导致音频丢失问题",
   
-  "goal": "把容器内已有音频上传到微信云存储，前端能正常播放",
+  "goal": "预生成时将 TTS 音频上传微信云存储持久化，容器重建不丢失；同时保存 MiniMax OSS URL 作备份",
   
+  "problem": {
+    "current": "生成的音频保存在容器内 /data/audio/，容器重启/重建后全部丢失，需重新生成",
+    "expected": "音频存储在微信云存储（cloud://），持久化不丢失"
+  },
+
+  "dataFlow": {
+    "preGeneration": {
+      "trigger": "新闻采集完成时（定时任务或手动触发）",
+      "steps": [
+        "1. 获取未生成 TTS 的新闻列表",
+        "2. 调用 MiniMax TTS API 生成音频",
+        "3. 获取 MiniMax OSS URL",
+        "4. 下载音频到本地临时文件",
+        "5. 上传音频到微信云存储，获取 cloud:// fileID",
+        "6. 保存 cloud_file_id + backup OSS URL 到数据库",
+        "7. 删除本地临时文件"
+      ],
+      "storage": {
+        "primary": "微信云存储 cloud:// (持久化，容器重建不丢失)",
+        "backup": "MiniMax OSS URL (备选，万一云存储不可用)",
+        "dbFields": {
+          "audio_url": "微信云存储 cloud:// 文件路径",
+          "cloud_file_id": "cloud://prod-xxx/audio/xxx.mp3",
+          "backup_audio_url": "MiniMax OSS 完整 URL"
+        }
+      }
+    },
+    "onDemandGeneration": {
+      "trigger": "用户点击新闻朗读按钮",
+      "h5Flow": "调 /api/favorites/tts 返回 OSS URL 播放（替代浏览器 TTS）",
+      "weappFlow": "调 /api/favorites/tts 返回 OSS URL 播放",
+      "note": "小程序端保持现有弹窗逻辑不变"
+    }
+  },
+
   "steps": [
     {
       "step": 1,
-      "title": "数据库新增 cloud_file_id 字段",
-      "file": "src/services/news/news_database.py",
-      "action": "新增 cloud_file_id TEXT 字段",
-      "criteria": "ALTER TABLE news_items ADD COLUMN cloud_file_id TEXT"
+      "title": "新建微信 access_token 管理模块",
+      "file": "src/services/wechat_token.py",
+      "action": "实现自动获取+缓存微信 access_token（有效期2小时）",
+      "api": "GET https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=APPID&secret=APPSECRET",
+      "criteria": "多次调用不会重复获取，2小时内复用缓存"
     },
     {
       "step": 2,
-      "title": "上传本地音频到云存储",
-      "description": "用 curl 调用微信云存储 API，上传 data/audio/*.mp3",
-      "script": "tools/upload_audio_to_cloud.sh",
-      "criteria": "所有音频文件获取到 cloud://xxx fileID"
+      "title": "数据库新增 backup_audio_url 字段",
+      "file": "src/services/news/news_database.py",
+      "action": "新增 _save_news_audio_urls 异步函数，同时保存 cloud_file_id + backup OSS URL",
+      "criteria": "预生成后数据库同时有 cloud_file_id 和 backup_audio_url"
     },
     {
       "step": 3,
-      "title": "更新数据库 cloud_file_id",
-      "file": "src/services/news/news_database.py",
-      "action": "新增 update_cloud_file_id 函数",
-      "script": "tools/update_cloud_file_id.py",
-      "criteria": "数据库每个 news 有 cloud_file_id"
+      "title": "修改 TTS 预生成服务上传云存储",
+      "file": "src/services/tts/tts_pregen.py",
+      "action": "下载 MiniMax 音频后上传微信云存储，保存双 URL 到数据库",
+      "criteria": "日志显示 '[WeChatCloudStorage] Uploaded: audio/xxx -> cloud://xxx'"
     },
     {
       "step": 4,
-      "title": "API 返回 cloud_file_id",
+      "title": "修改 /api/news/{id}/read 支持云存储",
       "file": "src/api/news_api.py",
-      "action": "查询新闻时返回 cloud_file_id",
-      "criteria": "/api/news 返回数据包含 cloud_file_id"
+      "action": "读取新闻的 cloud_file_id，调用微信云存储 API 获取临时下载 URL",
+      "fallback": "云存储失败时使用 backup_audio_url (MiniMax OSS URL)",
+      "criteria": "前端播放 /api/news/{id}/read 正常工作"
     },
     {
       "step": 5,
-      "title": "前端支持云存储播放",
-      "file": "app/src/utils/audioManager.ts",
-      "action": "识别 cloud:// 路径，用 wx.cloud.downloadFile 下载",
-      "criteria": "cloud:// 开头用云存储下载，其他用 API 下载"
+      "title": "修改 handleSpeak 支持 OSS URL",
+      "file": "app/index.html",
+      "action": "无预生成时调 /api/favorites/tts 返回 OSS URL 播放（替代浏览器 TTS）",
+      "criteria": "前端交互逻辑不变：有点击有播放，只是音频源改为 OSS URL"
     },
     {
       "step": 6,
-      "title": "测试播放",
-      "action": "本地模式测试朗读功能",
-      "criteria": "点击朗读按钮能播放音频"
+      "title": "测试验证",
+      "action": "端到端测试预生成 + 播放",
+      "criteria": [
+        "触发采集后数据库有 cloud_file_id 和 backup_audio_url",
+        "前端点击朗读能正常播放音频",
+        "容器重建后云存储音频仍可播放"
+      ]
     }
   ],
 
-  "dataFlow": {
-    "upload": {
-      "input": "本地 data/audio/*.mp3",
-      "tool": "微信云存储 API (curl 或 wx.cloud.uploadFile)",
-      "output": "cloud://prod-xxx/audio/xxx.mp3",
-      "store": "news_items.cloud_file_id"
-    },
-    "playback": {
-      "query": "GET /api/news → cloud_file_id",
-      "play": "wx.cloud.downloadFile(cloud://xxx) → tempFilePath → audioContext.src"
-    }
-  }
+  "fileChanges": {
+    "new": ["src/services/wechat_token.py"],
+    "modify": [
+      "src/services/news/news_database.py",
+      "src/services/tts/tts_pregen.py",
+      "src/api/news_api.py",
+      "app/index.html"
+    ]
+  },
+
+  "databaseChanges": {
+    "table": "news_items",
+    "addColumns": [
+      {"name": "backup_audio_url", "type": "TEXT", "desc": "MiniMax OSS URL 备份"}
+    ]
+  },
+
+  "unchangedFlow": {
+    "description": "以下流程保持完全不变",
+    "flows": [
+      {"name": "handleAnalyze", "action": "AI分析后生成TTS播放", "note": "已有逻辑不变"},
+      {"name": "前端播放控件", "action": "使用 Audio.play() 播放", "note": "交互不变"},
+      {"name": "语音设置切换", "action": "voice1/voice2/voice3 切换", "note": "交互不变"}
+    ]
+  },
+
+  "unchangedModals": {
+    "description": "以下弹窗逻辑必须保持完全不变",
+    "modals": [
+      {
+        "name": "promptLogin",
+        "platform": "微信小程序",
+        "trigger": "未登录用户点击需要 TTS 的操作",
+        "content": "实时语音生成仅限登录用户使用。是否前往登录？",
+        "action": "确认 → 跳转登录页；取消 → 关闭"
+      },
+      {
+        "name": "promptTTSLimit",
+        "platform": "微信小程序",
+        "trigger": "已登录用户 TTS 机会用完",
+        "content": "TTS 体验次数已用完提示",
+        "action": "确认 → 关闭"
+      },
+      {
+        "name": "promptVoiceSwitch",
+        "platform": "微信小程序",
+        "trigger": "用户切换语音风格但该风格无预生成",
+        "content": "当前设置 + 已有预生成 + 提示消耗体验次数",
+        "action": "确认 → 实时生成；取消 → 使用默认风格"
+      },
+      {
+        "name": "H5 浏览器 TTS 回退",
+        "platform": "H5",
+        "trigger": "无预生成时（目前回退到浏览器TTS，改造后改为调 API）",
+        "note": "H5 无登录弹窗，本次改造改为调 MiniMax API 返回 OSS URL"
+      }
+    ]
+  },
+
+  "acceptanceCriteria": {
+    "preGeneration": [
+      "新闻采集完成后自动生成 TTS 并上传微信云存储",
+      "数据库 news_items 表同时记录 cloud_file_id 和 backup_audio_url",
+      "本地 /data/audio/ 不再需要（临时文件用完删除）"
+    ],
+    "playback": [
+      "前端点击朗读能正常播放（无论预生成还是按需生成）",
+      "容器重建后云存储音频仍可播放",
+      "云存储不可用时 fallback 到 backup_audio_url"
+    ],
+    "compatibility": [
+      "前端交互逻辑完全不变",
+      "handleSpeak 点击有响应",
+      "handleAnalyze 正常工作",
+      "语音切换功能正常",
+      "小程序所有 TTS 弹窗逻辑不变"
+    ]
+  },
+
+  "notes": [
+    "Step 4 是关键：/api/news/{id}/read 需要支持从微信云存储获取临时 URL",
+    "前端 item.audio[settings.voice] 仍按现有格式返回，只是值改为云存储 URL",
+    "微信云存储文件有效期可通过 max_age 参数调整（默认 3600 秒）",
+    "小程序端 TTS 弹窗（promptLogin/promptTTSLimit/promptVoiceSwitch）必须保持不变"
+  ]
 }

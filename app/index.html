@@ -1750,7 +1750,7 @@
 
     var currentAudio = null;
 
-    function handleSpeak(id) {
+    async function handleSpeak(id) {
       if (playingId === id) {
         // Stop playing
         if (currentAudio) {
@@ -1771,11 +1771,38 @@
         var audioUrl = audioUrls[settings.voice];
 
         if (audioUrl) {
-          // Use pre-generated audio from backend
-          playAudio(id, audioUrl);
+          // 有预生成 → 调 /api/news/{id}/read 获取云存储临时 URL
+          try {
+            var readResp = await fetch('/api/news/' + id + '/read', { method: 'PUT' });
+            var readResult = await readResp.json();
+            if (readResult.success && readResult.audio_url) {
+              playAudio(id, readResult.audio_url);
+            } else {
+              showToast(t('speechFailed'));
+            }
+          } catch (e) {
+            console.error('Read audio error:', e);
+            showToast(t('speechFailed'));
+          }
         } else {
-          // Fall back to browser TTS
-          playBrowserTTS(id, item);
+          // 无预生成 → 调 /api/favorites/tts 获取 MiniMax OSS URL
+          var text = currentLang === 'en' ? (item.content_en || item.title_en) : (item.content_zh || item.title_zh);
+          try {
+            var ttsResp = await fetch('/api/favorites/tts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: text.slice(0, 500) })
+            });
+            var ttsResult = await ttsResp.json();
+            if (ttsResult.success && ttsResult.data && ttsResult.data.audio_url) {
+              playAudio(id, ttsResult.data.audio_url);
+            } else {
+              showToast(t('speechFailed'));
+            }
+          } catch (e) {
+            console.error('TTS error:', e);
+            showToast(t('speechFailed'));
+          }
         }
       }
     }
