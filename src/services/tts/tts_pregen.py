@@ -17,7 +17,7 @@ from typing import List, Dict
 
 from src.services.tts.voice_config import VOICE_STYLES
 from src.services.minimax_client import get_minimax_client
-from src.services.news import save_news_audio
+from src.services.news import _save_news_audio
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,7 @@ async def pre_generate_tts_for_news(
                     f.write(response.content)
 
                 db_audio_url = f"/data/audio/{news_id}_v3.mp3"
-                save_news_audio(news_id, db_audio_url)
+                await _save_news_audio(news_id, db_audio_url)
 
                 stats["success"] += 1
                 logger.info(f"TTS pregen [{i+1}/{len(news_list)}] ok {news_id[:24]}... ({len(response.content)}B)")
