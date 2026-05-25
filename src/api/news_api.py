@@ -50,7 +50,7 @@ async def get_news_list(
     特殊逻辑: 如果请求今天但没有今天的新闻，自动返回昨天的新闻
     (因为新闻通常在当天上午收集，但内容是昨天的)
     """
-    news = get_news_from_db(
+    news = await get_news_from_db(
         lang=lang,
         category=category,
         date=date,
@@ -63,7 +63,7 @@ async def get_news_list(
 
     # 如果请求今天但没有今天的新闻，返回昨天的
     if date == today and not news:
-        news = get_news_from_db(
+        news = await get_news_from_db(
             lang=lang,
             category=category,
             date=yesterday,
@@ -80,8 +80,8 @@ async def get_news_list(
 @router.get("/dates")
 async def get_available_dates():
     """获取有新闻的日期列表"""
-    stats = get_news_stats()
-    news = get_news_from_db(limit=1000)
+    stats = await get_news_stats()
+    news = await get_news_from_db(limit=1000)
 
     dates = set()
     today = datetime.now().strftime('%Y-%m-%d')
@@ -106,7 +106,7 @@ async def get_available_dates():
 @router.get("/stats")
 async def get_stats():
     """获取新闻统计"""
-    stats = get_news_stats()
+    stats = await get_news_stats()
     return {
         'success': True,
         'data': {
@@ -127,7 +127,7 @@ async def get_categories():
         'product': {'name': '产品', 'emoji': '💡'}
     }
 
-    stats = get_news_stats()
+    stats = await get_news_stats()
     result = []
     for cat in stats.get('categories', []):
         info = CATEGORY_MAP.get(cat, {'name': cat, 'emoji': '📰'})
@@ -145,7 +145,7 @@ async def get_categories():
 @router.get("/{news_id}")
 async def get_news_detail(news_id: str):
     """获取新闻详情"""
-    item = get_news_by_id(news_id)
+    item = await get_news_by_id(news_id)
 
     if not item:
         raise HTTPException(status_code=404, detail="News not found")
@@ -261,7 +261,7 @@ async def read_news_aloud(news_id: str):
     import httpx
 
     # 1. 尝试从云存储获取临时 URL
-    cloud_file_id = get_news_cloud_file_id(news_id)
+    cloud_file_id = await get_news_cloud_file_id(news_id)
     if cloud_file_id and cloud_file_id.startswith('cloud://'):
         access_token = await get_access_token()
         if access_token:
@@ -292,13 +292,13 @@ async def read_news_aloud(news_id: str):
                 logger.warning(f"[Read] Cloud storage error: {e}")
 
     # 2. Fallback: 使用 MiniMax OSS URL
-    backup_url = get_backup_audio_url(news_id)
+    backup_url = await get_backup_audio_url(news_id)
     if backup_url:
         logger.info(f"[Read] Using backup URL for {news_id[:24]}")
         return {"success": True, "audio_url": backup_url, "source": "backup"}
 
     # 3. Fallback: 容器内本地文件
-    audio_url = get_news_audio_url(news_id)
+    audio_url = await get_news_audio_url(news_id)
     if audio_url and audio_url.startswith('/data/audio/'):
         from pathlib import Path
         project_root = Path(__file__).parent.parent.parent
@@ -329,7 +329,7 @@ async def update_cloud_file_id(news_id: str, cloud_file_id: str = Query(..., des
     """
     from src.services.news import save_news_cloud_file_id
 
-    success = save_news_cloud_file_id(news_id, cloud_file_id)
+    success = await save_news_cloud_file_id(news_id, cloud_file_id)
     if success:
         return {'success': True, 'message': 'Cloud file ID updated', 'news_id': news_id, 'cloud_file_id': cloud_file_id}
     else:

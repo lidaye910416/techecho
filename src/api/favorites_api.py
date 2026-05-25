@@ -105,12 +105,12 @@ async def analyze_favorites(request: AnalyzeRequest):
         raise HTTPException(status_code=500, detail="MINIMAX_API_KEY 未配置，请先配置环境变量")
 
     # 获取收藏的新闻数据（使用异步版本，避免 asyncio.run() 嵌套问题）
-    from src.services.news import _get_news_from_db
+    from src.services.news import get_news_from_db
 
     # 先拉取足够多的新闻，再用 news_ids 过滤
     # 使用较大的 limit 确保覆盖收藏列表中的低分新闻
     fetch_limit = max(200, (request.limit or 50) * 10)
-    news_list = await _get_news_from_db(limit=fetch_limit)
+    news_list = await get_news_from_db(limit=fetch_limit)
     if request.news_ids:
         news_ids_set = set(request.news_ids)
         news_list = [n for n in news_list if n.get('id') in news_ids_set]

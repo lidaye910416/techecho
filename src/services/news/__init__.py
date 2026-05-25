@@ -22,6 +22,7 @@ from src.services.news.news_database import (
     get_news_without_audio,
     save_news_audio_urls,  # 新增：同时保存云存储 URL 和备份 URL
     get_backup_audio_url,  # 新增：获取 MiniMax OSS 备份 URL
+    init_news_table,       # 新增：MySQL 表初始化
 )
 
 __all__ = [
@@ -41,4 +42,5 @@ __all__ = [
     'get_news_without_audio',
     'save_news_audio_urls',
     'get_backup_audio_url',
+    'init_news_table',
 ]
