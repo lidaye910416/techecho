@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 > **当前分支**: `main`（feature/ai-analysis 已合并）
-> **当前版本**: v0.3.1 — TechEcho 科技资讯播报平台
+> **当前版本**: v0.3.8 — TechEcho 科技资讯播报平台
 
 ---
 
@@ -116,9 +116,24 @@ const res = await wx.cloud.callContainer({
   header: {
     'X-WX-SERVICE': CLOUD_SERVICE,
   },
-  responseType: 'arraybuffer',
+  responseType: 'arraybuffer',  // 音频返回二进制
 })
 ```
+
+### 历史记录
+
+| 版本 | Commit ID | 说明 |
+|------|-----------|------|
+| 后端稳定版 | `d7d2d8e` | 支持云托管通信的后端容器版本 |
+| 当前前端 | `f9aa4b1` | 使用 wx.cloud.callContainer 的最新版本 |
+
+### 关键算法要点
+
+1. **新闻获取**：GET `/api/news?limit=500` → 返回 JSON 列表
+2. **音频下载**：PUT `/api/news/{id}/read` → 返回 `arraybuffer` (MP3)
+3. **数据格式**：`audio_url` 字段存储 `/data/audio/{id}_v3.mp3`（本地路径）
+4. **音频路径转换**：`getAudioUrl()` 将本地路径转换为 API 路径
+5. **缓存策略**：TTS 音频使用 `techecho_tts_cache` 缓存，避免重复生成
 
 ### 何时使用
 
@@ -149,9 +164,8 @@ const res = await wx.cloud.callContainer({
 │   │   ├── app.config.ts         # Taro 页面路由 (★ 缺 read/news 页注册)
 │   │   ├── pages/
 │   │   │   ├── index/index.tsx   # 首页 (新闻列表/统计) ✅
-│   │   │   ├── news/news.tsx     # 新闻列表页 ✅
-│   │   │   ├── read/read.tsx     # 新闻详情+播放器 ✅
-│   │   │   └── mine/mine.tsx     # ★ 我的页面 (登录/语音/偏好设置) ✅
+│   │   │   ├── news/news.tsx     # 收藏页 ✅
+│   │   │   └── mine/mine.tsx     # 我的页面 (登录/语音/偏好设置) ✅
 │   │   └── components/           # NewsCard/CategoryTabs/DatePicker
 │   └── config/
 │
@@ -235,6 +249,11 @@ cd app && npm run build:weapp                        # 使用 .env 中的 CLOUD_
 # - 禁止将 .env 文件提交到 GitHub
 
 # ⚠️ dist/ 是编译产物，禁止直接修改。只改 app/src/ 下的源码。
+
+# ⚠️ Git 推送规则：禁止随意推送代码到远端。推送前必须确认用户意图。
+```
+正确: 用户明确要求 git push 时才执行
+错误: 提交代码后自动推送
 ```
 
 ---
@@ -279,29 +298,39 @@ docker run -d -p 8090:8000 --env-file .env techecho:latest
 
 ## API 端点
 
-### 新闻 (News)
-| 方法 | 路径 | 说明 | H5 使用 |
+### 前端业务
+| 方法 | 路径 | 说明 | 使用 |
 |------|------|------|:--:|
-| GET | `/api/news` | 新闻列表 (lang/category/date/min_quality) | ❌ |
-| GET | `/api/news/stats` | 统计 (总数/等级分布/分类) | ❌ |
-| GET | `/api/news/dates` | 有数据的日期列表 | ❌ |
-| GET | `/api/news/{id}` | 单条详情 | ❌ |
-| POST | `/api/news/{id}/read` | 朗读 (空壳, 返回 audio_url:null) | ❌ |
+| GET | `/api/news` | 新闻列表 | ✅ |
+| GET | `/api/news/stats` | 统计 | ✅ |
+| GET | `/api/news/dates` | 可用日期 | ✅ |
+| GET | `/api/news/categories` | 分类列表 | ✅ |
+| GET | `/api/news/{id}` | 新闻详情 | ✅ |
+| PUT | `/api/news/{id}/read` | 获取音频 (MP3流) | ✅ |
+| POST | `/api/favorites/analyze` | AI 分析 | ✅ |
+| POST | `/api/favorites/tts` | 文本转语音 | ✅ |
+| POST | `/api/auth/wechat-login` | 微信登录 | ✅ |
+| GET | `/api/auth/user-info` | 用户信息 | ✅ |
 
-### 收藏分析 (核心)
-| 方法 | 路径 | 说明 | H5 使用 |
+### 后台管理
+| 方法 | 路径 | 说明 | 使用 |
 |------|------|------|:--:|
-| POST | `/api/favorites/analyze` | ★ AI 分析收藏新闻 | ✅ |
-| POST | `/api/favorites/tts` | ★ 文本转语音 | ✅ |
+| POST | `/api/news/collect` | 触发采集 | ⚙️ |
+| GET | `/api/news/collect/status` | 采集状态 | ⚙️ |
+| PUT | `/api/news/{id}/cloud-file` | 更新云存储ID | ⚙️ |
+| GET | `/api/news/{id}/cloud-file` | 获取云存储ID | ⚙️ |
+
+### 未使用
+| 方法 | 路径 | 说明 | 使用 |
+|------|------|------|:--:|
+| GET | `/api/voices` | 语音列表 | ❌ |
+| GET | `/api/voices/available` | 可用语音 | ❌ |
+| GET | `/api/voices/presets` | 语音预设 | ❌ |
+| POST | `/api/voices/test` | TTS 测试 | ❌ |
+| GET | `/api/languages` | 语言列表 | ❌ |
+| GET | `/api/status` | API 状态 | ❌ |
+| GET | `/api/test/minimax` | MiniMax 测试 | ❌ |
 | GET | `/api/favorites/analyze-and-tts` | 一站式分析+TTS | ❌ |
-
-### 其他
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/voices` | 语音列表 |
-| GET | `/api/voices/presets` | 语音预设 |
-| POST | `/api/voices/test` | TTS 测试 |
-| GET | `/api/status` | API 状态 (TTS/Chat 可用性) |
 
 ---
 

@@ -1,66 +1,167 @@
 {
-  "project": "TechEcho Pro",
-  "branchName": "feature/cloud-audio-storage",
-  "status": "pending",
-  "description": "音频上传云存储，前端云存储播放",
-  
-  "goal": "把容器内已有音频上传到微信云存储，前端能正常播放",
-  
-  "steps": [
+  "project": "TechEcho Pro - 数据库持久化改造",
+  "branchName": "feature/backend-storage",
+  "status": "in_progress",
+  "description": "将新闻数据存储从容器内 SQLite 迁移到微信云托管 MySQL，实现容器级持久化",
+
+  "goal": "解决 SQLite 数据库在容器重新部署后丢失的问题，改用微信云托管 MySQL 实现数据持久化",
+
+  "background": {
+    "problem": "当前 SQLite 数据库存储在容器内的 /app/data/database.db，镜像重新部署后数据丢失。音频已迁移到微信云存储（cloud://），但数据库仍是短板。",
+    "solution": "使用微信云托管内置 MySQL 数据库，支持 Serverless 架构，内网访问无额外费用"
+  },
+
+  "mysqlConfig": {
+    "host": "10.37.107.121",
+    "port": 3306,
+    "database": "techecho",
+    "username": "root",
+    "password": "adminlbW===",
+    "version": "8.0",
+    "autoPause": true,
+    "coldStartRetry": true
+  },
+
+  "constraints": {
+    "unchanged": [
+      "前端 UI 和交互逻辑不变",
+      "新闻采集和 AI 评分逻辑不变",
+      "TTS 生成和云存储上传逻辑不变",
+      "API 接口路径不变"
+    ],
+    "changeOnly": "数据库存储从 SQLite 改为 MySQL"
+  },
+
+  "stories": [
     {
-      "step": 1,
-      "title": "数据库新增 cloud_file_id 字段",
-      "file": "src/services/news/news_database.py",
-      "action": "新增 cloud_file_id TEXT 字段",
-      "criteria": "ALTER TABLE news_items ADD COLUMN cloud_file_id TEXT"
+      "id": "DB-1",
+      "title": "更新配置 - 添加 MySQL 连接配置",
+      "priority": 1,
+      "passes": true,
+      "description": "在 settings.py 中添加 MySQL 连接配置（HOST, PORT, USER, PASSWORD, DATABASE）",
+      "files": ["src/config/settings.py"],
+      "changes": [
+        "添加 MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE 配置",
+        "保持原有 SQLite 配置不变（兼容迁移脚本）"
+      ]
     },
     {
-      "step": 2,
-      "title": "上传本地音频到云存储",
-      "description": "用 curl 调用微信云存储 API，上传 data/audio/*.mp3",
-      "script": "tools/upload_audio_to_cloud.sh",
-      "criteria": "所有音频文件获取到 cloud://xxx fileID"
+      "id": "DB-2",
+      "title": "创建数据库连接模块",
+      "priority": 2,
+      "passes": true,
+      "description": "创建 src/services/db.py，实现 MySQL 连接管理",
+      "files": ["src/services/db.py"],
+      "changes": [
+        "使用 SQLAlchemy AsyncEngine + AsyncSession",
+        "实现连接池管理",
+        "添加自动重试逻辑（应对 Serverless 冷启动）",
+        "创建上下文管理器 get_db_session()"
+      ]
     },
     {
-      "step": 3,
-      "title": "更新数据库 cloud_file_id",
-      "file": "src/services/news/news_database.py",
-      "action": "新增 update_cloud_file_id 函数",
-      "script": "tools/update_cloud_file_id.py",
-      "criteria": "数据库每个 news 有 cloud_file_id"
+      "id": "DB-3",
+      "title": "创建 ORM 模型",
+      "priority": 3,
+      "passes": true,
+      "description": "创建 src/services/models.py，定义新闻表 ORM 模型",
+      "files": ["src/services/models.py"],
+      "changes": [
+        "创建 News 类，与现有 SQLite 表结构一致",
+        "字段包括: id, title_zh, title_en, content_zh, content_en, source_zh, source_en, source_url, lang, category, published_at, created_at, quality_score, quality_grade, quality_scores, is_read, is_favorited, audio_url, cloud_file_id"
+      ]
     },
     {
-      "step": 4,
-      "title": "API 返回 cloud_file_id",
-      "file": "src/api/news_api.py",
-      "action": "查询新闻时返回 cloud_file_id",
-      "criteria": "/api/news 返回数据包含 cloud_file_id"
+      "id": "DB-4",
+      "title": "重写数据库操作 - 改为异步 MySQL",
+      "priority": 4,
+      "passes": true,
+      "description": "重写 src/services/news/news_database.py，从 SQLite 改为 MySQL",
+      "files": ["src/services/news/news_database.py"],
+      "changes": [
+        "替换 sqlite3 为 SQLAlchemy async",
+        "保留原有函数签名（save_news_to_db, get_news_from_db 等）",
+        "添加重试逻辑应对冷启动",
+        "保持与 news_collect_service.py 的兼容性"
+      ]
     },
     {
-      "step": 5,
-      "title": "前端支持云存储播放",
-      "file": "app/src/utils/audioManager.ts",
-      "action": "识别 cloud:// 路径，用 wx.cloud.downloadFile 下载",
-      "criteria": "cloud:// 开头用云存储下载，其他用 API 下载"
+      "id": "DB-5",
+      "title": "更新依赖",
+      "priority": 5,
+      "passes": true,
+      "description": "更新 requirements.txt 添加 aiomysql 依赖",
+      "files": ["requirements.txt"],
+      "changes": [
+        "添加 aiomysql>=0.2.0",
+        "确保 sqlalchemy[asyncio] 存在"
+      ]
     },
     {
-      "step": 6,
-      "title": "测试播放",
-      "action": "本地模式测试朗读功能",
-      "criteria": "点击朗读按钮能播放音频"
+      "id": "DB-6",
+      "title": "更新环境变量示例",
+      "priority": 6,
+      "passes": true,
+      "description": "更新 .env.example 添加 MySQL 配置示例",
+      "files": [".env.example"],
+      "changes": [
+        "添加 MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE 配置说明"
+      ]
+    },
+    {
+      "id": "DB-7",
+      "title": "创建数据迁移脚本",
+      "priority": 7,
+      "passes": false,
+      "description": "创建 scripts/migrate_sqlite_to_mysql.py，一次性迁移脚本",
+      "files": ["scripts/migrate_sqlite_to_mysql.py"],
+      "changes": [
+        "从 SQLite 导出数据",
+        "创建 MySQL 表结构",
+        "导入数据到 MySQL",
+        "验证数据一致性"
+      ]
+    },
+    {
+      "id": "DB-8",
+      "title": "测试验证",
+      "priority": 8,
+      "passes": false,
+      "description": "端到端测试新闻收集和数据持久化",
+      "files": ["src/api/news_api.py"],
+      "changes": [
+        "触发 /api/news/collect 测试",
+        "验证数据保存到 MySQL",
+        "重启容器后验证数据未丢失"
+      ]
     }
   ],
 
-  "dataFlow": {
-    "upload": {
-      "input": "本地 data/audio/*.mp3",
-      "tool": "微信云存储 API (curl 或 wx.cloud.uploadFile)",
-      "output": "cloud://prod-xxx/audio/xxx.mp3",
-      "store": "news_items.cloud_file_id"
-    },
-    "playback": {
-      "query": "GET /api/news → cloud_file_id",
-      "play": "wx.cloud.downloadFile(cloud://xxx) → tempFilePath → audioContext.src"
-    }
+  "filesToModify": [
+    {"file": "src/config/settings.py", "action": "添加 MySQL 配置"},
+    {"file": "src/services/db.py", "action": "新增 - 数据库连接管理"},
+    {"file": "src/services/models.py", "action": "新增 - ORM 模型"},
+    {"file": "src/services/news/news_database.py", "action": "重写 - SQLite 改为 MySQL"},
+    {"file": "requirements.txt", "action": "添加 aiomysql"},
+    {"file": ".env.example", "action": "添加 MySQL 配置示例"}
+  ],
+
+  "filesToCreate": [
+    {"file": "src/services/db.py", "reason": "数据库连接管理（重试逻辑）"},
+    {"file": "src/services/models.py", "reason": "ORM 模型定义"},
+    {"file": "scripts/migrate_sqlite_to_mysql.py", "reason": "一次性数据迁移"}
+  ],
+
+  "criteria": {
+    "functional": [
+      "新闻收集后数据保存到 MySQL 数据库",
+      "重启容器后数据不丢失",
+      "API 接口正常工作"
+    ],
+    "nonFunctional": [
+      "冷启动时自动重试",
+      "保留原有接口签名",
+      "代码改动最小化"
+    ]
   }
 }

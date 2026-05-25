@@ -1,4 +1,4 @@
-# TechEcho Pro
+# TechEcho
 
 > 科技资讯 AI 播报平台 — 自动收集中英文科技新闻，AI 分析趋势，TTS 语音播报
 
