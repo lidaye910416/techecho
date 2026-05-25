@@ -42,6 +42,14 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
+    # 初始化 MySQL 表结构
+    try:
+        from src.services.news import init_news_table
+        await init_news_table()
+        logger.info("[TechEcho] MySQL table initialized")
+    except Exception as e:
+        logger.error(f"[TechEcho] Failed to init MySQL table: {e}")
+
     # 启动定时调度器（每日 08:30 自动采集新闻到数据库）
     try:
         from src.services.scheduler_service import start_scheduler
