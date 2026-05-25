@@ -181,7 +181,7 @@ async def pre_generate_tts_for_news(
                 # 如果云存储上传失败，用 MiniMax URL 作为 audio_url（降级）
                 db_audio_url = minimax_url
 
-            save_news_audio_urls(news_id, db_audio_url, minimax_url)
+            await save_news_audio_urls(news_id, db_audio_url, minimax_url)
 
             stats["success"] += 1
             logger.info(f"TTS pregen [{i+1}/{len(news_list)}] ok {news_id[:24]}... ({len(audio_content)}B)")
