@@ -112,7 +112,7 @@
       "id": "DB-7",
       "title": "创建数据迁移脚本",
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "description": "创建 scripts/migrate_sqlite_to_mysql.py，一次性迁移脚本",
       "files": ["scripts/migrate_sqlite_to_mysql.py"],
       "changes": [
@@ -126,7 +126,7 @@
       "id": "DB-8",
       "title": "测试验证",
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "description": "端到端测试新闻收集和数据持久化",
       "files": ["src/api/news_api.py"],
       "changes": [
