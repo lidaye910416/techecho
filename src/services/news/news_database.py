@@ -21,7 +21,7 @@ from src.services.models import News
 async def init_news_table():
     """初始化新闻表（MySQL 版本）"""
     try:
-        async with get_db_session() as session:
+        async with get_db_session(max_retries=5, retry_delay=2.0) as session:
             # 创建表（如果不存在）
             await session.execute(text("""
                 CREATE TABLE IF NOT EXISTS news_items (
@@ -54,8 +54,8 @@ async def init_news_table():
             await session.commit()
             logger.info("MySQL news_items table initialized")
     except Exception as e:
-        logger.error(f"Failed to init news table: {e}")
-        raise
+        # 不再 raise，避免阻止应用启动
+        logger.warning(f"[DB] Failed to init news table (non-fatal): {e}")
 
 
 async def save_news_to_db(news_list: List[Dict[str, Any]]) -> int:
