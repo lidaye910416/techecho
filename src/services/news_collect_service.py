@@ -102,7 +102,7 @@ async def collect_news_async(
     
     try:
         # 导入服务
-        from src.services.news import BilingualNewsCollector, NewsAICalibrator, _save_news_to_db
+        from src.services.news import BilingualNewsCollector, NewsAICalibrator, save_news_to_db
         
         collector = BilingualNewsCollector()
         calibrator = NewsAICalibrator()
@@ -155,7 +155,7 @@ async def collect_news_async(
         
         # 5. 保存到数据库
         print("\n[4/5] 保存到数据库...")
-        db_count = await _save_news_to_db(calibrated_news)
+        db_count = await save_news_to_db(calibrated_news)
         result.saved_count = db_count
         print(f"   已存入数据库: {db_count} 条")
         
