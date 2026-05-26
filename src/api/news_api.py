@@ -351,6 +351,49 @@ async def get_cloud_file_id(news_id: str):
         return {'success': False, 'message': 'No cloud file ID'}
 
 
+# ============ 数据库迁移接口（临时）============
+
+@router.post("/migrate/add-backup-audio-url")
+async def migrate_add_backup_audio_url():
+    """
+    添加 backup_audio_url 列到 news_items 表
+    迁移完成后应删除此接口
+    """
+    from sqlalchemy import text
+    from src.services.db import get_db_session
+
+    try:
+        async with get_db_session() as session:
+            # 检查列是否存在
+            check_sql = text("""
+                SELECT COUNT(*) as cnt
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'news_items'
+                AND COLUMN_NAME = 'backup_audio_url'
+            """)
+            result = await session.execute(check_sql)
+            count = result.scalar()
+
+            if count > 0:
+                return {'success': True, 'message': 'backup_audio_url 列已存在，无需迁移'}
+
+            # 添加列
+            alter_sql = text("""
+                ALTER TABLE news_items
+                ADD COLUMN backup_audio_url TEXT DEFAULT NULL
+            """)
+            await session.execute(alter_sql)
+            await session.commit()
+
+            logger.info("[Migration] backup_audio_url 列添加成功")
+            return {'success': True, 'message': 'backup_audio_url 列添加成功'}
+
+    except Exception as e:
+        logger.error(f"[Migration] 添加列失败: {e}")
+        return {'success': False, 'message': f'迁移失败: {str(e)}'}
+
+
 # ============ 通用云存储接口 ============
 # 用于前端从微信云存储下载音频文件
 
