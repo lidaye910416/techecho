@@ -16,9 +16,12 @@ from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 import sys
 import os
+import logging
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+logger = logging.getLogger(__name__)
 
 from src.services.news import (
     get_news_from_db,
