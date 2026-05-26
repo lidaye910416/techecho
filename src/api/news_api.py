@@ -352,6 +352,7 @@ async def get_cloud_file_id(news_id: str):
 
 
 # ============ 通用云存储接口 ============
+# 用于前端从微信云存储下载音频文件
 
 @router.post("/cloud-url")
 async def get_cloud_temp_url(cloud_file_id: str = Body(..., description="微信云存储 fileID")):
