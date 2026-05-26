@@ -82,22 +82,27 @@ async def _refresh_token() -> Optional[str]:
             response = await client.get(url, params=params)
             result = response.json()
         
-        if result.get('errcode') == 0:
-            access_token = result['access_token']
-            expires_in = result.get('expires_in', TOKEN_EXPIRES_IN)
-            expires_at = time.time() + expires_in
-            
-            _token_cache = {
-                'access_token': access_token,
-                'expires_at': expires_at,
-                'refreshed_at': time.time(),
-            }
-            
-            logger.info(f"[WeChatToken] Token refreshed successfully, expires in {expires_in}s")
-            return access_token
-        else:
+        if result.get('errcode') and result.get('errcode') != 0:
             logger.error(f"[WeChatToken] Refresh failed: {result}")
             return None
+
+        # 检查是否返回了 access_token（微信 API 成功时不返回 errcode 字段）
+        access_token = result.get('access_token')
+        if not access_token:
+            logger.error(f"[WeChatToken] Refresh failed: no access_token in response: {result}")
+            return None
+
+        expires_in = result.get('expires_in', TOKEN_EXPIRES_IN)
+        expires_at = time.time() + expires_in
+
+        _token_cache = {
+            'access_token': access_token,
+            'expires_at': expires_at,
+            'refreshed_at': time.time(),
+        }
+
+        logger.info(f"[WeChatToken] Token refreshed successfully, expires in {expires_in}s")
+        return access_token
             
     except Exception as e:
         logger.error(f"[WeChatToken] Refresh error: {e}")

@@ -58,8 +58,9 @@ class News(Base):
     quality_scores = Column(Text, nullable=True)  # JSON 字符串
     is_read = Column(Boolean, default=False, index=True)
     is_favorited = Column(Boolean, default=False, index=True)
-    audio_url = Column(Text, nullable=True)
-    cloud_file_id = Column(String(255), nullable=True)
+    audio_url = Column(Text, nullable=True)        # 音频 URL（主）
+    backup_audio_url = Column(Text, nullable=True)  # 备份 URL（MiniMax OSS）
+    cloud_file_id = Column(String(255), nullable=True)  # 微信云存储 fileID
     
     def to_dict(self) -> dict:
         """转换为字典格式（与 SQLite 版本兼容）"""
