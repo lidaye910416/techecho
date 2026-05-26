@@ -11,7 +11,7 @@ TechEcho Pro - 新闻 API 端点
 - GET /api/news/collect/status - 查询收集任务状态
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Body
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 import sys
