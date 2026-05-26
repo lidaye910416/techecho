@@ -61,7 +61,7 @@ def get_engine() -> AsyncEngine:
             pool_recycle=POOL_RECYCLE,
             echo=True,  # 开启 SQL 日志便于调试
             connect_args={
-                "ssl_disabled": True,  # 禁用 SSL 验证（微信云托管 MySQL 使用自签名证书）
+                "ssl": None,  # 禁用 SSL（微信云托管 MySQL 使用自签名证书或不需要 SSL）
             },
         )
     return _engine
