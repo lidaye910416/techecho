@@ -346,3 +346,57 @@ async def get_cloud_file_id(news_id: str):
         return {'success': True, 'news_id': news_id, 'cloud_file_id': cloud_file_id}
     else:
         return {'success': False, 'message': 'No cloud file ID'}
+
+
+# ============ 通用云存储接口 ============
+
+@router.post("/cloud-url")
+async def get_cloud_temp_url(cloud_file_id: str = Body(..., description="微信云存储 fileID")):
+    """
+    根据 cloud_file_id 获取临时访问 URL
+
+    用于前端从微信云存储下载音频文件
+    """
+    from src.services.wechat_token import get_access_token
+    import httpx
+
+    if not cloud_file_id or not cloud_file_id.startswith('cloud://'):
+        raise HTTPException(status_code=400, detail="Invalid cloud_file_id format")
+
+    access_token = await get_access_token()
+    if not access_token:
+        raise HTTPException(status_code=500, detail="Cannot get access_token")
+
+    try:
+        # 从 fileID 提取 env 和 path
+        env = cloud_file_id.split('://')[1].split('/')[0]
+
+        # 调用微信云存储 API 获取临时 URL
+        url = f"https://api.weixin.qq.com/tcb/batchdownloadfile?access_token={access_token}"
+        data = {
+            "env": env,
+            "file_list": [{"fileid": cloud_file_id, "max_age": 3600}]
+        }
+
+        async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+            response = await client.post(url, json=data)
+            result = response.json()
+
+        if result.get("errcode") == 0 and result.get("file_list"):
+            file_info = result["file_list"][0]
+            if file_info.get("status") == 0:
+                temp_url = file_info.get("download_url")
+                logger.info(f"[Cloud] Got temp URL for {cloud_file_id[:40]}...")
+                return {"success": True, "temp_url": temp_url, "source": "cloud"}
+            else:
+                logger.error(f"[Cloud] Get URL status error: {file_info}")
+                raise HTTPException(status_code=404, detail="File not found in cloud storage")
+        else:
+            logger.error(f"[Cloud] Get URL error: {result}")
+            raise HTTPException(status_code=500, detail="Failed to get temp URL")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Cloud] Get temp URL error: {e}")
+        raise HTTPException(status_code=500, detail=f"Cloud storage error: {str(e)}")

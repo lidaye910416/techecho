@@ -118,21 +118,34 @@ export function stopAllAudio() {
 }
 
 /**
- * 下载音频文件（支持云存储 fileID）
+ * 下载音频文件（支持多种音频源）
  *
  * 策略:
- * 1. 如果是 cloud:// 格式的 fileID，使用 wx.cloud.downloadFile 直接下载
- * 2. 否则使用 wx.cloud.callContainer 方式下载
+ * 1. MiniMax OSS 预签名 URL（https:// 开头）- 使用 wx.downloadFile 直接下载
+ * 2. 微信云存储（cloud:// 开头）- 使用 wx.cloud.downloadFile 或 API 获取临时 URL
+ * 3. 本地文件路径（/data/audio/ 开头）- 使用云托管 API（GET 方法）
  */
 async function downloadAudio(urlOrFileId: string, newsId: string): Promise<string> {
   console.log('[Audio] downloadAudio called:', { urlOrFileId, newsId, CLOUD_ENV, CLOUD_SERVICE })
 
-  // 优先使用云存储下载（cloud:// 格式）
+  // ========== 情况1: MiniMax OSS 预签名 URL（https:// 开头）==========
+  if (urlOrFileId.startsWith('http://') || urlOrFileId.startsWith('https://')) {
+    console.log('[Audio] Downloading from OSS URL')
+    return downloadFromUrl(urlOrFileId, newsId)
+  }
+
+  // ========== 情况2: 微信云存储（cloud:// 开头）==========
   if (urlOrFileId.startsWith('cloud://')) {
     return downloadFromCloudStorage(urlOrFileId, newsId)
   }
 
-  // 降级: 使用 wx.cloud.callContainer 下载
+  // ========== 情况3: 本地文件路径（/data/audio/ 开头）==========
+  if (urlOrFileId.startsWith('/data/audio/')) {
+    return downloadViaCallContainer(urlOrFileId, newsId)
+  }
+
+  // ========== 未知格式 - 尝试云托管 API ==========
+  console.warn('[Audio] Unknown format, trying callContainer:', urlOrFileId)
   return downloadViaCallContainer(urlOrFileId, newsId)
 }
 
@@ -232,31 +245,33 @@ async function downloadFromUrl(url: string, newsId: string): Promise<string> {
 }
 
 /**
- * 使用 wx.cloud.callContainer 下载音频（PUT 方法，降级方案）
- * 参考: https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/development/storage/miniapp/download.html
+ * 使用云托管 API 下载本地文件（GET 方法）
+ * 本地文件路径格式: /data/audio/xxx.mp3
  */
 async function downloadViaCallContainer(path: string, newsId: string): Promise<string> {
   console.log('[Audio] Downloading via callContainer:', path)
+
+  // 如果是本地文件路径，使用 GET 方法获取文件流
+  const apiPath = path.startsWith('/data/audio/')
+    ? `/api/news/read${path}`
+    : path
 
   const res = await wx.cloud.callContainer({
     config: {
       env: CLOUD_ENV,
     },
-    path: path,
-    method: 'PUT',
+    path: apiPath,
+    method: 'GET',
     header: {
       'X-WX-SERVICE': CLOUD_SERVICE,
-      'Content-Type': 'application/json',
     },
     responseType: 'arraybuffer',
   })
 
   console.log('[Audio] cloud.callContainer response:', {
     statusCode: res.statusCode,
-    dataType: typeof res.data,
     hasBuffer: !!res.buffer,
     bufferLength: res.buffer?.byteLength,
-    dataLength: res.data?.byteLength,
   })
 
   if (res.statusCode !== 200) {
