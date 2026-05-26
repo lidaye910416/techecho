@@ -126,11 +126,23 @@ export function stopAllAudio() {
  * 3. 本地文件路径（/data/audio/ 开头）- 使用云托管 API（GET 方法）
  */
 async function downloadAudio(urlOrFileId: string, newsId: string): Promise<string> {
-  console.log('[Audio] downloadAudio called:', { urlOrFileId, newsId, CLOUD_ENV, CLOUD_SERVICE })
+  console.log('[Audio] downloadAudio called:', {
+    urlOrFileId,
+    newsId,
+    CLOUD_ENV: CLOUD_ENV ? 'configured' : 'empty',
+    CLOUD_SERVICE: CLOUD_SERVICE ? 'configured' : 'empty'
+  })
+
+  // 检查 URL 格式
+  const isHttp = urlOrFileId.startsWith('http://') || urlOrFileId.startsWith('https://')
+  const isCloud = urlOrFileId.startsWith('cloud://')
+  const isLocal = urlOrFileId.startsWith('/data/audio/')
+  console.log('[Audio] URL format check:', { isHttp, isCloud, isLocal, urlLength: urlOrFileId.length })
 
   // ========== 情况1: MiniMax OSS 预签名 URL（https:// 开头）==========
-  if (urlOrFileId.startsWith('http://') || urlOrFileId.startsWith('https://')) {
-    console.log('[Audio] Downloading from OSS URL')
+  if (isHttp) {
+    console.log('[Audio] === Branch 1: Downloading from OSS URL ===')
+    console.log('[Audio] URL preview:', urlOrFileId.substring(0, 100))
     return downloadFromUrl(urlOrFileId, newsId)
   }
 
@@ -215,27 +227,31 @@ async function downloadViaApiTempUrl(cloudFileId: string, newsId: string): Promi
 }
 
 /**
- * 从 URL 下载文件
+ * 从 URL 下载文件（使用 wx.downloadFile）
  */
 async function downloadFromUrl(url: string, newsId: string): Promise<string> {
   const tempFilePath = `${wx.env.USER_DATA_PATH}/${newsId}.mp3`
   const fs = wx.getFileSystemManager()
 
+  console.log('[Audio] downloadFromUrl start:', { url: url.substring(0, 80), newsId, tempFilePath })
+
   // 使用 wx.downloadFile 下载
-  await new Promise<void>((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     wx.downloadFile({
       url,
       filePath: tempFilePath,
       success: (res) => {
+        console.log('[Audio] wx.downloadFile success:', { statusCode: res.statusCode, tempFilePath: res.tempFilePath })
         if (res.statusCode === 200) {
-          console.log('[Audio] Downloaded from URL:', res.tempFilePath)
+          console.log('[Audio] Download completed:', res.tempFilePath || tempFilePath)
           resolve()
         } else {
+          console.error('[Audio] wx.downloadFile failed:', res.statusCode)
           reject(new Error(`Download failed: ${res.statusCode}`))
         }
       },
       fail: (err) => {
-        console.error('[Audio] downloadFile failed:', err)
+        console.error('[Audio] wx.downloadFile fail:', err)
         reject(err)
       }
     })
@@ -428,6 +444,12 @@ export function getReportPlaying(): boolean {
  * 播放报告音频
  */
 export function playReportAudio(url: string) {
+  console.log('[Audio] playReportAudio called:', {
+    url: url?.substring(0, 100),
+    urlLength: url?.length,
+    urlPrefix: url?.substring(0, 30)
+  })
+
   destroyAudioCtx()
   currentNewsId = null
   currentAudioUrl = null
@@ -439,6 +461,7 @@ export function playReportAudio(url: string) {
     globalReportCtx = ctx
     isReportPlaying = true
 
+    console.log('[Audio] playReportAudio: setting ctx.src =', url?.substring(0, 80))
     ctx.src = url
     ctx.autoplay = true
     ctx.obeyMuteSwitch = false
