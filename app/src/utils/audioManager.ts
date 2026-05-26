@@ -228,27 +228,21 @@ async function downloadViaApiTempUrl(cloudFileId: string, newsId: string): Promi
 
 /**
  * 从 URL 下载文件（使用 wx.downloadFile）
+ * 微信小程序中 wx.downloadFile 不支持指定 filePath，必须使用返回的 tempFilePath
  */
 async function downloadFromUrl(url: string, newsId: string): Promise<string> {
-  const tempFilePath = `${wx.env.USER_DATA_PATH}/${newsId}.mp3`
   const fs = wx.getFileSystemManager()
 
-  console.log('[Audio] downloadFromUrl start:', { url: url.substring(0, 80), newsId, tempFilePath })
+  console.log('[Audio] downloadFromUrl start:', { url: url.substring(0, 80), newsId })
 
-  // 使用 wx.downloadFile 下载
-  return new Promise<void>((resolve, reject) => {
+  // 注意：微信小程序中 wx.downloadFile 不能指定 filePath，必须使用返回的 tempFilePath
+  // tempFilePath 格式为 wxfile://usr/xxx.mp3
+  const result = await new Promise<{ statusCode: number; tempFilePath?: string }>((resolve, reject) => {
     wx.downloadFile({
       url,
-      filePath: tempFilePath,
       success: (res) => {
-        console.log('[Audio] wx.downloadFile success:', { statusCode: res.statusCode, tempFilePath: res.tempFilePath })
-        if (res.statusCode === 200) {
-          console.log('[Audio] Download completed:', res.tempFilePath || tempFilePath)
-          resolve()
-        } else {
-          console.error('[Audio] wx.downloadFile failed:', res.statusCode)
-          reject(new Error(`Download failed: ${res.statusCode}`))
-        }
+        console.log('[Audio] wx.downloadFile success:', res)
+        resolve(res)
       },
       fail: (err) => {
         console.error('[Audio] wx.downloadFile fail:', err)
@@ -257,7 +251,13 @@ async function downloadFromUrl(url: string, newsId: string): Promise<string> {
     })
   })
 
-  return tempFilePath
+  if (result.statusCode !== 200 || !result.tempFilePath) {
+    throw new Error(`Download failed: ${result.statusCode}, tempFilePath: ${result.tempFilePath}`)
+  }
+
+  const finalPath = result.tempFilePath
+  console.log('[Audio] Download completed:', finalPath)
+  return finalPath
 }
 
 /**
