@@ -277,7 +277,7 @@ async def read_news_aloud(news_id: str):
                     "file_list": [{"fileid": cloud_file_id, "max_age": 3600}]
                 }
 
-                async with httpx.AsyncClient(timeout=30.0) as client:
+                async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
                     response = await client.post(url, json=data)
                     result = response.json()
 

@@ -177,7 +177,7 @@ class NewsAICalibrator:
                         "max_tokens": max_tokens
                     }
                     
-                    response = requests.post(url, headers=headers, json=payload, timeout=60)
+                    response = requests.post(verify=False, url, headers=headers, json=payload, timeout=60)
                     result = response.json()
                     
                     base_resp = result.get('base_resp', {})

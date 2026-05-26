@@ -77,8 +77,8 @@ async def _refresh_token() -> Optional[str]:
         }
         
         logger.info(f"[WeChatToken] Refreshing token for appid: {WECHAT_APPID[:8]}***")
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
+
+        async with httpx.AsyncClient(timeout=30.0, verify=False) as client:
             response = await client.get(url, params=params)
             result = response.json()
         
@@ -133,13 +133,19 @@ def _sync_refresh_token() -> Optional[str]:
     """同步刷新 token（仅用于紧急场景）"""
     import threading
     global _token_cache
-    
+
     try:
         import urllib.request
-        
+        import ssl
+
         url = f"https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={WECHAT_APPID}&secret={WECHAT_SECRET}"
-        
-        with urllib.request.urlopen(url, timeout=30) as response:
+
+        # 创建不验证 SSL 证书的上下文
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        with urllib.request.urlopen(url, timeout=30, context=ctx) as response:
             result = response.read().decode()
         
         import json

@@ -56,7 +56,7 @@ class BilingualNewsCollector:
     """双语新闻收集器"""
     
     def __init__(self):
-        self.client = httpx.AsyncClient(timeout=30.0)
+        self.client = httpx.AsyncClient(verify=False, timeout=30.0)
         self._analyzer = None
     
     async def close(self):

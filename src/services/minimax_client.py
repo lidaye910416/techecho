@@ -16,7 +16,7 @@ class MiniMaxClient:
         if not self.api_key:
             logger.warning("MINIMAX_API_KEY is not set!")
 
-        self.client = httpx.AsyncClient(timeout=120.0)
+        self.client = httpx.AsyncClient(verify=False, timeout=120.0)
 
         # MiniMax 官方系统 Voice ID
         self.available_voices = [
