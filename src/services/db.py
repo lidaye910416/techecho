@@ -39,6 +39,7 @@ def get_database_url() -> str:
     password = os.getenv('MYSQL_PASSWORD') or MYSQL_PASSWORD
     database = os.getenv('MYSQL_DATABASE') or MYSQL_DATABASE
 
+    # 微信云托管 MySQL 使用自签名证书，通过 connect_args 禁用 SSL 验证
     return (
         f"mysql+aiomysql://{user}:{password}@"
         f"{host}:{port}/{database}"
@@ -59,6 +60,9 @@ def get_engine() -> AsyncEngine:
             pool_timeout=POOL_TIMEOUT,
             pool_recycle=POOL_RECYCLE,
             echo=True,  # 开启 SQL 日志便于调试
+            connect_args={
+                "ssl_disabled": True,  # 禁用 SSL 验证（微信云托管 MySQL 使用自签名证书）
+            },
         )
     return _engine
 
