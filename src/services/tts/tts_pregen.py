@@ -175,13 +175,16 @@ async def pre_generate_tts_for_news(
                 logger.warning(f"[TTS] No access_token, skipping cloud upload for {news_id[:24]}")
 
             # 5. 保存到数据库
+            # cloud_file_id: 微信云存储 fileID（仅上传成功时有值）
+            # audio_url: 主音频 URL（优先用云存储，失败时用 MiniMax OSS）
+            # backup_audio_url: MiniMax OSS URL（始终保存）
             if cloud_file_id:
                 db_audio_url = cloud_file_id
             else:
                 # 如果云存储上传失败，用 MiniMax URL 作为 audio_url（降级）
                 db_audio_url = minimax_url
 
-            await save_news_audio_urls(news_id, db_audio_url, minimax_url)
+            await save_news_audio_urls(news_id, db_audio_url, minimax_url, cloud_file_id)
 
             stats["success"] += 1
             logger.info(f"TTS pregen [{i+1}/{len(news_list)}] ok {news_id[:24]}... ({len(audio_content)}B)")

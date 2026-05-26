@@ -322,23 +322,50 @@ async def save_news_cloud_file_id(news_id: str, cloud_file_id: str) -> bool:
         return result.rowcount > 0
 
 
-async def save_news_audio_urls(news_id: str, audio_url: str, backup_audio_url: str) -> bool:
+async def save_news_audio_urls(
+    news_id: str,
+    audio_url: str,
+    backup_audio_url: str,
+    cloud_file_id: str = None
+) -> bool:
     """
     保存新闻的音频 URL（云存储 + 备份）
+
+    Args:
+        news_id: 新闻ID
+        audio_url: 主音频 URL（云存储或 MiniMax OSS）
+        backup_audio_url: MiniMax OSS 备份 URL
+        cloud_file_id: 微信云存储 fileID（可选）
     """
-    async with get_db_session() as session:
-        result = await session.execute(
-            text("""
-                UPDATE news_items
-                SET audio_url = :audio_url,
-                    cloud_file_id = :audio_url,
-                    backup_audio_url = :backup_audio_url
-                WHERE id = :news_id
-            """),
-            {'audio_url': audio_url, 'backup_audio_url': backup_audio_url, 'news_id': news_id}
-        )
-        await session.commit()
-        return result.rowcount > 0
+    logger.info(f"[AudioURL] Saving audio URLs for {news_id[:24]}...")
+    logger.info(f"[AudioURL]   audio_url: {audio_url[:60] if audio_url else 'None'}...")
+    logger.info(f"[AudioURL]   backup_audio_url: {backup_audio_url[:60] if backup_audio_url else 'None'}...")
+    logger.info(f"[AudioURL]   cloud_file_id: {cloud_file_id}")
+
+    try:
+        async with get_db_session() as session:
+            result = await session.execute(
+                text("""
+                    UPDATE news_items
+                    SET audio_url = :audio_url,
+                        cloud_file_id = :cloud_file_id,
+                        backup_audio_url = :backup_audio_url
+                    WHERE id = :news_id
+                """),
+                {
+                    'audio_url': audio_url,
+                    'backup_audio_url': backup_audio_url,
+                    'news_id': news_id,
+                    'cloud_file_id': cloud_file_id
+                }
+            )
+            await session.commit()
+
+            logger.info(f"[AudioURL] Updated {result.rowcount} row(s)")
+            return result.rowcount > 0
+    except Exception as e:
+        logger.error(f"[AudioURL] Failed to save audio URLs: {e}")
+        return False
 
 
 async def get_backup_audio_url(news_id: str) -> Optional[str]:
