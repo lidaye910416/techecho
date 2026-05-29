@@ -143,7 +143,10 @@ async def pre_generate_tts_for_news(
             )
 
             # 2. 获取 MiniMax OSS URL（备份）
+            # MiniMax client 返回 {"data": {"audio_url": ..., "extra_info": ...}}
             minimax_url = result.get("data", {}).get("audio_url", "")
+            logger.info(f"[TTS] MiniMax result keys: {result.keys() if result else 'None'}")
+            logger.info(f"[TTS] MiniMax audio_url: {minimax_url[:80] if minimax_url else 'EMPTY'}")
             if not minimax_url:
                 raise Exception("empty audio_url from MiniMax")
 
