@@ -187,6 +187,7 @@ async def pre_generate_tts_for_news(
                 # 如果云存储上传失败，用 MiniMax URL 作为 audio_url（降级）
                 db_audio_url = minimax_url
 
+            logger.info(f"[TTS] Saving to DB: news_id={news_id[:24]}, audio_url={db_audio_url[:80] if db_audio_url else 'None'}, backup={minimax_url[:80] if minimax_url else 'None'}, cloud={cloud_file_id}")
             await save_news_audio_urls(news_id, db_audio_url, minimax_url, cloud_file_id)
 
             stats["success"] += 1
