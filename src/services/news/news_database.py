@@ -362,6 +362,8 @@ async def save_news_audio_urls(
             await session.commit()
 
             logger.info(f"[AudioURL] Updated {result.rowcount} row(s)")
+            if result.rowcount == 0:
+                logger.error(f"[AudioURL] No rows updated! News ID not found: {news_id}")
             return result.rowcount > 0
     except Exception as e:
         logger.error(f"[AudioURL] Failed to save audio URLs: {e}")
