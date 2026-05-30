@@ -455,8 +455,8 @@ async def test_tts_pipeline(
         result["error"] = f"Download error: {e}"
         return result
 
-    # 4. 上传到微信云存储（使用 tts_pregen 中的函数）
-    from src.services.tts.tts_pregen import _upload_to_wechat_cloud
+    # 4. 上传到微信云存储 - 直接测试多种格式并返回详细结果
+    import requests
 
     access_token = await get_access_token()
     if not access_token:
@@ -464,54 +464,79 @@ async def test_tts_pipeline(
             "success": False,
             "error": "Cannot get access_token",
         }
-        # 仍然保存到数据库，只是不上传云存储
-        result["steps"]["5_save_to_db"] = {
-            "success": True,
-            "note": "Saved with MiniMax URL (no cloud upload)",
-        }
         result["final_status"] = {
             "audio_url": minimax_url,
             "cloud_file_id": None,
             "backup_audio_url": minimax_url,
         }
-        result["success"] = True
-        result["warning"] = "No access_token, cloud upload skipped"
+        result["success"] = False
+        result["warning"] = "No access_token"
         return result
 
     cloud_path = f"audio/{news.get('id')}.mp3"
+    file_name = cloud_path.split("/")[-1]
+    upload_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
 
-    # 写入临时文件
-    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
-        tmp.write(audio_content)
-        tmp_path = Path(tmp.name)
+    # 测试不同格式并返回所有结果
+    all_results = []
 
-    try:
-        # 调用 tts_pregen 中的上传函数（会尝试多种格式）
-        cloud_file_id = await _upload_to_wechat_cloud(tmp_path, cloud_path, access_token)
-
-        if cloud_file_id:
-            result["steps"]["4_wechat_upload"] = {
-                "success": True,
-                "cloud_file_id": cloud_file_id,
-            }
+    # 格式1: files 包含所有字段
+    files_v1 = {
+        "file": (file_name, audio_content, "audio/mpeg"),
+        "env": (None, WECHAT_CLOUD_ENV),
+        "path": (None, cloud_path),
+    }
+    resp = requests.post(upload_url, files=files_v1, timeout=60, verify=False)
+    res1 = resp.json()
+    all_results.append({"format": "v1_files_all", "errcode": res1.get("errcode"), "response": res1})
+    if res1.get("errcode") == 0:
+        cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+        result["steps"]["4_wechat_upload"] = {"success": True, "cloud_file_id": cloud_file_id, "format": "v1_files_all"}
+        # 继续保存数据库
+    else:
+        # 格式2: data + files 分离
+        data_v2 = {"env": WECHAT_CLOUD_ENV, "path": cloud_path}
+        files_v2 = {"file": (file_name, audio_content, "audio/mpeg")}
+        resp = requests.post(upload_url, data=data_v2, files=files_v2, timeout=60, verify=False)
+        res2 = resp.json()
+        all_results.append({"format": "v2_data_files", "errcode": res2.get("errcode"), "response": res2})
+        if res2.get("errcode") == 0:
+            cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+            result["steps"]["4_wechat_upload"] = {"success": True, "cloud_file_id": cloud_file_id, "format": "v2_data_files"}
         else:
-            result["steps"]["4_wechat_upload"] = {
-                "success": False,
-                "error": "Upload returned None (check logs for details)",
+            # 格式3: 没有 filename
+            files_v3 = {
+                "file": (None, audio_content, "audio/mpeg"),
+                "env": (None, WECHAT_CLOUD_ENV),
+                "path": (None, cloud_path),
             }
-
-    except Exception as e:
-        result["steps"]["4_wechat_upload"] = {
-            "success": False,
-            "error": str(e),
-        }
-        cloud_file_id = None
-    finally:
-        # 删除临时文件
-        try:
-            tmp_path.unlink()
-        except Exception:
-            pass
+            resp = requests.post(upload_url, files=files_v3, timeout=60, verify=False)
+            res3 = resp.json()
+            all_results.append({"format": "v3_no_filename", "errcode": res3.get("errcode"), "response": res3})
+            if res3.get("errcode") == 0:
+                cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+                result["steps"]["4_wechat_upload"] = {"success": True, "cloud_file_id": cloud_file_id, "format": "v3_no_filename"}
+            else:
+                # 格式4: env 作为字符串值
+                files_v4 = {
+                    "file": (file_name, audio_content, "audio/mpeg"),
+                    "env": WECHAT_CLOUD_ENV,
+                    "path": cloud_path,
+                }
+                resp = requests.post(upload_url, files=files_v4, timeout=60, verify=False)
+                res4 = resp.json()
+                all_results.append({"format": "v4_string_values", "errcode": res4.get("errcode"), "response": res4})
+                if res4.get("errcode") == 0:
+                    cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+                    result["steps"]["4_wechat_upload"] = {"success": True, "cloud_file_id": cloud_file_id, "format": "v4_string_values"}
+                else:
+                    # 所有格式都失败
+                    result["steps"]["4_wechat_upload"] = {
+                        "success": False,
+                        "all_formats_failed": all_results,
+                        "note": "Check all_formats_failed for details",
+                    }
+                    cloud_file_id = None
 
     # 5. 保存到数据库
     if cloud_file_id:
