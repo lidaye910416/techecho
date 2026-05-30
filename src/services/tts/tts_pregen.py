@@ -88,8 +88,17 @@ async def _upload_to_wechat_cloud(
             # 关键：从响应中获取 file_id
             file_id = result.get("file_id")
             if file_id:
-                logger.info(f"[TTS] Success! file_id={file_id}")
-                return file_id
+                logger.info(f"[TTS] Success! raw file_id={file_id}")
+                # 确保使用正确的格式：cloud://{env}/{path}
+                # 微信返回的 file_id 可能包含存储桶 ID，需要处理
+                if file_id.startswith('cloud://'):
+                    # 提取并重新构造，使用纯环境 ID
+                    env_id = WECHAT_CLOUD_ENV  # 使用配置文件中的环境 ID
+                    cloud_file_id = f"cloud://{env_id}/{cloud_path}"
+                    logger.info(f"[TTS] Constructed cloud_file_id={cloud_file_id}")
+                    return cloud_file_id
+                else:
+                    return file_id
             else:
                 # 兜底：构造 file_id
                 cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
