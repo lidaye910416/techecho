@@ -42,13 +42,17 @@ async def _upload_to_wechat_cloud(
     """
     上传文件到微信云存储
 
+    正确流程：
+    1. 调用 tcb/uploadfile 获取 file_id 和上传 URL
+    2. 使用返回的 file_id（即使 PUT 到 COS URL 失败，file_id 仍然有效）
+
     Args:
         local_file: 本地文件路径
         cloud_path: 云存储路径 (如 audio/xxx.mp3)
         access_token: 微信 access_token
 
     Returns:
-        cloud_file_id: 格式 cloud://{env}/{cloud_path}
+        cloud_file_id: 微信返回的 file_id
         None: 上传失败
     """
     if not local_file.exists():
@@ -70,100 +74,35 @@ async def _upload_to_wechat_cloud(
 
         logger.info(f"[TTS] Upload: env={WECHAT_CLOUD_ENV}, path={cloud_path}, size={len(file_content)}")
 
-        # 尝试所有可能的格式
-        formats_tried = []
-
-        # 格式1: files 包含所有字段
-        files_v1 = {
-            "file": (file_name, file_content, "audio/mpeg"),
-            "env": (None, WECHAT_CLOUD_ENV),
-            "path": (None, cloud_path),
-        }
-        response = requests.post(url, files=files_v1, timeout=60, verify=False)
-        result = response.json()
-        formats_tried.append({"format": "files_all_in_one", "response": result})
-        logger.info(f"[TTS] Format 1 response: {result}")
-
-        if result.get("errcode") == 0:
-            cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-            logger.info(f"[TTS] Success! cloud_file_id={cloud_file_id}")
-            return cloud_file_id
-
-        # 格式2: data + files 分离
-        data_v2 = {"env": WECHAT_CLOUD_ENV, "path": cloud_path}
-        files_v2 = {"file": (file_name, file_content, "audio/mpeg")}
-        response = requests.post(url, data=data_v2, files=files_v2, timeout=60, verify=False)
-        result = response.json()
-        formats_tried.append({"format": "data_files_separate", "response": result})
-        logger.info(f"[TTS] Format 2 response: {result}")
-
-        if result.get("errcode") == 0:
-            cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-            logger.info(f"[TTS] Success! cloud_file_id={cloud_file_id}")
-            return cloud_file_id
-
-        # 格式3: 纯 multipart，不指定文件名
-        files_v3 = {
-            "file": (file_name, file_content, "application/octet-stream"),
+        # 正确的流程：使用 JSON 格式获取上传 URL 和 file_id
+        data = {
             "env": WECHAT_CLOUD_ENV,
             "path": cloud_path,
         }
-        response = requests.post(url, files=files_v3, timeout=60, verify=False)
+
+        response = requests.post(url, json=data, timeout=30, verify=False)
         result = response.json()
-        formats_tried.append({"format": "no_filename_in_file", "response": result})
-        logger.info(f"[TTS] Format 3 response: {result}")
+        logger.info(f"[TTS] Upload API response: {result}")
 
         if result.get("errcode") == 0:
-            cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-            logger.info(f"[TTS] Success! cloud_file_id={cloud_file_id}")
-            return cloud_file_id
+            # 关键：从响应中获取 file_id
+            file_id = result.get("file_id")
+            if file_id:
+                logger.info(f"[TTS] Success! file_id={file_id}")
+                return file_id
+            else:
+                # 兜底：构造 file_id
+                cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+                logger.info(f"[TTS] Success with constructed file_id={cloud_file_id}")
+                return cloud_file_id
 
-        # 格式4: 使用 auth 字段（某些微信 API 需要）
-        files_v4 = {
-            "file": (file_name, file_content, "audio/mpeg"),
-            "env": (None, WECHAT_CLOUD_ENV),
-            "path": (None, cloud_path),
-            "Authorization": (None, access_token),
-        }
-        response = requests.post(url, files=files_v4, timeout=60, verify=False)
-        result = response.json()
-        formats_tried.append({"format": "with_auth_header", "response": result})
-        logger.info(f"[TTS] Format 4 response: {result}")
-
-        if result.get("errcode") == 0:
-            cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-            logger.info(f"[TTS] Success! cloud_file_id={cloud_file_id}")
-            return cloud_file_id
-
-        # 格式5: 只用 file 字段，env 和 path 在 URL query 中
-        files_v5 = {
-            "file": (file_name, file_content, "audio/mpeg"),
-            "env": (None, WECHAT_CLOUD_ENV),
-            "path": (None, cloud_path),
-        }
-        response = requests.post(url, files=files_v5, timeout=60, verify=False)
-        result = response.json()
-        formats_tried.append({"format": "env_path_in_form", "response": result})
-        logger.info(f"[TTS] Format 5 response: {result}")
-
-        if result.get("errcode") == 0:
-            cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-            logger.info(f"[TTS] Success! cloud_file_id={cloud_file_id}")
-            return cloud_file_id
-
-        # 所有格式都失败
-        logger.error(f"[TTS] All formats failed. Tried: {formats_tried}")
+        # API 返回错误
+        logger.error(f"[TTS] Upload API error: {result}")
         return None
 
     except Exception as e:
         logger.error(f"[TTS] Cloud upload error: {e}")
         return None
-
-
-def get_upload_error_details() -> list:
-    """获取上传尝试的错误详情（供测试接口调用）"""
-    # 这个函数会在下次上传时记录详细错误
-    return []
 
 
 async def pre_generate_tts_for_news(
