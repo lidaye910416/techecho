@@ -477,74 +477,88 @@ async def test_tts_pipeline(
     file_name = cloud_path.split("/")[-1]
     upload_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
 
+    # 尝试不同的 env 值
+    env_options = [
+        WECHAT_CLOUD_ENV,  # 环境 ID: prod-d9g7e5osy7b5e7a9c
+        "7072-prod-d9g7e5osy7b5e7a9c-1433977056",  # 存储桶 ID
+    ]
+
     # 调试信息
     result["debug"] = {
         "access_token_prefix": access_token[:20] + "...",
         "access_token_length": len(access_token),
         "wechat_cloud_env": WECHAT_CLOUD_ENV,
+        "env_options_tested": env_options,
         "upload_url": upload_url[:60] + "...",
     }
 
-    # 测试不同格式并返回所有结果
-    all_results = []
+    cloud_file_id = None
+    success_format = None
 
-    # 格式1: files 包含所有字段
-    files_v1 = {
-        "file": (file_name, audio_content, "audio/mpeg"),
-        "env": (None, WECHAT_CLOUD_ENV),
-        "path": (None, cloud_path),
-    }
-    resp = requests.post(upload_url, files=files_v1, timeout=60, verify=False)
-    res1 = resp.json()
-    all_results.append({"format": "v1_files_all", "errcode": res1.get("errcode"), "response": res1})
-    if res1.get("errcode") == 0:
-        cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-        result["steps"]["4_wechat_upload"] = {"success": True, "cloud_file_id": cloud_file_id, "format": "v1_files_all"}
-        # 继续保存数据库
-    else:
+    # 测试不同 env 值和格式组合
+    for env_val in env_options:
+        # 格式1: files 包含所有字段
+        files_v1 = {
+            "file": (file_name, audio_content, "audio/mpeg"),
+            "env": (None, env_val),
+            "path": (None, cloud_path),
+        }
+        resp = requests.post(upload_url, files=files_v1, timeout=60, verify=False)
+        res = resp.json()
+        if res.get("errcode") == 0:
+            cloud_file_id = f"cloud://{env_val}/{cloud_path}"
+            success_format = f"files_all+env={env_val[:20]}..."
+            break
+
         # 格式2: data + files 分离
-        data_v2 = {"env": WECHAT_CLOUD_ENV, "path": cloud_path}
+        data_v2 = {"env": env_val, "path": cloud_path}
         files_v2 = {"file": (file_name, audio_content, "audio/mpeg")}
         resp = requests.post(upload_url, data=data_v2, files=files_v2, timeout=60, verify=False)
-        res2 = resp.json()
-        all_results.append({"format": "v2_data_files", "errcode": res2.get("errcode"), "response": res2})
-        if res2.get("errcode") == 0:
-            cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-            result["steps"]["4_wechat_upload"] = {"success": True, "cloud_file_id": cloud_file_id, "format": "v2_data_files"}
-        else:
-            # 格式3: 没有 filename
-            files_v3 = {
-                "file": (None, audio_content, "audio/mpeg"),
-                "env": (None, WECHAT_CLOUD_ENV),
-                "path": (None, cloud_path),
-            }
-            resp = requests.post(upload_url, files=files_v3, timeout=60, verify=False)
-            res3 = resp.json()
-            all_results.append({"format": "v3_no_filename", "errcode": res3.get("errcode"), "response": res3})
-            if res3.get("errcode") == 0:
-                cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-                result["steps"]["4_wechat_upload"] = {"success": True, "cloud_file_id": cloud_file_id, "format": "v3_no_filename"}
-            else:
-                # 格式4: env 作为字符串值
-                files_v4 = {
-                    "file": (file_name, audio_content, "audio/mpeg"),
-                    "env": WECHAT_CLOUD_ENV,
-                    "path": cloud_path,
-                }
-                resp = requests.post(upload_url, files=files_v4, timeout=60, verify=False)
-                res4 = resp.json()
-                all_results.append({"format": "v4_string_values", "errcode": res4.get("errcode"), "response": res4})
-                if res4.get("errcode") == 0:
-                    cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-                    result["steps"]["4_wechat_upload"] = {"success": True, "cloud_file_id": cloud_file_id, "format": "v4_string_values"}
-                else:
-                    # 所有格式都失败
-                    result["steps"]["4_wechat_upload"] = {
-                        "success": False,
-                        "all_formats_failed": all_results,
-                        "note": "Check all_formats_failed for details",
-                    }
-                    cloud_file_id = None
+        res = resp.json()
+        if res.get("errcode") == 0:
+            cloud_file_id = f"cloud://{env_val}/{cloud_path}"
+            success_format = f"data_files+env={env_val[:20]}..."
+            break
+
+        # 格式3: 没有 filename
+        files_v3 = {
+            "file": (None, audio_content, "audio/mpeg"),
+            "env": (None, env_val),
+            "path": (None, cloud_path),
+        }
+        resp = requests.post(upload_url, files=files_v3, timeout=60, verify=False)
+        res = resp.json()
+        if res.get("errcode") == 0:
+            cloud_file_id = f"cloud://{env_val}/{cloud_path}"
+            success_format = f"no_filename+env={env_val[:20]}..."
+            break
+
+        # 格式4: env 作为字符串值
+        files_v4 = {
+            "file": (file_name, audio_content, "audio/mpeg"),
+            "env": env_val,
+            "path": cloud_path,
+        }
+        resp = requests.post(upload_url, files=files_v4, timeout=60, verify=False)
+        res = resp.json()
+        if res.get("errcode") == 0:
+            cloud_file_id = f"cloud://{env_val}/{cloud_path}"
+            success_format = f"string_values+env={env_val[:20]}..."
+            break
+
+    if cloud_file_id:
+        result["steps"]["4_wechat_upload"] = {
+            "success": True,
+            "cloud_file_id": cloud_file_id,
+            "format": success_format,
+        }
+    else:
+        result["steps"]["4_wechat_upload"] = {
+            "success": False,
+            "note": "All env/format combinations failed",
+            "wechat_cloud_env_used": WECHAT_CLOUD_ENV,
+            "tried_envs": env_options,
+        }
 
     # 5. 保存到数据库
     if cloud_file_id:
