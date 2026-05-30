@@ -475,89 +475,97 @@ async def test_tts_pipeline(
 
     cloud_path = f"audio/{news.get('id')}.mp3"
     file_name = cloud_path.split("/")[-1]
-    upload_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
-
-    # 尝试不同的 env 值
-    env_options = [
-        WECHAT_CLOUD_ENV,  # 环境 ID: prod-d9g7e5osy7b5e7a9c
-        "7072-prod-d9g7e5osy7b5e7a9c-1433977056",  # 存储桶 ID
-    ]
 
     # 调试信息
     result["debug"] = {
         "access_token_prefix": access_token[:20] + "...",
         "access_token_length": len(access_token),
         "wechat_cloud_env": WECHAT_CLOUD_ENV,
-        "env_options_tested": env_options,
-        "upload_url": upload_url[:60] + "...",
     }
 
     cloud_file_id = None
-    success_format = None
+    cloud_url = None
 
-    # 测试不同 env 值和格式组合
-    for env_val in env_options:
-        # 格式1: files 包含所有字段
+    # 尝试方式1: 使用 tcb/uploadfile 获取上传 URL (JSON 格式)
+    step1_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
+    step1_data = {
+        "env": WECHAT_CLOUD_ENV,
+        "path": cloud_path,
+    }
+
+    try:
+        resp = requests.post(step1_url, json=step1_data, timeout=30, verify=False)
+        step1_result = resp.json()
+        result["debug"]["step1_response"] = step1_result
+
+        if step1_result.get("errcode") == 0:
+            # 获取到上传 URL，使用它上传文件
+            upload_url = step1_result.get("url")
+            token = step1_result.get("token")
+            authorization = step1_result.get("authorization")
+            file_id = step1_result.get("file_id")
+            cos_file_id = step1_result.get("cos_file_id")
+
+            result["debug"]["step1_success"] = {
+                "has_url": bool(upload_url),
+                "has_token": bool(token),
+                "has_authorization": bool(authorization),
+                "file_id": file_id,
+                "cos_file_id": cos_file_id,
+            }
+
+            # 如果获取到了 cloud:// URL，直接使用
+            if file_id and file_id.startswith("cloud://"):
+                cloud_file_id = file_id
+            else:
+                cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+
+            # 尝试用返回的 URL 上传
+            if upload_url:
+                upload_resp = requests.put(
+                    upload_url,
+                    data=audio_content,
+                    headers={"Content-Type": "audio/mpeg"},
+                    timeout=60,
+                    verify=False
+                )
+                result["debug"]["upload_to_url_status"] = upload_resp.status_code
+                result["debug"]["upload_to_url_response"] = upload_resp.text[:200] if upload_resp.text else None
+
+                if upload_resp.status_code in [200, 201]:
+                    cloud_url = upload_url
+        else:
+            result["debug"]["step1_error"] = {
+                "errcode": step1_result.get("errcode"),
+                "errmsg": step1_result.get("errmsg"),
+            }
+    except Exception as e:
+        result["debug"]["step1_exception"] = str(e)
+
+    # 方式2: 直接 POST multipart 到 tcb/uploadfile
+    step2_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
+    try:
         files_v1 = {
             "file": (file_name, audio_content, "audio/mpeg"),
-            "env": (None, env_val),
+            "env": (None, WECHAT_CLOUD_ENV),
             "path": (None, cloud_path),
         }
-        resp = requests.post(upload_url, files=files_v1, timeout=60, verify=False)
-        res = resp.json()
-        if res.get("errcode") == 0:
-            cloud_file_id = f"cloud://{env_val}/{cloud_path}"
-            success_format = f"files_all+env={env_val[:20]}..."
-            break
-
-        # 格式2: data + files 分离
-        data_v2 = {"env": env_val, "path": cloud_path}
-        files_v2 = {"file": (file_name, audio_content, "audio/mpeg")}
-        resp = requests.post(upload_url, data=data_v2, files=files_v2, timeout=60, verify=False)
-        res = resp.json()
-        if res.get("errcode") == 0:
-            cloud_file_id = f"cloud://{env_val}/{cloud_path}"
-            success_format = f"data_files+env={env_val[:20]}..."
-            break
-
-        # 格式3: 没有 filename
-        files_v3 = {
-            "file": (None, audio_content, "audio/mpeg"),
-            "env": (None, env_val),
-            "path": (None, cloud_path),
-        }
-        resp = requests.post(upload_url, files=files_v3, timeout=60, verify=False)
-        res = resp.json()
-        if res.get("errcode") == 0:
-            cloud_file_id = f"cloud://{env_val}/{cloud_path}"
-            success_format = f"no_filename+env={env_val[:20]}..."
-            break
-
-        # 格式4: env 作为字符串值
-        files_v4 = {
-            "file": (file_name, audio_content, "audio/mpeg"),
-            "env": env_val,
-            "path": cloud_path,
-        }
-        resp = requests.post(upload_url, files=files_v4, timeout=60, verify=False)
-        res = resp.json()
-        if res.get("errcode") == 0:
-            cloud_file_id = f"cloud://{env_val}/{cloud_path}"
-            success_format = f"string_values+env={env_val[:20]}..."
-            break
+        resp = requests.post(step2_url, files=files_v1, timeout=60, verify=False)
+        step2_result = resp.json()
+        result["debug"]["step2_multipart_response"] = step2_result
+    except Exception as e:
+        result["debug"]["step2_exception"] = str(e)
 
     if cloud_file_id:
         result["steps"]["4_wechat_upload"] = {
             "success": True,
             "cloud_file_id": cloud_file_id,
-            "format": success_format,
+            "cloud_url": cloud_url,
         }
     else:
         result["steps"]["4_wechat_upload"] = {
             "success": False,
-            "note": "All env/format combinations failed",
-            "wechat_cloud_env_used": WECHAT_CLOUD_ENV,
-            "tried_envs": env_options,
+            "note": "All upload methods failed, check debug info",
         }
 
     # 5. 保存到数据库
