@@ -68,30 +68,68 @@ async def _upload_to_wechat_cloud(
         url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
 
         # 微信云存储 API 要求 multipart/form-data 格式
-        # 使用 requests 库的 files 参数，env 和 path 作为普通表单字段
-        files = {
-            "file": (cloud_path.split("/")[-1], file_content, "audio/mpeg"),
-        }
-        data = {
-            "env": "7072-prod-d9g7e5osy7b5e7a9c-1433977056",
-            "path": cloud_path,
+        # 尝试方式1：所有字段都放在 files 参数中（包含文件元数据）
+        file_name = cloud_path.split("/")[-1]
+
+        # 方式1：标准 multipart 格式
+        files_v1 = {
+            "file": (file_name, file_content, "audio/mpeg"),
+            "env": (None, WECHAT_CLOUD_ENV),
+            "path": (None, cloud_path),
         }
 
-        logger.info(f"[TTS] Uploading to WeChat: env={WECHAT_CLOUD_ENV}, path={cloud_path}, file_size={len(file_content)}")
+        logger.info(f"[TTS] Upload attempt 1: env={WECHAT_CLOUD_ENV}, path={cloud_path}, size={len(file_content)}")
 
-        # 使用 requests（同步）因为 httpx 的 multipart 格式不被微信 API 接受
-        response = requests.post(url, files=files, data=data, timeout=60, verify=False)
+        response = requests.post(url, files=files_v1, timeout=60, verify=False)
         result = response.json()
-
-        logger.info(f"[TTS] Upload response: {result}")
+        logger.info(f"[TTS] Upload response v1: {result}")
 
         if result.get("errcode") == 0:
             cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
             logger.info(f"[TTS] Uploaded to cloud: {cloud_path} -> {cloud_file_id}")
             return cloud_file_id
-        else:
-            logger.error(f"[TTS] Cloud upload failed: {result}")
-            return None
+
+        # 方式2：分离 data 和 files
+        logger.info(f"[TTS] Upload attempt 2 with separate data...")
+        data_v2 = {
+            "env": WECHAT_CLOUD_ENV,
+            "path": cloud_path,
+        }
+        files_v2 = {
+            "file": (file_name, file_content, "audio/mpeg"),
+        }
+
+        response = requests.post(url, data=data_v2, files=files_v2, timeout=60, verify=False)
+        result = response.json()
+        logger.info(f"[TTS] Upload response v2: {result}")
+
+        if result.get("errcode") == 0:
+            cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+            logger.info(f"[TTS] Uploaded to cloud: {cloud_path} -> {cloud_file_id}")
+            return cloud_file_id
+
+        # 方式3：使用 form 参数（requests 的 form 参数）
+        logger.info(f"[TTS] Upload attempt 3 with form data...")
+        files_v3 = {
+            "file": (file_name, file_content, "audio/mpeg"),
+        }
+        data_v3 = {
+            "env": WECHAT_CLOUD_ENV,
+            "path": cloud_path,
+        }
+
+        response = requests.post(url, data=data_v3, files=files_v3, timeout=60, verify=False)
+        result = response.json()
+        logger.info(f"[TTS] Upload response v3: {result}")
+
+        if result.get("errcode") == 0:
+            cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+            logger.info(f"[TTS] Uploaded to cloud: {cloud_path} -> {cloud_file_id}")
+            return cloud_file_id
+
+        # 所有方式都失败
+        logger.error(f"[TTS] Cloud upload failed with all methods: {result}")
+        return None
 
     except Exception as e:
         logger.error(f"[TTS] Cloud upload error: {e}")

@@ -455,7 +455,9 @@ async def test_tts_pipeline(
         result["error"] = f"Download error: {e}"
         return result
 
-    # 4. 上传到微信云存储
+    # 4. 上传到微信云存储（使用 tts_pregen 中的函数）
+    from src.services.tts.tts_pregen import _upload_to_wechat_cloud
+
     access_token = await get_access_token()
     if not access_token:
         result["steps"]["4_wechat_upload"] = {
@@ -478,52 +480,25 @@ async def test_tts_pipeline(
 
     cloud_path = f"audio/{news.get('id')}.mp3"
 
+    # 写入临时文件
+    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+        tmp.write(audio_content)
+        tmp_path = Path(tmp.name)
+
     try:
-        import requests
+        # 调用 tts_pregen 中的上传函数（会尝试多种格式）
+        cloud_file_id = await _upload_to_wechat_cloud(tmp_path, cloud_path, access_token)
 
-        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
-            tmp.write(audio_content)
-            tmp_path = Path(tmp.name)
-
-        try:
-            upload_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
-
-            files = {
-                "file": (cloud_path.split("/")[-1], audio_content, "audio/mpeg"),
+        if cloud_file_id:
+            result["steps"]["4_wechat_upload"] = {
+                "success": True,
+                "cloud_file_id": cloud_file_id,
             }
-            data = {
-                "env": "7072-prod-d9g7e5osy7b5e7a9c-1433977056",
-                "path": cloud_path,
+        else:
+            result["steps"]["4_wechat_upload"] = {
+                "success": False,
+                "error": "Upload returned None (check logs for details)",
             }
-
-            logger.info(f"[TTS_TEST] Uploading to WeChat: env={WECHAT_CLOUD_ENV}, path={cloud_path}")
-
-            response = requests.post(upload_url, files=files, data=data, timeout=60, verify=False)
-            upload_result = response.json()
-
-            logger.info(f"[TTS_TEST] Upload response: {upload_result}")
-
-            if upload_result.get("errcode") == 0:
-                cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-                result["steps"]["4_wechat_upload"] = {
-                    "success": True,
-                    "cloud_file_id": cloud_file_id,
-                    "response": upload_result,
-                }
-            else:
-                result["steps"]["4_wechat_upload"] = {
-                    "success": False,
-                    "errcode": upload_result.get("errcode"),
-                    "errmsg": upload_result.get("errmsg"),
-                    "full_response": upload_result,
-                }
-                cloud_file_id = None
-
-        finally:
-            try:
-                tmp_path.unlink()
-            except Exception:
-                pass
 
     except Exception as e:
         result["steps"]["4_wechat_upload"] = {
@@ -531,6 +506,12 @@ async def test_tts_pipeline(
             "error": str(e),
         }
         cloud_file_id = None
+    finally:
+        # 删除临时文件
+        try:
+            tmp_path.unlink()
+        except Exception:
+            pass
 
     # 5. 保存到数据库
     if cloud_file_id:
