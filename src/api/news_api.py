@@ -408,8 +408,8 @@ async def test_tts_pipeline(
         client = get_minimax_client()
         tts_result = await client.text_to_speech(
             text=text,
-            voice_id="speech-02-t到大象",
-            speed=1.0
+            voice_id="female-yujie",
+            speed=1.15
         )
 
         minimax_url = tts_result.get("data", {}).get("audio_url", "")
