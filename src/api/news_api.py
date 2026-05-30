@@ -351,6 +351,241 @@ async def get_cloud_file_id(news_id: str):
         return {'success': False, 'message': 'No cloud file ID'}
 
 
+# ============ TTS 测试接口 ============
+
+@router.post("/tts-test")
+async def test_tts_pipeline(
+    news_id: str = Query(None, description="新闻ID，不指定则取最新一条"),
+):
+    """
+    TTS 完整流程测试接口
+
+    测试并返回：
+    1. MiniMax TTS API 调用结果
+    2. 微信云存储上传结果
+    3. 数据库保存结果
+
+    直接调用此接口即可看到所有步骤的成功/失败状态，无需查看日志。
+    """
+    import httpx
+    from src.services.minimax_client import get_minimax_client
+    from src.services.news import get_news_by_id, save_news_audio_urls, get_news_cloud_file_id
+    from src.services.wechat_token import get_access_token
+    from src.config.settings import WECHAT_CLOUD_ENV
+    import tempfile
+    from pathlib import Path
+
+    result = {
+        "success": False,
+        "steps": {},
+        "final_status": {},
+    }
+
+    # 1. 获取测试用的新闻
+    if news_id:
+        news = await get_news_by_id(news_id)
+    else:
+        from src.services.news import get_news_from_db
+        news_list = await get_news_from_db(limit=1)
+        news = news_list[0] if news_list else None
+
+    if not news:
+        result["error"] = "No news found for testing"
+        return result
+
+    result["steps"]["1_fetch_news"] = {
+        "success": True,
+        "news_id": news.get("id", "")[:24],
+        "title": (news.get("title_zh") or news.get("title_en", ""))[:50],
+    }
+
+    # 2. 调用 MiniMax TTS API
+    try:
+        title = news.get('title_zh') or news.get('title_en', '')
+        content = news.get('content_zh') or news.get('content_en', '')
+        text = f"{title}。{content}"[:300]
+
+        client = get_minimax_client()
+        tts_result = await client.text_to_speech(
+            text=text,
+            voice_id="speech-02-t到大象",
+            speed=1.0
+        )
+
+        minimax_url = tts_result.get("data", {}).get("audio_url", "")
+        if minimax_url:
+            result["steps"]["2_minimax_tts"] = {
+                "success": True,
+                "audio_url": minimax_url[:80] + "..." if len(minimax_url) > 80 else minimax_url,
+            }
+        else:
+            result["steps"]["2_minimax_tts"] = {
+                "success": False,
+                "error": "Empty audio_url from MiniMax",
+                "raw_result": str(tts_result)[:200],
+            }
+            result["error"] = "MiniMax TTS failed"
+            return result
+
+    except Exception as e:
+        result["steps"]["2_minimax_tts"] = {
+            "success": False,
+            "error": str(e),
+        }
+        result["error"] = f"MiniMax TTS error: {e}"
+        return result
+
+    # 3. 下载音频到临时文件
+    try:
+        async with httpx.AsyncClient(timeout=60.0, verify=False) as http_client:
+            response = await http_client.get(minimax_url, timeout=60.0)
+            if response.status_code != 200:
+                raise Exception(f"Download failed: HTTP {response.status_code}")
+            audio_content = response.content
+
+        result["steps"]["3_download_audio"] = {
+            "success": True,
+            "size_bytes": len(audio_content),
+        }
+    except Exception as e:
+        result["steps"]["3_download_audio"] = {
+            "success": False,
+            "error": str(e),
+        }
+        result["error"] = f"Download error: {e}"
+        return result
+
+    # 4. 上传到微信云存储
+    access_token = await get_access_token()
+    if not access_token:
+        result["steps"]["4_wechat_upload"] = {
+            "success": False,
+            "error": "Cannot get access_token",
+        }
+        # 仍然保存到数据库，只是不上传云存储
+        result["steps"]["5_save_to_db"] = {
+            "success": True,
+            "note": "Saved with MiniMax URL (no cloud upload)",
+        }
+        result["final_status"] = {
+            "audio_url": minimax_url,
+            "cloud_file_id": None,
+            "backup_audio_url": minimax_url,
+        }
+        result["success"] = True
+        result["warning"] = "No access_token, cloud upload skipped"
+        return result
+
+    cloud_path = f"audio/{news.get('id')}.mp3"
+
+    try:
+        import requests
+
+        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+            tmp.write(audio_content)
+            tmp_path = Path(tmp.name)
+
+        try:
+            upload_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
+
+            files = {
+                "file": (cloud_path.split("/")[-1], audio_content, "audio/mpeg"),
+            }
+            data = {
+                "env": "7072-prod-d9g7e5osy7b5e7a9c-1433977056",
+                "path": cloud_path,
+            }
+
+            logger.info(f"[TTS_TEST] Uploading to WeChat: env={WECHAT_CLOUD_ENV}, path={cloud_path}")
+
+            response = requests.post(upload_url, files=files, data=data, timeout=60, verify=False)
+            upload_result = response.json()
+
+            logger.info(f"[TTS_TEST] Upload response: {upload_result}")
+
+            if upload_result.get("errcode") == 0:
+                cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+                result["steps"]["4_wechat_upload"] = {
+                    "success": True,
+                    "cloud_file_id": cloud_file_id,
+                    "response": upload_result,
+                }
+            else:
+                result["steps"]["4_wechat_upload"] = {
+                    "success": False,
+                    "errcode": upload_result.get("errcode"),
+                    "errmsg": upload_result.get("errmsg"),
+                    "full_response": upload_result,
+                }
+                cloud_file_id = None
+
+        finally:
+            try:
+                tmp_path.unlink()
+            except Exception:
+                pass
+
+    except Exception as e:
+        result["steps"]["4_wechat_upload"] = {
+            "success": False,
+            "error": str(e),
+        }
+        cloud_file_id = None
+
+    # 5. 保存到数据库
+    if cloud_file_id:
+        db_audio_url = cloud_file_id
+    else:
+        db_audio_url = minimax_url
+
+    try:
+        save_ok = await save_news_audio_urls(
+            news_id=news.get('id'),
+            audio_url=db_audio_url,
+            backup_audio_url=minimax_url,
+            cloud_file_id=cloud_file_id
+        )
+
+        # 验证保存结果
+        saved_cloud_id = await get_news_cloud_file_id(news.get('id'))
+
+        result["steps"]["5_save_to_db"] = {
+            "success": save_ok,
+            "saved_cloud_file_id": saved_cloud_id,
+            "expected_cloud_file_id": cloud_file_id,
+            "db_save_matches": saved_cloud_id == cloud_file_id,
+        }
+
+        result["final_status"] = {
+            "audio_url": db_audio_url,
+            "cloud_file_id": saved_cloud_id,
+            "backup_audio_url": minimax_url,
+        }
+
+    except Exception as e:
+        result["steps"]["5_save_to_db"] = {
+            "success": False,
+            "error": str(e),
+        }
+        result["error"] = f"Database save error: {e}"
+        return result
+
+    # 汇总
+    all_steps_ok = all(
+        step.get("success", False)
+        for step in result["steps"].values()
+    )
+    result["success"] = all_steps_ok
+
+    if all_steps_ok:
+        result["summary"] = "✅ 全部成功"
+    else:
+        failed_steps = [k for k, v in result["steps"].items() if not v.get("success", False)]
+        result["summary"] = f"❌ 失败步骤: {', '.join(failed_steps)}"
+
+    return result
+
+
 # ============ 通用云存储接口 ============
 # 用于前端从微信云存储下载音频文件
 
