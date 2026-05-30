@@ -73,7 +73,7 @@ async def _upload_to_wechat_cloud(
             "file": (cloud_path.split("/")[-1], file_content, "audio/mpeg"),
         }
         data = {
-            "env": WECHAT_CLOUD_ENV,
+            "env": "7072-prod-d9g7e5osy7b5e7a9c-1433977056",
             "path": cloud_path,
         }
 
