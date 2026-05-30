@@ -89,6 +89,18 @@ async def root():
 async def health():
     return {"status": "healthy"}
 
+@app.get("/api/test")
+async def test_endpoint():
+    """测试端点 - 用于验证云托管部署状态"""
+    import hashlib
+    test_hash = "TEST_0530_NEW_CODE"
+    return {
+        "status": "ok",
+        "message": f"云托管运行的是新代码 - {test_hash}",
+        "version": "0.3.2",
+        "git_commit": "ddbd920",
+    }
+
 @app.get("/api/status")
 async def get_status():
     """获取服务状态"""
