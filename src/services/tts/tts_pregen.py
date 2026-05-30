@@ -64,6 +64,9 @@ async def _upload_to_wechat_cloud(
             file_content = f.read()
 
         url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
+
+        # 微信云存储 API 要求 multipart/form-data 格式
+        # env 和 path 作为 form fields，file 作为文件上传
         data = {
             "env": WECHAT_CLOUD_ENV,
             "path": cloud_path,
@@ -72,9 +75,13 @@ async def _upload_to_wechat_cloud(
             "file": (cloud_path.split("/")[-1], file_content, "audio/mpeg")
         }
 
+        logger.info(f"[TTS] Uploading to WeChat: env={WECHAT_CLOUD_ENV}, path={cloud_path}, file_size={len(file_content)}")
+
         async with httpx.AsyncClient(timeout=60.0, verify=False) as client:
             response = await client.post(url, data=data, files=files)
             result = response.json()
+
+        logger.info(f"[TTS] Upload response: {result}")
 
         if result.get("errcode") == 0:
             cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
