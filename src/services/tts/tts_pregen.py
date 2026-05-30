@@ -42,9 +42,10 @@ async def _upload_to_wechat_cloud(
     """
     上传文件到微信云存储
 
-    正确流程：
+    完整流程：
     1. 调用 tcb/uploadfile 获取 file_id 和上传 URL
-    2. 使用返回的 file_id（即使 PUT 到 COS URL 失败，file_id 仍然有效）
+    2. 使用 PUT 请求上传文件到返回的 COS URL
+    3. 验证文件上传成功
 
     Args:
         local_file: 本地文件路径
@@ -70,11 +71,10 @@ async def _upload_to_wechat_cloud(
             file_content = f.read()
 
         url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
-        file_name = cloud_path.split("/")[-1]
 
         logger.info(f"[TTS] Upload: env={WECHAT_CLOUD_ENV}, path={cloud_path}, size={len(file_content)}")
 
-        # 正确的流程：使用 JSON 格式获取上传 URL 和 file_id
+        # 步骤1：获取上传 URL 和 file_id
         data = {
             "env": WECHAT_CLOUD_ENV,
             "path": cloud_path,
@@ -82,32 +82,62 @@ async def _upload_to_wechat_cloud(
 
         response = requests.post(url, json=data, timeout=30, verify=False)
         result = response.json()
-        logger.info(f"[TTS] Upload API response: {result}")
+        logger.info(f"[TTS] Step1 response: errcode={result.get('errcode')}, has_url={bool(result.get('url'))}")
 
-        if result.get("errcode") == 0:
-            # 关键：从响应中获取 file_id
-            file_id = result.get("file_id")
-            if file_id:
-                logger.info(f"[TTS] Success! raw file_id={file_id}")
-                # 确保使用正确的格式：cloud://{env}/{path}
-                # 微信返回的 file_id 可能包含存储桶 ID，需要处理
-                if file_id.startswith('cloud://'):
-                    # 提取并重新构造，使用纯环境 ID
-                    env_id = WECHAT_CLOUD_ENV  # 使用配置文件中的环境 ID
-                    cloud_file_id = f"cloud://{env_id}/{cloud_path}"
-                    logger.info(f"[TTS] Constructed cloud_file_id={cloud_file_id}")
-                    return cloud_file_id
-                else:
-                    return file_id
-            else:
-                # 兜底：构造 file_id
-                cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-                logger.info(f"[TTS] Success with constructed file_id={cloud_file_id}")
-                return cloud_file_id
+        if result.get("errcode") != 0:
+            logger.error(f"[TTS] Step1 failed: {result}")
+            return None
 
-        # API 返回错误
-        logger.error(f"[TTS] Upload API error: {result}")
-        return None
+        cos_url = result.get("url")
+        file_id = result.get("file_id")
+
+        if not cos_url:
+            logger.error(f"[TTS] No COS URL in response: {result}")
+            return None
+
+        # 步骤2：上传文件到 COS URL
+        logger.info(f"[TTS] Step2: Uploading to COS URL: {cos_url[:60]}...")
+
+        # 尝试不同的上传方式
+        upload_success = False
+
+        # 方式1：PUT 请求
+        for content_type in ["audio/mpeg", "application/octet-stream", "binary/octet-stream"]:
+            put_response = requests.put(
+                cos_url,
+                data=file_content,
+                headers={"Content-Type": content_type},
+                timeout=60,
+                verify=False
+            )
+            logger.info(f"[TTS] PUT response: status={put_response.status_code}")
+            if put_response.status_code in [200, 201]:
+                upload_success = True
+                break
+
+        if not upload_success:
+            # 方式2：POST 请求
+            post_response = requests.post(
+                cos_url,
+                data=file_content,
+                headers={"Content-Type": "audio/mpeg"},
+                timeout=60,
+                verify=False
+            )
+            logger.info(f"[TTS] POST response: status={post_response.status_code}")
+            if post_response.status_code in [200, 201]:
+                upload_success = True
+
+        if not upload_success:
+            logger.error(f"[TTS] Failed to upload to COS URL after all attempts")
+            return None
+
+        logger.info(f"[TTS] File uploaded successfully!")
+
+        # 步骤3：构造并返回 cloud_file_id
+        cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+        logger.info(f"[TTS] Success! cloud_file_id={cloud_file_id}")
+        return cloud_file_id
 
     except Exception as e:
         logger.error(f"[TTS] Cloud upload error: {e}")
