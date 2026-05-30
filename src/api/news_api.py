@@ -351,6 +351,80 @@ async def get_cloud_file_id(news_id: str):
         return {'success': False, 'message': 'No cloud file ID'}
 
 
+# ============ 调试接口 ============
+
+@router.get("/debug/cloud-url")
+async def debug_cloud_url(
+    news_id: str = Query(..., description="新闻ID"),
+):
+    """
+    调试：测试获取云存储临时 URL
+    """
+    from src.services.news import get_news_cloud_file_id, get_news_by_id
+    from src.services.wechat_token import get_access_token
+    import httpx
+    import requests
+
+    result = {"news_id": news_id}
+
+    # 获取 cloud_file_id
+    news = await get_news_by_id(news_id)
+    if not news:
+        return {"error": "News not found"}
+
+    cloud_file_id = news.get("cloud_file_id")
+    result["cloud_file_id"] = cloud_file_id
+
+    if not cloud_file_id:
+        return {"error": "No cloud_file_id", "source": "news"}
+
+    # 提取 env
+    if cloud_file_id.startswith("cloud://"):
+        env = cloud_file_id.split("://")[1].split("/")[0]
+        path = cloud_file_id.replace(f"cloud://{env}/", "")
+    else:
+        return {"error": "Invalid cloud_file_id format"}
+
+    result["extracted_env"] = env
+    result["extracted_path"] = path
+
+    # 获取 access_token
+    access_token = await get_access_token()
+    if not access_token:
+        return {"error": "No access_token"}
+
+    result["access_token_prefix"] = access_token[:20] + "..."
+
+    # 调用微信 API 获取临时 URL
+    url = f"https://api.weixin.qq.com/tcb/batchdownloadfile?access_token={access_token}"
+    data = {
+        "env": env,
+        "file_list": [{"fileid": cloud_file_id, "max_age": 3600}]
+    }
+
+    result["api_url"] = url[:60] + "..."
+    result["api_data"] = data
+
+    try:
+        resp = requests.post(url, json=data, timeout=30, verify=False)
+        api_result = resp.json()
+        result["api_response"] = api_result
+
+        if api_result.get("errcode") == 0 and api_result.get("file_list"):
+            file_info = api_result["file_list"][0]
+            result["file_info"] = file_info
+            result["success"] = True
+        else:
+            result["success"] = False
+            result["error"] = api_result.get("errmsg")
+
+    except Exception as e:
+        result["exception"] = str(e)
+        result["success"] = False
+
+    return result
+
+
 # ============ TTS 测试接口 ============
 
 @router.post("/tts-test")
