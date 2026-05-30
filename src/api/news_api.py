@@ -455,8 +455,8 @@ async def test_tts_pipeline(
         result["error"] = f"Download error: {e}"
         return result
 
-    # 4. 上传到微信云存储 - 直接测试多种格式并返回详细结果
-    import requests
+    # 4. 上传到微信云存储
+    from src.services.tts.tts_pregen import _upload_to_wechat_cloud
 
     access_token = await get_access_token()
     if not access_token:
@@ -474,98 +474,18 @@ async def test_tts_pipeline(
         return result
 
     cloud_path = f"audio/{news.get('id')}.mp3"
-    file_name = cloud_path.split("/")[-1]
 
-    # 调试信息
-    result["debug"] = {
-        "access_token_prefix": access_token[:20] + "...",
-        "access_token_length": len(access_token),
-        "wechat_cloud_env": WECHAT_CLOUD_ENV,
-    }
-
-    cloud_file_id = None
-    cloud_url = None
-
-    # 尝试方式1: 使用 tcb/uploadfile 获取上传 URL (JSON 格式)
-    step1_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
-    step1_data = {
-        "env": WECHAT_CLOUD_ENV,
-        "path": cloud_path,
-    }
-
-    try:
-        resp = requests.post(step1_url, json=step1_data, timeout=30, verify=False)
-        step1_result = resp.json()
-        result["debug"]["step1_response"] = step1_result
-
-        if step1_result.get("errcode") == 0:
-            # 获取到上传 URL，使用它上传文件
-            upload_url = step1_result.get("url")
-            token = step1_result.get("token")
-            authorization = step1_result.get("authorization")
-            file_id = step1_result.get("file_id")
-            cos_file_id = step1_result.get("cos_file_id")
-
-            result["debug"]["step1_success"] = {
-                "has_url": bool(upload_url),
-                "has_token": bool(token),
-                "has_authorization": bool(authorization),
-                "file_id": file_id,
-                "cos_file_id": cos_file_id,
-            }
-
-            # 如果获取到了 cloud:// URL，直接使用
-            if file_id and file_id.startswith("cloud://"):
-                cloud_file_id = file_id
-            else:
-                cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-
-            # 尝试用返回的 URL 上传
-            if upload_url:
-                upload_resp = requests.put(
-                    upload_url,
-                    data=audio_content,
-                    headers={"Content-Type": "audio/mpeg"},
-                    timeout=60,
-                    verify=False
-                )
-                result["debug"]["upload_to_url_status"] = upload_resp.status_code
-                result["debug"]["upload_to_url_response"] = upload_resp.text[:200] if upload_resp.text else None
-
-                if upload_resp.status_code in [200, 201]:
-                    cloud_url = upload_url
-        else:
-            result["debug"]["step1_error"] = {
-                "errcode": step1_result.get("errcode"),
-                "errmsg": step1_result.get("errmsg"),
-            }
-    except Exception as e:
-        result["debug"]["step1_exception"] = str(e)
-
-    # 方式2: 直接 POST multipart 到 tcb/uploadfile
-    step2_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
-    try:
-        files_v1 = {
-            "file": (file_name, audio_content, "audio/mpeg"),
-            "env": (None, WECHAT_CLOUD_ENV),
-            "path": (None, cloud_path),
-        }
-        resp = requests.post(step2_url, files=files_v1, timeout=60, verify=False)
-        step2_result = resp.json()
-        result["debug"]["step2_multipart_response"] = step2_result
-    except Exception as e:
-        result["debug"]["step2_exception"] = str(e)
+    cloud_file_id = await _upload_to_wechat_cloud(tmp_path, cloud_path, access_token)
 
     if cloud_file_id:
         result["steps"]["4_wechat_upload"] = {
             "success": True,
             "cloud_file_id": cloud_file_id,
-            "cloud_url": cloud_url,
         }
     else:
         result["steps"]["4_wechat_upload"] = {
             "success": False,
-            "note": "All upload methods failed, check debug info",
+            "note": "Upload failed",
         }
 
     # 5. 保存到数据库
