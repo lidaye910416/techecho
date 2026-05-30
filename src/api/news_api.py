@@ -477,6 +477,14 @@ async def test_tts_pipeline(
     file_name = cloud_path.split("/")[-1]
     upload_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
 
+    # 调试信息
+    result["debug"] = {
+        "access_token_prefix": access_token[:20] + "...",
+        "access_token_length": len(access_token),
+        "wechat_cloud_env": WECHAT_CLOUD_ENV,
+        "upload_url": upload_url[:60] + "...",
+    }
+
     # 测试不同格式并返回所有结果
     all_results = []
 
