@@ -72,7 +72,7 @@ async def _upload_to_wechat_cloud(
             "file": (cloud_path.split("/")[-1], file_content, "audio/mpeg")
         }
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=60.0, verify=False) as client:
             response = await client.post(url, data=data, files=files)
             result = response.json()
 
