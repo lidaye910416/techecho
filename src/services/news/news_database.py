@@ -227,6 +227,7 @@ async def get_news_stats() -> Dict[str, Any]:
 
 async def get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
     """根据ID获取单条新闻"""
+    logger.info(f"[DB] get_news_by_id called: {news_id}")
     async with get_db_session() as session:
         result = await session.execute(
             text("SELECT * FROM news_items WHERE id = :news_id"),
@@ -235,10 +236,15 @@ async def get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
         row = result.fetchone()
 
         if not row:
+            logger.warning(f"[DB] News not found: {news_id}")
             return None
 
         row_dict = dict(row._mapping)
+        logger.info(f"[DB] row_dict keys: {list(row_dict.keys())}")
+        logger.info(f"[DB] audio_url from row: {row_dict.get('audio_url')}")
+
         audio_url = row_dict.get('audio_url')
+        logger.info(f"[DB] audio_url variable: {audio_url}")
 
         return {
             'id': row_dict.get('id'),
