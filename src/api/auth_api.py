@@ -178,7 +178,7 @@ async def wechat_login(request: WechatLoginRequest):
             "grant_type": "authorization_code",
         }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(verify=False) as client:
             resp = await client.get(wx_url, params=params, timeout=10)
             wx_data = resp.json()
 

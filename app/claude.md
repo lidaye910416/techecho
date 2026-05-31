@@ -10,5 +10,6 @@
 
 1. 本地开发: `npm run dev:weapp`
 2. 生产环境: `npm run build:weapp`
+3. **默认编译微信小程序**，除非用户特别要求编译 H5 页面
 3. 本地后端地址: `http://localhost:8000`
 4. 云端后端地址: `https://test-258357-8-1433613936.sh.run.tcloudbase.com`

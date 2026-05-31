@@ -25,7 +25,9 @@ function getCloudContainer() {
   return null
 }
 
-/** 将音频路径转换为完整 HTTP URL（公网模式用） */
+/** 将音频路径转换为完整 HTTP URL（公网模式用）
+ * 注意：云存储文件请使用 cloud_file_id，直接返回 cloud:// 格式的 fileID
+ */
 export function getAudioUrl(audioPath: string): string {
   if (!audioPath) return ''
   // 如果是本地路径 /data/audio/xxx.mp3，转换为 API 路径
@@ -34,6 +36,10 @@ export function getAudioUrl(audioPath: string): string {
     // 移除 .mp3 后缀和语音风格后缀 (_voice1, _voice2, _v3, _voice3 等)
     const newsId = filename.replace(/\.mp3$/, '').replace(/_(voice\d+|v\d+)$/, '')
     return `/api/news/${newsId}/read`
+  }
+  // cloud:// 格式的 fileID 不需要转换，前端会使用 wx.cloud.downloadFile
+  if (audioPath.startsWith('cloud://')) {
+    return audioPath
   }
   // 其他情况直接返回
   return audioPath
@@ -233,6 +239,7 @@ interface NewsItem {
   is_favorited?: boolean
   audio_url?: string
   audio?: Record<string, string>
+  cloud_file_id?: string  // 云存储 fileID (格式: cloud://{env}/{bucket}/{path})
 }
 
 // ============ 认证 API ============

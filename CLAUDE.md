@@ -364,6 +364,9 @@ docker run -d -p 8090:8000 --env-file .env techecho:latest
 错误:  app/dist/pages/mine/mine.js  ← 不能动
 ```
 
+> **③ Git 操作铁律**：涉及**远端仓库**的操作（如 `git push`、分支合并等），**必须先征得用户确认**后再执行。
+> 禁止未经确认直接推送代码或合并分支。
+
 ## 数据流
 
 ```

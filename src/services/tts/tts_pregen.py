@@ -2,40 +2,187 @@
 TTS 预生成服务
 
 新闻采集后，使用系统默认音色(voice3)为每条新闻预生成 TTS 音频，
-存储到 data/audio/ 目录，写入数据库 audio_url 字段。
-用户点击「朗读」时直接播放缓存，避免重复消耗 MiniMax API 配额。
+上传到微信云存储持久化，并保存 MiniMax OSS URL 作为备份。
 
 注意：TTS 失败时不使用替代服务，直接返回失败状态。
 前端会处理 TTS 请求（携带用户登录态）。
 """
 
-import os
 import logging
-import httpx
+import tempfile
 from pathlib import Path
 from typing import List, Dict
 
-from src.services.tts.voice_config import VOICE_STYLES
+import httpx
+
+from src.config.settings import WECHAT_CLOUD_ENV
 from src.services.minimax_client import get_minimax_client
-from src.services.news import save_news_audio
+from src.services.news import save_news_audio_urls
+from src.services.tts.voice_config import VOICE_STYLES
+from src.services.wechat_token import get_access_token
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_VOICE = "voice3"
-# 修复：使用正确的项目根目录路径
-AUDIO_DIR = Path(__file__).parent.parent.parent.parent / "data" / "audio"
-
-
-def _get_audio_path(news_id: str) -> Path:
-    AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-    return AUDIO_DIR / f"{news_id}_v3.mp3"
 
 
 def _get_tts_text(news: Dict) -> str:
+    """获取新闻的 TTS 文本"""
     title = news.get('title_zh') or news.get('title_en', '')
     content = news.get('content_zh') or news.get('content_en', '')
     text = f"{title}。{content}" if title else content
     return text[:300]
+
+
+async def _upload_to_wechat_cloud(
+    local_file: Path,
+    cloud_path: str,
+    access_token: str
+) -> str | None:
+    """
+    上传文件到微信云存储
+
+    使用腾讯云 COS Python SDK 上传：
+    1. 使用 /_/cos/getauth 获取临时秘钥
+    2. 使用 qcloud_cos SDK 上传文件
+
+    Args:
+        local_file: 本地文件路径
+        cloud_path: 云存储路径 (如 audio/xxx.mp3)
+        access_token: 微信 access_token
+
+    Returns:
+        cloud_file_id: 格式 cloud://{env}/{path}
+        None: 上传失败
+    """
+    if not local_file.exists():
+        logger.error(f"[TTS] File not found: {local_file}")
+        return None
+
+    if not WECHAT_CLOUD_ENV:
+        logger.warning("[TTS] WECHAT_CLOUD_ENV not configured, skipping cloud upload")
+        return None
+
+    try:
+        import requests
+
+        with open(local_file, 'rb') as f:
+            file_content = f.read()
+
+        logger.info(f"[TTS] Upload: env={WECHAT_CLOUD_ENV}, path={cloud_path}, size={len(file_content)}")
+
+        # 步骤1：获取临时秘钥（官方推荐方式）
+        auth_url = f"https://api.weixin.qq.com/_/cos/getauth?access_token={access_token}"
+        logger.info(f"[TTS] Getting temp credentials from: {auth_url[:60]}...")
+        auth_resp = requests.get(auth_url, timeout=30, verify=False)
+        auth_data = auth_resp.json()
+
+        logger.info(f"[TTS] Auth response status: {auth_resp.status_code}")
+        logger.info(f"[TTS] Auth response keys: {auth_data.keys() if auth_data else 'None'}")
+
+        tmp_secret_id = auth_data.get("TmpSecretId")
+        tmp_secret_key = auth_data.get("TmpSecretKey")
+        session_token = auth_data.get("Token")
+
+        if not tmp_secret_id or not tmp_secret_key:
+            logger.error(f"[TTS] CRITICAL: Failed to get temp credentials! Response: {auth_data}")
+            return None
+
+        logger.info(f"[TTS] Got temp credentials: SecretId={tmp_secret_id[:20]}...")
+
+        # 步骤2：使用腾讯云 COS Python SDK 上传
+        try:
+            from qcloud_cos import CosConfig, CosS3Client
+
+            bucket = "7072-prod-d9g7e5osy7b5e7a9c-1433977056"
+            region = "ap-shanghai"
+
+            config = CosConfig(
+                Region=region,
+                SecretId=tmp_secret_id,
+                SecretKey=tmp_secret_key,
+                Token=session_token,
+            )
+            logger.info(f"[TTS] Creating COS client with bucket={bucket}, region={region}")
+            client = CosS3Client(config)
+
+            logger.info(f"[TTS] Calling put_object...")
+            response = client.put_object(
+                Bucket=bucket,
+                Body=file_content,
+                Key=cloud_path,
+                ContentType="audio/mpeg",
+                EnableMD5=False
+            )
+
+            logger.info(f"[TTS] COS SDK upload response: {response}")
+
+            # 验证上传成功
+            if response.get("ETag"):
+                cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+                logger.info(f"[TTS] SUCCESS! cloud_file_id={cloud_file_id}")
+                return cloud_file_id
+            else:
+                logger.error(f"[TTS] Upload failed - no ETag in response: {response}")
+                return None
+
+        except ImportError as e:
+            logger.error(f"[TTS] CRITICAL: qcloud_cos SDK not installed: {e}")
+            logger.error("[TTS] qcloud_cos SDK not installed, trying to install...")
+            # 尝试安装 SDK
+            try:
+                import subprocess
+                subprocess.run(
+                    ["pip", "install", "-q", "cos-python-sdk-v5"],
+                    capture_output=True,
+                    timeout=60
+                )
+                logger.info("[TTS] SDK installed, retrying upload...")
+                # 重新导入并上传
+                import importlib
+                import qcloud_cos
+                importlib.reload(qcloud_cos)
+                from qcloud_cos import CosConfig, CosS3Client
+
+                bucket = "7072-prod-d9g7e5osy7b5e7a9c-1433977056"
+                region = "ap-shanghai"
+
+                config = CosConfig(
+                    Region=region,
+                    SecretId=tmp_secret_id,
+                    SecretKey=tmp_secret_key,
+                    Token=session_token,
+                )
+                client = CosS3Client(config)
+
+                response = client.put_object(
+                    Bucket=bucket,
+                    Body=file_content,
+                    Key=cloud_path,
+                    ContentType="audio/mpeg",
+                    EnableMD5=False
+                )
+
+                if response.get("ETag"):
+                    cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+                    logger.info(f"[TTS] Success after SDK install! cloud_file_id={cloud_file_id}")
+                    return cloud_file_id
+            except Exception as install_error:
+                logger.error(f"[TTS] CRITICAL: Failed to install SDK or upload: {install_error}")
+                import traceback
+                logger.error(f"[TTS] Traceback: {traceback.format_exc()}")
+                return None
+        except Exception as e:
+            logger.error(f"[TTS] CRITICAL: COS SDK upload error: {e}")
+            import traceback
+            logger.error(f"[TTS] Traceback: {traceback.format_exc()}")
+            return None
+
+    except Exception as e:
+        logger.error(f"[TTS] CRITICAL: Cloud upload error: {e}")
+        import traceback
+        logger.error(f"[TTS] Traceback: {traceback.format_exc()}")
+        return None
 
 
 async def pre_generate_tts_for_news(
@@ -43,12 +190,15 @@ async def pre_generate_tts_for_news(
     voice: str = DEFAULT_VOICE
 ) -> Dict[str, int]:
     """
-    预生成 TTS 音频（仅使用 MiniMax，不降级）
+    预生成 TTS 音频
 
-    注意：
-    - 只使用 MiniMax API
-    - 失败时不使用 edge-tts 等替代服务
-    - 前端会处理用户请求时的 TTS 生成（携带登录态）
+    流程：
+    1. 调用 MiniMax TTS API 生成音频
+    2. 获取 MiniMax OSS URL（备份）
+    3. 下载音频到临时文件
+    4. 上传到微信云存储
+    5. 保存 cloud_file_id + backup OSS URL 到数据库
+    6. 删除本地临时文件
 
     Returns:
         stats: {"success": int, "skipped": int, "failed": int}
@@ -65,56 +215,98 @@ async def pre_generate_tts_for_news(
     logger.info(f"TTS pregen start: {len(news_list)} news, voice={voice}({style['name']}), id={voice_id}, speed={speed}x")
 
     client = get_minimax_client()
-    http_client = httpx.AsyncClient(timeout=60.0)
 
-    try:
-        for i, news in enumerate(news_list):
-            news_id = news.get('id', '')
-            if not news_id:
+    # 获取 access_token（提前获取，避免重复调用）
+    from src.config.settings import WECHAT_CLOUD_ENV
+    logger.info(f"[TTS] WECHAT_CLOUD_ENV={WECHAT_CLOUD_ENV}")
+
+    access_token = await get_access_token()
+    if not access_token:
+        logger.error("[TTS] CRITICAL: Cannot get access_token, will skip cloud upload but save backup URL")
+        # 打印环境变量帮助调试
+        import os
+        logger.error(f"[TTS] WECHAT_APPID={'set' if os.getenv('WECHAT_APPID') else 'NOT SET'}")
+        logger.error(f"[TTS] WECHAT_SECRET={'set' if os.getenv('WECHAT_SECRET') else 'NOT SET'}")
+    else:
+        logger.info(f"[TTS] Got access_token: {access_token[:20]}...")
+
+    for i, news in enumerate(news_list):
+        news_id = news.get('id', '')
+        if not news_id:
+            stats["skipped"] += 1
+            continue
+
+        try:
+            text = _get_tts_text(news)
+            if not text or len(text) < 10:
                 stats["skipped"] += 1
                 continue
 
-            audio_path = _get_audio_path(news_id)
-            if audio_path.exists():
-                stats["skipped"] += 1
-                continue
+            # 1. 调用 MiniMax TTS API
+            result = await client.text_to_speech(
+                text=text, voice_id=voice_id, speed=speed
+            )
 
-            try:
-                text = _get_tts_text(news)
-                if not text or len(text) < 10:
-                    stats["skipped"] += 1
-                    continue
+            # 2. 获取 MiniMax OSS URL（备份）
+            # MiniMax client 返回 {"data": {"audio_url": ..., "extra_info": ...}}
+            minimax_url = result.get("data", {}).get("audio_url", "")
+            logger.info(f"[TTS] MiniMax result keys: {result.keys() if result else 'None'}")
+            logger.info(f"[TTS] MiniMax audio_url: {minimax_url[:80] if minimax_url else 'EMPTY'}")
+            if not minimax_url:
+                raise Exception("empty audio_url from MiniMax")
 
-                result = await client.text_to_speech(
-                    text=text, voice_id=voice_id, speed=speed
-                )
-
-                audio_url = result.get("data", {}).get("audio_url", "")
-                if not audio_url:
-                    raise Exception("empty audio_url")
-
-                response = await http_client.get(audio_url, timeout=60.0)
+            # 3. 下载音频到临时文件
+            async with httpx.AsyncClient(timeout=60.0) as http_client:
+                response = await http_client.get(minimax_url, timeout=60.0)
                 if response.status_code != 200:
                     raise Exception(f"download fail: HTTP {response.status_code}")
+                audio_content = response.content
 
-                with open(audio_path, 'wb') as f:
-                    f.write(response.content)
+            # 4. 上传到微信云存储
+            cloud_path = f"audio/{news_id}.mp3"
+            cloud_file_id = None
 
-                db_audio_url = f"/data/audio/{news_id}_v3.mp3"
-                save_news_audio(news_id, db_audio_url)
+            if access_token:
+                logger.info(f"[TTS] [{i+1}] Starting cloud upload for {news_id[:24]}...")
+                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+                    tmp.write(audio_content)
+                    tmp_path = Path(tmp.name)
 
-                stats["success"] += 1
-                logger.info(f"TTS pregen [{i+1}/{len(news_list)}] ok {news_id[:24]}... ({len(response.content)}B)")
+                try:
+                    cloud_file_id = await _upload_to_wechat_cloud(tmp_path, cloud_path, access_token)
+                    if cloud_file_id:
+                        logger.info(f"[TTS] [{i+1}] Cloud upload SUCCESS: {cloud_file_id}")
+                    else:
+                        logger.error(f"[TTS] [{i+1}] Cloud upload FAILED: returned None")
+                finally:
+                    # 删除本地临时文件
+                    try:
+                        tmp_path.unlink()
+                    except Exception:
+                        pass
+            else:
+                logger.warning(f"[TTS] No access_token, skipping cloud upload for {news_id[:24]}")
 
-            except Exception as e:
-                stats["failed"] += 1
-                logger.warning(f"TTS pregen [{i+1}/{len(news_list)}] fail {news_id[:24]}: {str(e)[:80]}")
-                # 注意：失败时不使用替代 TTS，直接跳过
-                # 前端会在用户点击时发起新的 TTS 请求
-                continue
+            # 5. 保存到数据库
+            # cloud_file_id: 微信云存储 fileID（仅上传成功时有值）
+            # audio_url: 主音频 URL（优先用云存储，失败时用 MiniMax OSS）
+            # backup_audio_url: MiniMax OSS URL（始终保存）
+            if cloud_file_id:
+                db_audio_url = cloud_file_id
+            else:
+                # 如果云存储上传失败，用 MiniMax URL 作为 audio_url（降级）
+                db_audio_url = minimax_url
 
-    finally:
-        await http_client.aclose()
+            logger.info(f"[TTS] Saving to DB: news_id={news_id[:24]}, audio_url={db_audio_url[:80] if db_audio_url else 'None'}, backup={minimax_url[:80] if minimax_url else 'None'}, cloud={cloud_file_id}")
+            await save_news_audio_urls(news_id, db_audio_url, minimax_url, cloud_file_id)
+
+            stats["success"] += 1
+            logger.info(f"TTS pregen [{i+1}/{len(news_list)}] ok {news_id[:24]}... ({len(audio_content)}B)")
+
+        except Exception as e:
+            stats["failed"] += 1
+            logger.warning(f"TTS pregen [{i+1}/{len(news_list)}] fail {news_id[:24]}: {str(e)[:80]}")
+            continue
 
     logger.info(f"TTS pregen done: ok={stats['success']} skip={stats['skipped']} fail={stats['failed']}")
     return stats

@@ -12,11 +12,9 @@
   },
 
   "mysqlConfig": {
-    "host": "10.37.107.121",
+    "host": "MYSQL_HOST (从环境变量获取)",
     "port": 3306,
     "database": "techecho",
-    "username": "root",
-    "password": "adminlbW===",
     "version": "8.0",
     "autoPause": true,
     "coldStartRetry": true
@@ -133,7 +131,8 @@
         "触发 /api/news/collect 测试",
         "验证数据保存到 MySQL",
         "重启容器后验证数据未丢失"
-      ]
+      ],
+      "note": "需要微信云托管 MySQL 环境才能完整测试，代码实现已完成"
     }
   ],
 

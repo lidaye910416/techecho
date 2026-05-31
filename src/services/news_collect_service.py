@@ -155,7 +155,7 @@ async def collect_news_async(
         
         # 5. 保存到数据库
         print("\n[4/5] 保存到数据库...")
-        db_count = save_news_to_db(calibrated_news)
+        db_count = await save_news_to_db(calibrated_news)
         result.saved_count = db_count
         print(f"   已存入数据库: {db_count} 条")
         

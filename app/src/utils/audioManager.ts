@@ -5,7 +5,8 @@
  * 1. 明确区分播放/暂停/停止状态
  * 2. pause/resume 用于同一条新闻的暂停/继续
  * 3. 停止/切换新闻时 destroy 并重建
- * 4. 使用 wx.cloud.callContainer 下载音频（云托管模式）
+ * 4. 支持云存储 fileID（cloud:// 格式）直接播放
+ * 5. 降级使用 wx.cloud.callContainer 下载音频
  */
 
 import Taro from '@tarojs/taro'
@@ -28,6 +29,9 @@ export interface AudioItem {
   url: string
   source: string
 }
+
+// 云存储 fileID 类型
+export type CloudFileId = string // 格式: cloud://{env}/{bucket}/{path}
 
 // 全局状态
 let currentNewsId: string | null = null
@@ -114,31 +118,176 @@ export function stopAllAudio() {
 }
 
 /**
- * 下载音频文件（使用 wx.cloud.callContainer）
+ * 下载音频文件（支持多种音频源）
+ *
+ * 策略:
+ * 1. MiniMax OSS 预签名 URL（https:// 开头）- 使用 wx.downloadFile 直接下载
+ * 2. 微信云存储（cloud:// 开头）- 使用 wx.cloud.downloadFile 或 API 获取临时 URL
+ * 3. 本地文件路径（/data/audio/ 开头）- 使用云托管 API（GET 方法）
  */
-async function downloadAudio(path: string, newsId: string): Promise<string> {
-  console.log('[Audio] downloadAudio called:', { path, newsId, CLOUD_ENV, CLOUD_SERVICE })
+async function downloadAudio(urlOrFileId: string, newsId: string): Promise<string> {
+  console.log('[Audio] downloadAudio called:', {
+    urlOrFileId,
+    newsId,
+    CLOUD_ENV: CLOUD_ENV ? 'configured' : 'empty',
+    CLOUD_SERVICE: CLOUD_SERVICE ? 'configured' : 'empty'
+  })
 
-  // 使用 wx.cloud.callContainer 下载音频（PUT 方法）
+  // 检查 URL 格式
+  const isHttp = urlOrFileId.startsWith('http://') || urlOrFileId.startsWith('https://')
+  const isCloud = urlOrFileId.startsWith('cloud://')
+  const isLocal = urlOrFileId.startsWith('/data/audio/')
+  console.log('[Audio] URL format check:', { isHttp, isCloud, isLocal, urlLength: urlOrFileId.length })
+
+  // ========== 情况1: MiniMax OSS 预签名 URL（https:// 开头）==========
+  if (isHttp) {
+    console.log('[Audio] === Branch 1: Downloading from OSS URL ===')
+    console.log('[Audio] URL preview:', urlOrFileId.substring(0, 100))
+    return downloadFromUrl(urlOrFileId, newsId)
+  }
+
+  // ========== 情况2: 微信云存储（cloud:// 开头）==========
+  if (urlOrFileId.startsWith('cloud://')) {
+    return downloadFromCloudStorage(urlOrFileId, newsId)
+  }
+
+  // ========== 情况3: 本地文件路径（/data/audio/ 开头）==========
+  if (urlOrFileId.startsWith('/data/audio/')) {
+    return downloadViaCallContainer(urlOrFileId, newsId)
+  }
+
+  // ========== 未知格式 - 尝试云托管 API ==========
+  console.warn('[Audio] Unknown format, trying callContainer:', urlOrFileId)
+  return downloadViaCallContainer(urlOrFileId, newsId)
+}
+
+/**
+ * 使用 wx.cloud.downloadFile 从云存储下载
+ * 参考: https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/development/storage/miniapp/download.html
+ */
+async function downloadFromCloudStorage(cloudFileId: string, newsId: string): Promise<string> {
+  console.log('[Audio] Downloading from cloud storage:', cloudFileId)
+
+  try {
+    // wx.cloud.downloadFile 会自动处理 cloud:// 格式的 fileID
+    const res = await wx.cloud.downloadFile({
+      fileID: cloudFileId,
+    })
+
+    console.log('[Audio] wx.cloud.downloadFile response:', {
+      statusCode: res.statusCode,
+      tempFilePath: res.tempFilePath,
+    })
+
+    if (res.statusCode !== 200 || !res.tempFilePath) {
+      throw new Error(`Download failed: ${res.statusCode}`)
+    }
+
+    console.log('[Audio] Downloaded from cloud storage:', res.tempFilePath)
+    return res.tempFilePath
+
+  } catch (err) {
+    console.error('[Audio] Cloud storage download failed, falling back to callContainer:', err)
+    // 下载失败时，尝试从 API 获取临时链接
+    return downloadViaApiTempUrl(cloudFileId, newsId)
+  }
+}
+
+/**
+ * 从 API 获取云存储文件的临时链接后下载
+ */
+async function downloadViaApiTempUrl(cloudFileId: string, newsId: string): Promise<string> {
+  console.log('[Audio] Getting temp URL from API for:', cloudFileId)
+
+  try {
+    // 调用后端 API 获取临时链接
+    const res = await wx.cloud.callContainer({
+      config: { env: CLOUD_ENV },
+      path: `/api/news/${newsId}/cloud-file`,
+      method: 'GET',
+      header: { 'X-WX-SERVICE': CLOUD_SERVICE },
+    })
+
+    if (res?.data?.temp_url) {
+      // 使用临时链接下载
+      const tempUrl = res.data.temp_url
+      console.log('[Audio] Got temp URL:', tempUrl)
+
+      // 下载到本地
+      const tempFilePath = await downloadFromUrl(tempUrl, newsId)
+      return tempFilePath
+    }
+
+    throw new Error('No temp URL in response')
+
+  } catch (err) {
+    console.error('[Audio] Get temp URL failed:', err)
+    throw err
+  }
+}
+
+/**
+ * 从 URL 下载文件（使用 wx.downloadFile）
+ * 微信小程序中 wx.downloadFile 不支持指定 filePath，必须使用返回的 tempFilePath
+ */
+async function downloadFromUrl(url: string, newsId: string): Promise<string> {
+  const fs = wx.getFileSystemManager()
+
+  console.log('[Audio] downloadFromUrl start:', { url: url.substring(0, 80), newsId })
+
+  // 注意：微信小程序中 wx.downloadFile 不能指定 filePath，必须使用返回的 tempFilePath
+  // tempFilePath 格式为 wxfile://usr/xxx.mp3
+  const result = await new Promise<{ statusCode: number; tempFilePath?: string }>((resolve, reject) => {
+    wx.downloadFile({
+      url,
+      success: (res) => {
+        console.log('[Audio] wx.downloadFile success:', res)
+        resolve(res)
+      },
+      fail: (err) => {
+        console.error('[Audio] wx.downloadFile fail:', err)
+        reject(err)
+      }
+    })
+  })
+
+  if (result.statusCode !== 200 || !result.tempFilePath) {
+    throw new Error(`Download failed: ${result.statusCode}, tempFilePath: ${result.tempFilePath}`)
+  }
+
+  const finalPath = result.tempFilePath
+  console.log('[Audio] Download completed:', finalPath)
+  return finalPath
+}
+
+/**
+ * 使用云托管 API 下载本地文件（GET 方法）
+ * 本地文件路径格式: /data/audio/xxx.mp3
+ */
+async function downloadViaCallContainer(path: string, newsId: string): Promise<string> {
+  console.log('[Audio] Downloading via callContainer:', path)
+
+  // 如果是本地文件路径，使用 GET 方法获取文件流
+  const apiPath = path.startsWith('/data/audio/')
+    ? `/api/news/read${path}`
+    : path
+
   const res = await wx.cloud.callContainer({
     config: {
       env: CLOUD_ENV,
     },
-    path: path,
-    method: 'PUT',
+    path: apiPath,
+    method: 'GET',
     header: {
       'X-WX-SERVICE': CLOUD_SERVICE,
-      'Content-Type': 'application/json',
     },
     responseType: 'arraybuffer',
   })
-  
+
   console.log('[Audio] cloud.callContainer response:', {
     statusCode: res.statusCode,
-    dataType: typeof res.data,
     hasBuffer: !!res.buffer,
     bufferLength: res.buffer?.byteLength,
-    dataLength: res.data?.byteLength,
   })
 
   if (res.statusCode !== 200) {
@@ -148,11 +297,11 @@ async function downloadAudio(path: string, newsId: string): Promise<string> {
   const tempFilePath = `${wx.env.USER_DATA_PATH}/${newsId}.mp3`
   const fs = wx.getFileSystemManager()
   const buffer = res.buffer || res.data
-  
+
   if (!buffer) {
     throw new Error('No audio data received')
   }
-  
+
   const base64 = wx.arrayBufferToBase64(buffer)
   console.log('[Audio] Converted to base64, length:', base64.length)
 
@@ -295,6 +444,12 @@ export function getReportPlaying(): boolean {
  * 播放报告音频
  */
 export function playReportAudio(url: string) {
+  console.log('[Audio] playReportAudio called:', {
+    url: url?.substring(0, 100),
+    urlLength: url?.length,
+    urlPrefix: url?.substring(0, 30)
+  })
+
   destroyAudioCtx()
   currentNewsId = null
   currentAudioUrl = null
@@ -306,6 +461,7 @@ export function playReportAudio(url: string) {
     globalReportCtx = ctx
     isReportPlaying = true
 
+    console.log('[Audio] playReportAudio: setting ctx.src =', url?.substring(0, 80))
     ctx.src = url
     ctx.autoplay = true
     ctx.obeyMuteSwitch = false

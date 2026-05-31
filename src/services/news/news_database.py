@@ -1,328 +1,425 @@
 """
-新闻数据库服务
+新闻数据库服务 - MySQL 版本
+
+使用 SQLAlchemy AsyncEngine + AsyncSession 实现异步 MySQL 访问。
 """
-import sqlite3
 import json
-import os
+import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
-# 配置中心
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
-from src.config.settings import DB_PATH
+from sqlalchemy import text, update
+from sqlalchemy.dialects.mysql import insert
 
-def get_db_connection():
-    """获取数据库连接"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+logger = logging.getLogger(__name__)
 
-def init_news_table():
-    """初始化新闻表"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS news_items (
-            id TEXT PRIMARY KEY,
-            title_zh VARCHAR(500),
-            title_en VARCHAR(500),
-            content_zh TEXT,
-            content_en TEXT,
-            source_zh VARCHAR(100),
-            source_en VARCHAR(100),
-            source_url VARCHAR(1000),
-            lang VARCHAR(10),
-            category VARCHAR(50),
-            published_at VARCHAR(50),
-            created_at VARCHAR(50),
-            quality_score FLOAT,
-            quality_grade VARCHAR(5),
-            quality_scores TEXT,
-            is_read BOOLEAN DEFAULT 0,
-            is_favorited BOOLEAN DEFAULT 0,
-            audio_url TEXT DEFAULT NULL
-        )
-    ''')
+# 导入数据库连接管理
+from src.services.db import get_db_session
+from src.services.models import News
 
-    # 兼容迁移：如果旧表没有 audio_url 列，自动添加
+
+async def init_news_table():
+    """初始化新闻表（MySQL 版本）"""
     try:
-        cursor.execute("ALTER TABLE news_items ADD COLUMN audio_url TEXT DEFAULT NULL")
-        conn.commit()
-    except Exception:
-        pass  # 列已存在，忽略
+        async with get_db_session(max_retries=5, retry_delay=2.0) as session:
+            # 创建表（如果不存在）
+            await session.execute(text("""
+                CREATE TABLE IF NOT EXISTS news_items (
+                    id VARCHAR(50) PRIMARY KEY,
+                    title_zh VARCHAR(500),
+                    title_en VARCHAR(500),
+                    content_zh TEXT,
+                    content_en TEXT,
+                    source_zh VARCHAR(100),
+                    source_en VARCHAR(100),
+                    source_url VARCHAR(1000),
+                    lang VARCHAR(10),
+                    category VARCHAR(50),
+                    published_at VARCHAR(50),
+                    created_at VARCHAR(50),
+                    quality_score FLOAT,
+                    quality_grade VARCHAR(5),
+                    quality_scores TEXT,
+                    is_read BOOLEAN DEFAULT FALSE,
+                    is_favorited BOOLEAN DEFAULT FALSE,
+                    audio_url TEXT,
+                    cloud_file_id VARCHAR(255),
+                    backup_audio_url TEXT,
+                    INDEX idx_lang (lang),
+                    INDEX idx_category (category),
+                    INDEX idx_published_at (published_at),
+                    INDEX idx_quality_score (quality_score)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """))
+            await session.commit()
+            logger.info("MySQL news_items table initialized")
+    except Exception as e:
+        # 不再 raise，避免阻止应用启动
+        logger.warning(f"[DB] Failed to init news table (non-fatal): {e}")
 
-    # 兼容迁移：如果旧表没有 cloud_file_id 列，自动添加
-    try:
-        cursor.execute("ALTER TABLE news_items ADD COLUMN cloud_file_id TEXT DEFAULT NULL")
-        conn.commit()
-    except Exception:
-        pass  # 列已存在，忽略
 
-    conn.commit()
-    conn.close()
-
-def save_news_to_db(news_list: List[Dict[str, Any]]) -> int:
-    """保存新闻列表到数据库"""
+async def save_news_to_db(news_list: List[Dict[str, Any]]) -> int:
+    """保存新闻列表到 MySQL 数据库"""
     if not news_list:
         return 0
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
+
     saved_count = 0
-    
-    for item in news_list:
-        quality = item.get('quality', {})
-        quality_scores = quality.get('scores', {})
-        
-        cursor.execute('''
-            INSERT OR REPLACE INTO news_items (
-                id, title_zh, title_en, content_zh, content_en,
-                source_zh, source_en, source_url, lang, category,
-                published_at, created_at, quality_score, quality_grade,
-                quality_scores
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            item.get('id'),
-            item.get('title_zh'),
-            item.get('title_en'),
-            item.get('content_zh'),
-            item.get('content_en'),
-            item.get('source_zh'),
-            item.get('source_en'),
-            item.get('source_url'),
-            item.get('lang'),
-            item.get('category'),
-            item.get('published_at'),
-            item.get('created_at'),
-            quality.get('total_100'),
-            quality.get('grade'),
-            json.dumps(quality_scores, ensure_ascii=False)
-        ))
-        saved_count += 1
-    
-    conn.commit()
-    conn.close()
+
+    async with get_db_session() as session:
+        for item in news_list:
+            quality = item.get('quality', {})
+            quality_scores = quality.get('scores', {})
+
+            # 使用 INSERT ... ON DUPLICATE KEY UPDATE 实现 upsert
+            stmt = insert(News).values(
+                id=item.get('id'),
+                title_zh=item.get('title_zh'),
+                title_en=item.get('title_en'),
+                content_zh=item.get('content_zh'),
+                content_en=item.get('content_en'),
+                source_zh=item.get('source_zh'),
+                source_en=item.get('source_en'),
+                source_url=item.get('source_url'),
+                lang=item.get('lang'),
+                category=item.get('category'),
+                published_at=item.get('published_at'),
+                created_at=item.get('created_at'),
+                quality_score=quality.get('total_100'),
+                quality_grade=quality.get('grade'),
+                quality_scores=json.dumps(quality_scores, ensure_ascii=False),
+            )
+            stmt = stmt.on_duplicate_key_update(
+                title_zh=stmt.inserted.title_zh,
+                title_en=stmt.inserted.title_en,
+                content_zh=stmt.inserted.content_zh,
+                content_en=stmt.inserted.content_en,
+                source_zh=stmt.inserted.source_zh,
+                source_en=stmt.inserted.source_en,
+                source_url=stmt.inserted.source_url,
+                lang=stmt.inserted.lang,
+                category=stmt.inserted.category,
+                published_at=stmt.inserted.published_at,
+                created_at=stmt.inserted.created_at,
+                quality_score=stmt.inserted.quality_score,
+                quality_grade=stmt.inserted.quality_grade,
+                quality_scores=stmt.inserted.quality_scores,
+            )
+            await session.execute(stmt)
+            saved_count += 1
+
+        await session.commit()
+
+    logger.info(f"Saved {saved_count} news items to MySQL")
     return saved_count
 
-def get_news_from_db(
+
+async def get_news_from_db(
     lang: Optional[str] = None,
     category: Optional[str] = None,
     date: Optional[str] = None,
     min_quality: Optional[int] = 0,
     limit: Optional[int] = None
 ) -> List[Dict[str, Any]]:
-    """从数据库获取新闻"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    query = "SELECT * FROM news_items WHERE 1=1"
-    params = []
-    
-    if lang:
-        query += " AND lang = ?"
-        params.append(lang)
-    
-    if category and category != 'all':
-        query += " AND category = ?"
-        params.append(category)
-    
-    if date:
-        query += " AND published_at LIKE ?"
-        params.append(f"{date}%")
-    
-    if min_quality:
-        query += " AND quality_score >= ?"
-        params.append(min_quality)
-    
-    query += " ORDER BY quality_score DESC"
-    
-    if limit:
-        query += f" LIMIT {limit}"
-    
-    cursor.execute(query, params)
-    rows = cursor.fetchall()
-    conn.close()
-    
-    news_list = []
-    for row in rows:
-        item = {
-            'id': row['id'],
-            'title_zh': row['title_zh'],
-            'title_en': row['title_en'],
-            'content_zh': row['content_zh'],
-            'content_en': row['content_en'],
-            'source_zh': row['source_zh'],
-            'source_en': row['source_en'],
-            'source_url': row['source_url'],
-            'lang': row['lang'],
-            'category': row['category'],
-            'published_at': row['published_at'],
-            'created_at': row['created_at'],
-            'quality': {
-                'total_100': row['quality_score'],
-                'grade': row['quality_grade'],
-                'scores': json.loads(row['quality_scores']) if row['quality_scores'] else {}
-            },
-            'is_read': bool(row['is_read']),
-            'is_favorited': bool(row['is_favorited']),
-            'audio_url': row['audio_url'] if 'audio_url' in row.keys() else None,
-            'cloud_file_id': row['cloud_file_id'] if 'cloud_file_id' in row.keys() else None
-        }
-        # 附加 audio 字段（前端兼容格式）
-        if item.get('audio_url'):
-            item['audio'] = {'voice3': item['audio_url']}
-        else:
-            item['audio'] = {}
-        news_list.append(item)
-    
-    return news_list
+    """从 MySQL 数据库获取新闻"""
+    async with get_db_session() as session:
+        query = "SELECT * FROM news_items WHERE 1=1"
+        params = []
 
-def get_news_stats() -> Dict[str, Any]:
+        if lang:
+            query += " AND lang = :lang"
+            params.append(('lang', lang))
+
+        if category and category != 'all':
+            query += " AND category = :category"
+            params.append(('category', category))
+
+        if date:
+            query += " AND published_at LIKE :date"
+            params.append(('date', f'{date}%'))
+
+        if min_quality:
+            query += " AND quality_score >= :min_quality"
+            params.append(('min_quality', min_quality))
+
+        query += " ORDER BY quality_score DESC"
+
+        if limit:
+            query += f" LIMIT {limit}"
+
+        # 构建参数字典
+        param_dict = {k: v for k, v in params}
+
+        result = await session.execute(text(query), param_dict)
+        rows = result.fetchall()
+
+        news_list = []
+        for row in rows:
+            # 将 Row 对象转换为字典
+            row_dict = dict(row._mapping)
+            item = {
+                'id': row_dict.get('id'),
+                'title_zh': row_dict.get('title_zh'),
+                'title_en': row_dict.get('title_en'),
+                'content_zh': row_dict.get('content_zh'),
+                'content_en': row_dict.get('content_en'),
+                'source_zh': row_dict.get('source_zh'),
+                'source_en': row_dict.get('source_en'),
+                'source_url': row_dict.get('source_url'),
+                'lang': row_dict.get('lang'),
+                'category': row_dict.get('category'),
+                'published_at': row_dict.get('published_at'),
+                'created_at': row_dict.get('created_at'),
+                'quality': {
+                    'total_100': row_dict.get('quality_score'),
+                    'grade': row_dict.get('quality_grade'),
+                    'scores': json.loads(row_dict.get('quality_scores') or '{}')
+                },
+                'is_read': bool(row_dict.get('is_read')),
+                'is_favorited': bool(row_dict.get('is_favorited')),
+                'audio_url': row_dict.get('audio_url'),
+                'cloud_file_id': row_dict.get('cloud_file_id'),
+                'backup_audio_url': row_dict.get('backup_audio_url'),
+            }
+            # 附加 audio 字段（前端兼容格式）
+            if item.get('audio_url'):
+                item['audio'] = {'voice3': item['audio_url']}
+            else:
+                item['audio'] = {}
+            news_list.append(item)
+
+        return news_list
+
+
+async def get_news_stats() -> Dict[str, Any]:
     """获取新闻统计"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT COUNT(*) as total FROM news_items")
-    total = cursor.fetchone()['total']
-    
-    cursor.execute("SELECT quality_grade, COUNT(*) as count FROM news_items GROUP BY quality_grade")
-    grade_stats = {row['quality_grade']: row['count'] for row in cursor.fetchall()}
-    
-    cursor.execute("SELECT DISTINCT category FROM news_items WHERE category IS NOT NULL")
-    categories = [row['category'] for row in cursor.fetchall()]
-    
-    cursor.execute("SELECT MAX(created_at) as last_update FROM news_items")
-    last_update = cursor.fetchone()['last_update']
-    
-    conn.close()
-    
-    return {
-        'totalCount': total,
-        'lastUpdate': last_update,
-        'stats': {
-            'A+': grade_stats.get('A+', 0),
-            'A': grade_stats.get('A', 0),
-            'B': grade_stats.get('B', 0),
-            'C': grade_stats.get('C', 0),
-            'D': grade_stats.get('D', 0)
-        },
-        'categories': categories
-    }
+    async with get_db_session() as session:
+        result = await session.execute(text("SELECT COUNT(*) as total FROM news_items"))
+        total = result.scalar() or 0
 
-def get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
-    """根据ID获取单条新闻"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM news_items WHERE id = ?", (news_id,))
-    row = cursor.fetchone()
-    conn.close()
-    
-    if not row:
-        return None
-    
-    audio_url = row['audio_url'] if 'audio_url' in row.keys() else None
-    return {
-        'id': row['id'],
-        'title_zh': row['title_zh'],
-        'title_en': row['title_en'],
-        'content_zh': row['content_zh'],
-        'content_en': row['content_en'],
-        'source_zh': row['source_zh'],
-        'source_en': row['source_en'],
-        'source_url': row['source_url'],
-        'lang': row['lang'],
-        'category': row['category'],
-        'published_at': row['published_at'],
-        'created_at': row['created_at'],
-        'quality': {
-            'total_100': row['quality_score'],
-            'grade': row['quality_grade'],
-            'scores': json.loads(row['quality_scores']) if row['quality_scores'] else {}
-        },
-        'is_read': bool(row['is_read']),
-        'is_favorited': bool(row['is_favorited']),
-        'audio_url': audio_url,
-        'audio': {'voice3': audio_url} if audio_url else {}
-    }
+        result = await session.execute(
+            text("SELECT quality_grade, COUNT(*) as count FROM news_items GROUP BY quality_grade")
+        )
+        grade_stats = {row[0]: row[1] for row in result.fetchall()}
 
-def mark_as_read(news_id: str) -> bool:
-    """标记新闻为已读"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE news_items SET is_read = 1 WHERE id = ?", (news_id,))
-    affected = cursor.rowcount
-    conn.commit()
-    conn.close()
-    return affected > 0
+        result = await session.execute(
+            text("SELECT DISTINCT category FROM news_items WHERE category IS NOT NULL")
+        )
+        categories = [row[0] for row in result.fetchall()]
 
+        result = await session.execute(
+            text("SELECT MAX(created_at) as last_update FROM news_items")
+        )
+        last_update = result.scalar()
 
-def save_news_audio(news_id: str, audio_url: str) -> bool:
-    """保存新闻的预生成 TTS 音频 URL"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE news_items SET audio_url = ? WHERE id = ?", (audio_url, news_id))
-    affected = cursor.rowcount
-    conn.commit()
-    conn.close()
-    return affected > 0
-
-
-def get_news_audio_url(news_id: str) -> Optional[str]:
-    """获取新闻的音频URL（本地路径）"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT audio_url FROM news_items WHERE id = ?", (news_id,))
-    row = cursor.fetchone()
-    conn.close()
-    return row['audio_url'] if row else None
-
-
-def get_news_cloud_file_id(news_id: str) -> Optional[str]:
-    """获取新闻的云存储 fileID"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT cloud_file_id FROM news_items WHERE id = ?", (news_id,))
-    row = cursor.fetchone()
-    conn.close()
-    return row['cloud_file_id'] if row else None
-
-
-def save_news_cloud_file_id(news_id: str, cloud_file_id: str) -> bool:
-    """保存新闻的云存储 fileID"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE news_items SET cloud_file_id = ? WHERE id = ?", (cloud_file_id, news_id))
-    affected = cursor.rowcount
-    conn.commit()
-    conn.close()
-    return affected > 0
-
-
-def get_news_without_audio(limit: int = 50) -> List[Dict[str, Any]]:
-    """获取没有预生成音频的新闻（用于批量补生成）"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM news_items WHERE (audio_url IS NULL OR audio_url = '') ORDER BY quality_score DESC LIMIT ?",
-        (limit,)
-    )
-    rows = cursor.fetchall()
-    conn.close()
-
-    news_list = []
-    for row in rows:
-        item = {
-            'id': row['id'],
-            'title_zh': row['title_zh'],
-            'title_en': row['title_en'],
-            'content_zh': row['content_zh'],
-            'content_en': row['content_en'],
-            'lang': row['lang'],
+        return {
+            'totalCount': total,
+            'lastUpdate': last_update,
+            'stats': {
+                'A+': grade_stats.get('A+', 0),
+                'A': grade_stats.get('A', 0),
+                'B': grade_stats.get('B', 0),
+                'C': grade_stats.get('C', 0),
+                'D': grade_stats.get('D', 0)
+            },
+            'categories': categories
         }
-        news_list.append(item)
-    return news_list
 
-# 初始化表
-init_news_table()
+
+async def get_news_by_id(news_id: str) -> Optional[Dict[str, Any]]:
+    """根据ID获取单条新闻"""
+    logger.info(f"[DB] get_news_by_id called: {news_id}")
+    async with get_db_session() as session:
+        result = await session.execute(
+            text("SELECT * FROM news_items WHERE id = :news_id"),
+            {'news_id': news_id}
+        )
+        row = result.fetchone()
+
+        if not row:
+            logger.warning(f"[DB] News not found: {news_id}")
+            return None
+
+        row_dict = dict(row._mapping)
+        logger.info(f"[DB] row_dict keys: {list(row_dict.keys())}")
+        logger.info(f"[DB] audio_url from row: {row_dict.get('audio_url')}")
+
+        audio_url = row_dict.get('audio_url')
+        logger.info(f"[DB] audio_url variable: {audio_url}")
+
+        return {
+            'id': row_dict.get('id'),
+            'title_zh': row_dict.get('title_zh'),
+            'title_en': row_dict.get('title_en'),
+            'content_zh': row_dict.get('content_zh'),
+            'content_en': row_dict.get('content_en'),
+            'source_zh': row_dict.get('source_zh'),
+            'source_en': row_dict.get('source_en'),
+            'source_url': row_dict.get('source_url'),
+            'lang': row_dict.get('lang'),
+            'category': row_dict.get('category'),
+            'published_at': row_dict.get('published_at'),
+            'created_at': row_dict.get('created_at'),
+            'quality': {
+                'total_100': row_dict.get('quality_score'),
+                'grade': row_dict.get('quality_grade'),
+                'scores': json.loads(row_dict.get('quality_scores') or '{}')
+            },
+            'is_read': bool(row_dict.get('is_read')),
+            'is_favorited': bool(row_dict.get('is_favorited')),
+            'audio_url': audio_url,
+            'cloud_file_id': row_dict.get('cloud_file_id'),
+            'backup_audio_url': row_dict.get('backup_audio_url'),
+            'audio': {'voice3': audio_url} if audio_url else {}
+        }
+
+
+async def mark_as_read(news_id: str) -> bool:
+    """标记新闻为已读"""
+    async with get_db_session() as session:
+        result = await session.execute(
+            text("UPDATE news_items SET is_read = TRUE WHERE id = :news_id"),
+            {'news_id': news_id}
+        )
+        await session.commit()
+        return result.rowcount > 0
+
+
+async def save_news_audio(news_id: str, audio_url: str) -> bool:
+    """保存新闻的预生成 TTS 音频 URL"""
+    async with get_db_session() as session:
+        result = await session.execute(
+            text("UPDATE news_items SET audio_url = :audio_url WHERE id = :news_id"),
+            {'audio_url': audio_url, 'news_id': news_id}
+        )
+        await session.commit()
+        return result.rowcount > 0
+
+
+async def get_news_audio_url(news_id: str) -> Optional[str]:
+    """获取新闻的音频URL"""
+    async with get_db_session() as session:
+        result = await session.execute(
+            text("SELECT audio_url FROM news_items WHERE id = :news_id"),
+            {'news_id': news_id}
+        )
+        row = result.fetchone()
+        return row[0] if row else None
+
+
+async def get_news_cloud_file_id(news_id: str) -> Optional[str]:
+    """获取新闻的云存储 fileID"""
+    async with get_db_session() as session:
+        result = await session.execute(
+            text("SELECT cloud_file_id FROM news_items WHERE id = :news_id"),
+            {'news_id': news_id}
+        )
+        row = result.fetchone()
+        return row[0] if row else None
+
+
+async def save_news_cloud_file_id(news_id: str, cloud_file_id: str) -> bool:
+    """保存新闻的云存储 fileID"""
+    async with get_db_session() as session:
+        result = await session.execute(
+            text("UPDATE news_items SET cloud_file_id = :cloud_file_id WHERE id = :news_id"),
+            {'cloud_file_id': cloud_file_id, 'news_id': news_id}
+        )
+        await session.commit()
+        return result.rowcount > 0
+
+
+async def save_news_audio_urls(
+    news_id: str,
+    audio_url: str,
+    backup_audio_url: str,
+    cloud_file_id: str = None
+) -> bool:
+    """
+    保存新闻的音频 URL（云存储 + 备份）
+
+    Args:
+        news_id: 新闻ID
+        audio_url: 主音频 URL（云存储或 MiniMax OSS）
+        backup_audio_url: MiniMax OSS 备份 URL
+        cloud_file_id: 微信云存储 fileID（可选）
+    """
+    logger.info(f"[AudioURL] Saving audio URLs for {news_id[:24]}...")
+    logger.info(f"[AudioURL]   audio_url: {audio_url[:60] if audio_url else 'None'}...")
+    logger.info(f"[AudioURL]   backup_audio_url: {backup_audio_url[:60] if backup_audio_url else 'None'}...")
+    logger.info(f"[AudioURL]   cloud_file_id: {cloud_file_id}")
+
+    try:
+        async with get_db_session() as session:
+            result = await session.execute(
+                text("""
+                    UPDATE news_items
+                    SET audio_url = :audio_url,
+                        cloud_file_id = :cloud_file_id,
+                        backup_audio_url = :backup_audio_url
+                    WHERE id = :news_id
+                """),
+                {
+                    'audio_url': audio_url,
+                    'backup_audio_url': backup_audio_url,
+                    'news_id': news_id,
+                    'cloud_file_id': cloud_file_id
+                }
+            )
+            await session.commit()
+
+            logger.info(f"[AudioURL] Updated {result.rowcount} row(s)")
+            if result.rowcount == 0:
+                logger.error(f"[AudioURL] No rows updated! News ID not found: {news_id}")
+            return result.rowcount > 0
+    except Exception as e:
+        logger.error(f"[AudioURL] Failed to save audio URLs: {e}")
+        return False
+
+
+async def get_backup_audio_url(news_id: str) -> Optional[str]:
+    """获取新闻的 MiniMax OSS 备份 URL"""
+    async with get_db_session() as session:
+        result = await session.execute(
+            text("SELECT backup_audio_url FROM news_items WHERE id = :news_id"),
+            {'news_id': news_id}
+        )
+        row = result.fetchone()
+        return row[0] if row else None
+
+
+async def get_news_without_audio(limit: int = 50) -> List[Dict[str, Any]]:
+    """获取没有预生成音频的新闻（用于批量补生成）"""
+    async with get_db_session() as session:
+        result = await session.execute(
+            text("""
+                SELECT id, title_zh, title_en, content_zh, content_en, lang
+                FROM news_items
+                WHERE audio_url IS NULL OR audio_url = ''
+                ORDER BY quality_score DESC
+                LIMIT :limit
+            """),
+            {'limit': limit}
+        )
+        rows = result.fetchall()
+
+        news_list = []
+        for row in rows:
+            row_dict = dict(row._mapping)
+            item = {
+                'id': row_dict.get('id'),
+                'title_zh': row_dict.get('title_zh'),
+                'title_en': row_dict.get('title_en'),
+                'content_zh': row_dict.get('content_zh'),
+                'content_en': row_dict.get('content_en'),
+                'lang': row_dict.get('lang'),
+            }
+            news_list.append(item)
+        return news_list
+
+
+# 延迟初始化，避免启动时连接失败
+# 实际初始化在应用启动时通过 app.py 调用
+def get_init_task():
+    """获取异步初始化任务"""
+    import asyncio
+    return asyncio.create_task(init_news_table())

@@ -11,14 +11,17 @@ TechEcho Pro - 新闻 API 端点
 - GET /api/news/collect/status - 查询收集任务状态
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Body
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 import sys
 import os
+import logging
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+logger = logging.getLogger(__name__)
 
 from src.services.news import (
     get_news_from_db,
@@ -50,7 +53,7 @@ async def get_news_list(
     特殊逻辑: 如果请求今天但没有今天的新闻，自动返回昨天的新闻
     (因为新闻通常在当天上午收集，但内容是昨天的)
     """
-    news = get_news_from_db(
+    news = await get_news_from_db(
         lang=lang,
         category=category,
         date=date,
@@ -63,7 +66,7 @@ async def get_news_list(
 
     # 如果请求今天但没有今天的新闻，返回昨天的
     if date == today and not news:
-        news = get_news_from_db(
+        news = await get_news_from_db(
             lang=lang,
             category=category,
             date=yesterday,
@@ -80,8 +83,8 @@ async def get_news_list(
 @router.get("/dates")
 async def get_available_dates():
     """获取有新闻的日期列表"""
-    stats = get_news_stats()
-    news = get_news_from_db(limit=1000)
+    stats = await get_news_stats()
+    news = await get_news_from_db(limit=1000)
 
     dates = set()
     today = datetime.now().strftime('%Y-%m-%d')
@@ -106,7 +109,7 @@ async def get_available_dates():
 @router.get("/stats")
 async def get_stats():
     """获取新闻统计"""
-    stats = get_news_stats()
+    stats = await get_news_stats()
     return {
         'success': True,
         'data': {
@@ -127,7 +130,7 @@ async def get_categories():
         'product': {'name': '产品', 'emoji': '💡'}
     }
 
-    stats = get_news_stats()
+    stats = await get_news_stats()
     result = []
     for cat in stats.get('categories', []):
         info = CATEGORY_MAP.get(cat, {'name': cat, 'emoji': '📰'})
@@ -145,7 +148,7 @@ async def get_categories():
 @router.get("/{news_id}")
 async def get_news_detail(news_id: str):
     """获取新闻详情"""
-    item = get_news_by_id(news_id)
+    item = await get_news_by_id(news_id)
 
     if not item:
         raise HTTPException(status_code=404, detail="News not found")
@@ -249,25 +252,64 @@ async def get_collect_status(task_id: Optional[str] = Query(None, description="�
 @router.put("/{news_id}/read")
 async def read_news_aloud(news_id: str):
     """
-    朗读新闻 - 返回音频流
-    前端直接用 ctx.src = "/api/news/{id}/read" 播放
+    朗读新闻 - 返回音频 URL
+
+    优先级：
+    1. 微信云存储 cloud_file_id → 获取临时下载 URL
+    2. MiniMax OSS URL (backup_audio_url) → 直接返回
+    3. 容器内本地文件 → 返回文件流
     """
-    from pathlib import Path
-    from src.services.news import get_news_audio_url
+    from src.services.news import get_news_cloud_file_id, get_backup_audio_url, get_news_audio_url
+    from src.services.wechat_token import get_access_token
+    import httpx
 
-    # 获取预存的音频路径
-    audio_url = get_news_audio_url(news_id)
-    if not audio_url:
-        return {'success': False, 'message': 'No audio available'}
+    # 1. 尝试从云存储获取临时 URL
+    cloud_file_id = await get_news_cloud_file_id(news_id)
+    if cloud_file_id and cloud_file_id.startswith('cloud://'):
+        access_token = await get_access_token()
+        if access_token:
+            try:
+                # 从 fileID 提取路径
+                env = cloud_file_id.split('://')[1].split('/')[0]
+                path = cloud_file_id.replace(f'cloud://{env}/', '')
 
-    # 解析音频文件路径 - 使用项目根目录作为基准
-    if audio_url.startswith('/data/audio/'):
-        # 获取项目根目录 (src/api/../.. = 项目根目录)
+                # 调用微信云存储 API 获取临时 URL
+                url = f"https://api.weixin.qq.com/tcb/batchdownloadfile?access_token={access_token}"
+                data = {
+                    "env": env,
+                    "file_list": [{"fileid": cloud_file_id, "max_age": 3600}]
+                }
+
+                async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+                    response = await client.post(url, json=data)
+                    result = response.json()
+
+                if result.get("errcode") == 0 and result.get("file_list"):
+                    file_info = result["file_list"][0]
+                    if file_info.get("status") == 0:
+                        temp_url = file_info.get("download_url")
+                        logger.info(f"[Read] Cloud URL for {news_id[:24]}: {temp_url[:60]}...")
+                        return {"success": True, "audio_url": temp_url, "source": "cloud"}
+
+            except Exception as e:
+                logger.warning(f"[Read] Cloud storage error: {e}")
+
+    # 2. Fallback: 使用 MiniMax OSS URL
+    backup_url = await get_backup_audio_url(news_id)
+    if backup_url:
+        logger.info(f"[Read] Using backup URL for {news_id[:24]}")
+        return {"success": True, "audio_url": backup_url, "source": "backup"}
+
+    # 3. Fallback: 容器内本地文件
+    audio_url = await get_news_audio_url(news_id)
+    if audio_url and audio_url.startswith('/data/audio/'):
+        from pathlib import Path
         project_root = Path(__file__).parent.parent.parent
         audio_file = project_root / audio_url.lstrip('/')
 
         if audio_file.exists():
             from fastapi.responses import StreamingResponse
+            logger.info(f"[Read] Using local file for {news_id[:24]}")
             return StreamingResponse(
                 open(audio_file, 'rb'),
                 media_type="audio/mpeg",
@@ -277,7 +319,7 @@ async def read_news_aloud(news_id: str):
                 }
             )
 
-    return {'success': False, 'message': 'Audio file not found'}
+    return {"success": False, "message": "No audio available"}
 
 
 # ============ 云存储音频接口 ============
@@ -290,7 +332,7 @@ async def update_cloud_file_id(news_id: str, cloud_file_id: str = Query(..., des
     """
     from src.services.news import save_news_cloud_file_id
 
-    success = save_news_cloud_file_id(news_id, cloud_file_id)
+    success = await save_news_cloud_file_id(news_id, cloud_file_id)
     if success:
         return {'success': True, 'message': 'Cloud file ID updated', 'news_id': news_id, 'cloud_file_id': cloud_file_id}
     else:
@@ -307,3 +349,712 @@ async def get_cloud_file_id(news_id: str):
         return {'success': True, 'news_id': news_id, 'cloud_file_id': cloud_file_id}
     else:
         return {'success': False, 'message': 'No cloud file ID'}
+
+
+# ============ 微信云存储测试接口（使用官方 COS-SDK 方式）============
+
+@router.get("/debug/wechat-storage")
+async def test_wechat_storage(
+    test_content: str = Query(None, description="测试内容，不传则测试上传音频"),
+    news_id: str = Query(None, description="新闻ID"),
+):
+    """
+    测试微信云存储上传 - 使用官方 COS-SDK 方式
+
+    根据微信官方文档：
+    1. 使用 /_/cos/getauth 获取临时秘钥
+    2. 使用临时秘钥初始化 COS-SDK
+    3. 上传时需要添加 x-cos-meta-fileid 元数据
+    """
+    import requests
+    import hashlib
+    import hmac
+    import time
+    import base64
+    import urllib.parse
+    from src.services.wechat_token import get_access_token
+    from src.config.settings import WECHAT_CLOUD_ENV
+
+    result = {
+        "env": WECHAT_CLOUD_ENV,
+        "test_id": f"test_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+    }
+
+    # 获取 access_token
+    access_token = await get_access_token()
+    if not access_token:
+        return {"error": "Cannot get access_token"}
+
+    result["access_token"] = access_token[:20] + "..."
+
+    # 准备测试文件
+    if test_content:
+        test_data = test_content.encode('utf-8')
+        file_name = "test.txt"
+        content_type = "text/plain"
+    elif news_id:
+        news = await get_news_by_id(news_id)
+        if not news:
+            return {"error": "News not found"}
+
+        audio_url = news.get("audio_url") or news.get("backup_audio_url")
+        if not audio_url or audio_url.startswith("cloud://"):
+            return {"error": "No audio URL available"}
+
+        try:
+            resp = requests.get(audio_url, timeout=30, verify=False)
+            test_data = resp.content
+            file_name = f"test_{news_id[:8]}.mp3"
+            content_type = "audio/mpeg"
+            result["audio_size"] = len(test_data)
+        except Exception as e:
+            return {"error": f"Failed to download audio: {e}"}
+    else:
+        test_data = b"Hello from TechEcho! " + datetime.now().isoformat().encode()
+        file_name = "test.txt"
+        content_type = "text/plain"
+
+    result["file_name"] = file_name
+    result["file_size"] = len(test_data)
+
+    cloud_path = f"test/{result['test_id']}/{file_name}"
+    result["cloud_path"] = cloud_path
+
+    # 步骤1：获取临时秘钥（官方推荐方式）
+    try:
+        auth_url = f"https://api.weixin.qq.com/_/cos/getauth?access_token={access_token}"
+        auth_resp = requests.get(auth_url, timeout=30, verify=False)
+        auth_data = auth_resp.json()
+        result["auth_response"] = {
+            "TmpSecretId": auth_data.get("TmpSecretId", "")[:20] + "..." if auth_data.get("TmpSecretId") else None,
+            "TmpSecretKey": auth_data.get("TmpSecretKey", "")[:20] + "..." if auth_data.get("TmpSecretKey") else None,
+            "Token": auth_data.get("Token", "")[:30] + "..." if auth_data.get("Token") else None,
+            "ExpiredTime": auth_data.get("ExpiredTime"),
+        }
+
+        # /_/cos/getauth 不返回 errcode，直接返回凭证
+        tmp_secret_id = auth_data.get("TmpSecretId", "")
+        tmp_secret_key = auth_data.get("TmpSecretKey", "")
+        session_token = auth_data.get("Token", "")
+        expired_time = auth_data.get("ExpiredTime")
+
+        if not tmp_secret_id or not tmp_secret_key:
+            result["has_temp_credentials"] = False
+            return {"error": "No temp credentials in response", "auth_data": auth_data}
+
+        result["has_temp_credentials"] = True
+
+    except Exception as e:
+        return {"error": f"Failed to get auth: {e}"}
+
+    # 步骤2：尝试使用腾讯云 COS Python SDK
+    upload_tests = {}
+
+    try:
+        # 尝试安装 qcloud-python-sdk
+        import subprocess
+        result_install = subprocess.run(
+            ["pip", "install", "-q", "cos-python-sdk-v5"],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        result["sdk_install"] = "cos-python-sdk-v5 installed" if result_install.returncode == 0 else f"failed: {result_install.stderr}"
+    except Exception as e:
+        result["sdk_install"] = f"error: {e}"
+
+    # 尝试使用 SDK
+    try:
+        from qcloud_cos import CosConfig, CosS3Client
+
+        # COS 配置
+        bucket = "7072-prod-d9g7e5osy7b5e7a9c-1433977056"
+        region = "ap-shanghai"
+
+        # 使用临时秘钥配置
+        config = CosConfig(
+            Region=region,
+            SecretId=tmp_secret_id,
+            SecretKey=tmp_secret_key,
+            Token=session_token,
+        )
+        client = CosS3Client(config)
+
+        # 上传文件
+        response = client.put_object(
+            Bucket=bucket,
+            Body=test_data,
+            Key=cloud_path,
+            ContentType=content_type,
+            EnableMD5=False
+        )
+        upload_tests["cos_sdk"] = {
+            "success": True,
+            "response": response,
+        }
+    except ImportError:
+        result["sdk_error"] = "SDK not available, using manual signature"
+        upload_tests["sdk_note"] = "Please install cos-python-sdk-v5"
+
+        # 方式：使用临时秘钥 + COS 签名
+        bucket = "7072-prod-d9g7e5osy7b5e7a9c-1433977056"
+        region = "ap-shanghai"
+        file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+
+        # 使用腾讯云 COS 临时秘钥签名算法
+        def generate_temp_key_sign(secret_id, secret_key, token, bucket, region, path):
+            """生成腾讯云 COS 临时秘钥签名"""
+            start_time = int(time.time())
+            end_time = start_time + 3600
+
+            # 构造签名串
+            # 多次签名：sign=[签名方法]\n
+            #              [请求方法]\n
+            #              [请求路径]\n
+            #              [请求参数]\n
+            #              [签名时间]\n
+            #              [签名过期时间]\n
+
+            http_method = "PUT"
+            http_uri = f"/{path}"
+            http_params = ""
+            http_headers = f"x-cos-security-token:{token}\n"
+
+            sign_time = f"{start_time};{end_time}"
+            sign_index = sign_time
+
+            # 组合签名字符串
+            signed_str = f"q-sign-algorithm=sha1\n" \
+                        f"q-ak={secret_id}\n" \
+                        f"q-sign-time={sign_time}\n" \
+                        f"q-key-time={sign_time}\n" \
+                        f"q-header-list=\n" \
+                        f"q-url-param-list=\n" \
+                        f"{http_method}\n" \
+                        f"{http_uri}\n" \
+                        f"{http_params}\n"
+
+            # 使用 secret_key 签名
+            signature = hmac.new(
+                secret_key.encode(),
+                signed_str.encode(),
+                hashlib.sha1
+            ).hexdigest()
+
+            authorization = f"q-sign-algorithm=sha1" \
+                          f";q-ak={secret_id}" \
+                          f";q-sign-time={sign_time}" \
+                          f";q-key-time={sign_time}" \
+                          f";q-header-list=" \
+                          f";q-url-param-list=" \
+                          f";q-signature={signature}"
+
+            return authorization
+
+        # 生成签名
+        auth_header = generate_temp_key_sign(tmp_secret_id, tmp_secret_key, session_token, bucket, region, cloud_path)
+
+        # 上传到 COS
+        cos_url = f"https://{bucket}.cos.{region}.myqcloud.com/{cloud_path}"
+        headers = {
+            "Content-Type": content_type,
+            "x-cos-security-token": session_token,
+            "Authorization": auth_header,
+        }
+
+        resp = requests.put(cos_url, data=test_data, headers=headers, timeout=60, verify=False)
+        upload_tests["cos_manual_sign"] = {
+            "status": resp.status_code,
+            "success": resp.status_code in [200, 201],
+            "response": resp.text[:500] if resp.text else None,
+        }
+
+    except Exception as e:
+        result["sdk_exception"] = str(e)
+        upload_tests["error"] = str(e)
+
+    result["upload_tests"] = upload_tests
+
+    success_methods = [k for k, v in upload_tests.items() if v.get("success")]
+    result["success"] = len(success_methods) > 0
+    result["success_methods"] = success_methods
+
+    return result
+
+
+# ============ 调试接口 ============
+
+@router.get("/debug/upload-test")
+async def debug_upload_test(
+    news_id: str = Query(..., description="新闻ID"),
+):
+    """
+    调试：测试微信云存储上传
+    """
+    from src.services.news import get_news_by_id
+    from src.services.wechat_token import get_access_token
+    import requests
+    import tempfile
+    from pathlib import Path
+
+    result = {"news_id": news_id}
+
+    # 获取新闻
+    news = await get_news_by_id(news_id)
+    if not news:
+        return {"error": "News not found"}
+
+    # 获取音频 URL
+    audio_url = news.get("audio_url")
+    if not audio_url or audio_url.startswith("cloud://"):
+        return {"error": "No audio URL available"}
+
+    result["audio_url"] = audio_url[:60] + "..."
+
+    # 获取 access_token
+    access_token = await get_access_token()
+    if not access_token:
+        return {"error": "No access_token"}
+
+    # 下载音频文件
+    try:
+        resp = requests.get(audio_url, timeout=60, verify=False)
+        audio_content = resp.content
+        result["download_size"] = len(audio_content)
+    except Exception as e:
+        return {"error": f"Download failed: {e}"}
+
+    # 获取上传 URL
+    cloud_path = f"audio/{news_id}.mp3"
+    upload_api_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
+    data = {
+        "env": "prod-d9g7e5osy7b5e7a9c",
+        "path": cloud_path,
+    }
+
+    resp = requests.post(upload_api_url, json=data, timeout=30, verify=False)
+    api_result = resp.json()
+    result["api_response"] = {
+        "errcode": api_result.get("errcode"),
+        "has_url": bool(api_result.get("url")),
+        "has_token": bool(api_result.get("token")),
+        "has_authorization": bool(api_result.get("authorization")),
+    }
+
+    if api_result.get("errcode") != 0:
+        result["error"] = f"API error: {api_result}"
+        return result
+
+    cos_url = api_result.get("url")
+    token = api_result.get("token")
+    authorization = api_result.get("authorization")
+
+    result["cos_url"] = cos_url[:60] + "..."
+    result["token_prefix"] = token[:20] + "..." if token else None
+    result["auth_prefix"] = authorization[:50] + "..." if authorization else None
+
+    # 测试上传方式1：使用 Authorization header
+    headers1 = {
+        "Content-Type": "audio/mpeg",
+        "Authorization": authorization,
+        "x-cos-security-token": token,
+    }
+    resp1 = requests.put(cos_url, data=audio_content, headers=headers1, timeout=60, verify=False)
+    result["upload_auth_header"] = {"status": resp1.status_code, "response": resp1.text[:200]}
+
+    # 测试上传方式2：在 URL 中添加签名
+    # 解析 COS URL 并添加签名参数
+    import urllib.parse
+    parsed = urllib.parse.urlparse(cos_url)
+    signed_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{authorization}"
+    resp2 = requests.put(signed_url, data=audio_content, headers={"Content-Type": "audio/mpeg"}, timeout=60, verify=False)
+    result["upload_signed_url"] = {"status": resp2.status_code, "response": resp2.text[:200]}
+
+    # 测试上传方式3：普通 PUT
+    headers3 = {"Content-Type": "audio/mpeg"}
+    resp3 = requests.put(cos_url, data=audio_content, headers=headers3, timeout=60, verify=False)
+    result["upload_plain"] = {"status": resp3.status_code, "response": resp3.text[:200]}
+
+    return result
+
+
+@router.get("/debug/cloud-url")
+async def debug_cloud_url(
+    news_id: str = Query(..., description="新闻ID"),
+):
+    """
+    调试：测试获取云存储临时 URL
+    """
+    from src.services.news import get_news_cloud_file_id, get_news_by_id
+    from src.services.wechat_token import get_access_token
+    import httpx
+    import requests
+
+    result = {"news_id": news_id}
+
+    # 获取 cloud_file_id
+    news = await get_news_by_id(news_id)
+    if not news:
+        return {"error": "News not found"}
+
+    cloud_file_id = news.get("cloud_file_id")
+    result["cloud_file_id"] = cloud_file_id
+
+    if not cloud_file_id:
+        return {"error": "No cloud_file_id", "source": "news"}
+
+    # 提取 env
+    if cloud_file_id.startswith("cloud://"):
+        env = cloud_file_id.split("://")[1].split("/")[0]
+        path = cloud_file_id.replace(f"cloud://{env}/", "")
+    else:
+        return {"error": "Invalid cloud_file_id format"}
+
+    result["extracted_env"] = env
+    result["extracted_path"] = path
+
+    # 获取 access_token
+    access_token = await get_access_token()
+    if not access_token:
+        return {"error": "No access_token"}
+
+    result["access_token_prefix"] = access_token[:20] + "..."
+
+    # 调用微信 API 获取临时 URL
+    url = f"https://api.weixin.qq.com/tcb/batchdownloadfile?access_token={access_token}"
+    data = {
+        "env": env,
+        "file_list": [{"fileid": cloud_file_id, "max_age": 3600}]
+    }
+
+    result["api_url"] = url[:60] + "..."
+    result["api_data"] = data
+
+    try:
+        resp = requests.post(url, json=data, timeout=30, verify=False)
+        api_result = resp.json()
+        result["api_response"] = api_result
+
+        if api_result.get("errcode") == 0 and api_result.get("file_list"):
+            file_info = api_result["file_list"][0]
+            result["file_info"] = file_info
+            result["success"] = True
+        else:
+            result["success"] = False
+            result["error"] = api_result.get("errmsg")
+
+    except Exception as e:
+        result["exception"] = str(e)
+        result["success"] = False
+
+    return result
+
+
+# ============ TTS 测试接口 ============
+
+@router.get("/debug/tts-upload-test")
+async def test_tts_upload_only(
+    news_id: str = Query(None, description="新闻ID，不指定则取最新一条"),
+):
+    """
+    仅测试云存储上传功能
+
+    使用模拟音频数据测试上传流程
+    """
+    from src.services.wechat_token import get_access_token
+    from src.services.tts.tts_pregen import _upload_to_wechat_cloud
+    import tempfile
+    from pathlib import Path
+
+    result = {"steps": []}
+
+    # 1. 获取 access_token
+    access_token = await get_access_token()
+    if not access_token:
+        return {"error": "Cannot get access_token", "steps": ["get_access_token"]}
+
+    result["steps"].append("get_access_token: OK")
+    result["access_token"] = access_token[:20] + "..."
+
+    # 2. 创建测试音频文件
+    test_content = b"FAKE_AUDIO_DATA_FOR_TESTING_ONLY"
+    cloud_path = f"debug/test_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3"
+
+    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+        tmp.write(test_content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        # 3. 上传
+        result["steps"].append(f"upload_start: {cloud_path}")
+        cloud_file_id = await _upload_to_wechat_cloud(tmp_path, cloud_path, access_token)
+
+        if cloud_file_id:
+            result["steps"].append("upload: SUCCESS")
+            result["cloud_file_id"] = cloud_file_id
+            result["success"] = True
+        else:
+            result["steps"].append("upload: FAILED (returned None)")
+            result["success"] = False
+    finally:
+        try:
+            tmp_path.unlink()
+        except Exception:
+            pass
+
+    return result
+
+
+@router.post("/tts-test")
+async def test_tts_pipeline(
+    news_id: str = Query(None, description="新闻ID，不指定则取最新一条"),
+):
+    """
+    TTS 完整流程测试接口
+
+    测试并返回：
+    1. MiniMax TTS API 调用结果
+    2. 微信云存储上传结果
+    3. 数据库保存结果
+
+    直接调用此接口即可看到所有步骤的成功/失败状态，无需查看日志。
+    """
+    import httpx
+    from src.services.minimax_client import get_minimax_client
+    from src.services.news import get_news_by_id, save_news_audio_urls, get_news_cloud_file_id
+    from src.services.wechat_token import get_access_token
+    from src.config.settings import WECHAT_CLOUD_ENV
+    import tempfile
+    from pathlib import Path
+
+    result = {
+        "success": False,
+        "steps": {},
+        "final_status": {},
+    }
+
+    # 1. 获取测试用的新闻
+    if news_id:
+        news = await get_news_by_id(news_id)
+    else:
+        from src.services.news import get_news_from_db
+        news_list = await get_news_from_db(limit=1)
+        news = news_list[0] if news_list else None
+
+    if not news:
+        result["error"] = "No news found for testing"
+        return result
+
+    result["steps"]["1_fetch_news"] = {
+        "success": True,
+        "news_id": news.get("id", "")[:24],
+        "title": (news.get("title_zh") or news.get("title_en", ""))[:50],
+    }
+
+    # 2. 调用 MiniMax TTS API
+    try:
+        title = news.get('title_zh') or news.get('title_en', '')
+        content = news.get('content_zh') or news.get('content_en', '')
+        text = f"{title}。{content}"[:300]
+
+        client = get_minimax_client()
+        tts_result = await client.text_to_speech(
+            text=text,
+            voice_id="female-yujie",
+            speed=1.15
+        )
+
+        minimax_url = tts_result.get("data", {}).get("audio_url", "")
+        if minimax_url:
+            result["steps"]["2_minimax_tts"] = {
+                "success": True,
+                "audio_url": minimax_url[:80] + "..." if len(minimax_url) > 80 else minimax_url,
+            }
+        else:
+            result["steps"]["2_minimax_tts"] = {
+                "success": False,
+                "error": "Empty audio_url from MiniMax",
+                "raw_result": str(tts_result)[:200],
+            }
+            result["error"] = "MiniMax TTS failed"
+            return result
+
+    except Exception as e:
+        result["steps"]["2_minimax_tts"] = {
+            "success": False,
+            "error": str(e),
+        }
+        result["error"] = f"MiniMax TTS error: {e}"
+        return result
+
+    # 3. 下载音频到临时文件
+    try:
+        async with httpx.AsyncClient(timeout=60.0, verify=False) as http_client:
+            response = await http_client.get(minimax_url, timeout=60.0)
+            if response.status_code != 200:
+                raise Exception(f"Download failed: HTTP {response.status_code}")
+            audio_content = response.content
+
+        result["steps"]["3_download_audio"] = {
+            "success": True,
+            "size_bytes": len(audio_content),
+        }
+    except Exception as e:
+        result["steps"]["3_download_audio"] = {
+            "success": False,
+            "error": str(e),
+        }
+        result["error"] = f"Download error: {e}"
+        return result
+
+    # 4. 上传到微信云存储
+    from src.services.tts.tts_pregen import _upload_to_wechat_cloud
+
+    access_token = await get_access_token()
+    if not access_token:
+        result["steps"]["4_wechat_upload"] = {
+            "success": False,
+            "error": "Cannot get access_token",
+        }
+        result["final_status"] = {
+            "audio_url": minimax_url,
+            "cloud_file_id": None,
+            "backup_audio_url": minimax_url,
+        }
+        result["success"] = False
+        result["warning"] = "No access_token"
+        return result
+
+    # 创建临时文件
+    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+        tmp.write(audio_content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        cloud_path = f"audio/{news.get('id')}.mp3"
+        cloud_file_id = await _upload_to_wechat_cloud(tmp_path, cloud_path, access_token)
+    finally:
+        # 删除临时文件
+        try:
+            tmp_path.unlink()
+        except Exception:
+            pass
+
+    if cloud_file_id:
+        result["steps"]["4_wechat_upload"] = {
+            "success": True,
+            "cloud_file_id": cloud_file_id,
+        }
+    else:
+        result["steps"]["4_wechat_upload"] = {
+            "success": False,
+            "note": "Upload failed",
+        }
+
+    # 5. 保存到数据库
+    if cloud_file_id:
+        db_audio_url = cloud_file_id
+    else:
+        db_audio_url = minimax_url
+
+    try:
+        save_ok = await save_news_audio_urls(
+            news_id=news.get('id'),
+            audio_url=db_audio_url,
+            backup_audio_url=minimax_url,
+            cloud_file_id=cloud_file_id
+        )
+
+        # 验证保存结果
+        saved_cloud_id = await get_news_cloud_file_id(news.get('id'))
+
+        result["steps"]["5_save_to_db"] = {
+            "success": save_ok,
+            "saved_cloud_file_id": saved_cloud_id,
+            "expected_cloud_file_id": cloud_file_id,
+            "db_save_matches": saved_cloud_id == cloud_file_id,
+        }
+
+        result["final_status"] = {
+            "audio_url": db_audio_url,
+            "cloud_file_id": saved_cloud_id,
+            "backup_audio_url": minimax_url,
+        }
+
+    except Exception as e:
+        result["steps"]["5_save_to_db"] = {
+            "success": False,
+            "error": str(e),
+        }
+        result["error"] = f"Database save error: {e}"
+        return result
+
+    # 汇总
+    all_steps_ok = all(
+        step.get("success", False)
+        for step in result["steps"].values()
+    )
+    result["success"] = all_steps_ok
+
+    if all_steps_ok:
+        result["summary"] = "✅ 全部成功"
+    else:
+        failed_steps = [k for k, v in result["steps"].items() if not v.get("success", False)]
+        result["summary"] = f"❌ 失败步骤: {', '.join(failed_steps)}"
+
+    return result
+
+
+# ============ 通用云存储接口 ============
+# 用于前端从微信云存储下载音频文件
+
+@router.post("/cloud-url")
+async def get_cloud_temp_url(cloud_file_id: str = Body(..., description="微信云存储 fileID")):
+    """
+    根据 cloud_file_id 获取临时访问 URL
+
+    用于前端从微信云存储下载音频文件
+    """
+    from src.services.wechat_token import get_access_token
+    import httpx
+
+    if not cloud_file_id or not cloud_file_id.startswith('cloud://'):
+        raise HTTPException(status_code=400, detail="Invalid cloud_file_id format")
+
+    access_token = await get_access_token()
+    if not access_token:
+        raise HTTPException(status_code=500, detail="Cannot get access_token")
+
+    try:
+        # 从 fileID 提取 env 和 path
+        env = cloud_file_id.split('://')[1].split('/')[0]
+
+        # 调用微信云存储 API 获取临时 URL
+        url = f"https://api.weixin.qq.com/tcb/batchdownloadfile?access_token={access_token}"
+        data = {
+            "env": env,
+            "file_list": [{"fileid": cloud_file_id, "max_age": 3600}]
+        }
+
+        async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+            response = await client.post(url, json=data)
+            result = response.json()
+
+        if result.get("errcode") == 0 and result.get("file_list"):
+            file_info = result["file_list"][0]
+            if file_info.get("status") == 0:
+                temp_url = file_info.get("download_url")
+                logger.info(f"[Cloud] Got temp URL for {cloud_file_id[:40]}...")
+                return {"success": True, "temp_url": temp_url, "source": "cloud"}
+            else:
+                logger.error(f"[Cloud] Get URL status error: {file_info}")
+                raise HTTPException(status_code=404, detail="File not found in cloud storage")
+        else:
+            logger.error(f"[Cloud] Get URL error: {result}")
+            raise HTTPException(status_code=500, detail="Failed to get temp URL")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Cloud] Get temp URL error: {e}")
+        raise HTTPException(status_code=500, detail=f"Cloud storage error: {str(e)}")
