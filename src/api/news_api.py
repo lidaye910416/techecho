@@ -353,6 +353,92 @@ async def get_cloud_file_id(news_id: str):
 
 # ============ 调试接口 ============
 
+@router.get("/debug/upload-test")
+async def debug_upload_test(
+    news_id: str = Query(..., description="新闻ID"),
+):
+    """
+    调试：测试微信云存储上传
+    """
+    from src.services.news import get_news_by_id
+    from src.services.wechat_token import get_access_token
+    import requests
+    import tempfile
+    from pathlib import Path
+
+    result = {"news_id": news_id}
+
+    # 获取新闻
+    news = await get_news_by_id(news_id)
+    if not news:
+        return {"error": "News not found"}
+
+    # 获取音频 URL
+    audio_url = news.get("audio_url")
+    if not audio_url or audio_url.startswith("cloud://"):
+        return {"error": "No audio URL available"}
+
+    result["audio_url"] = audio_url[:60] + "..."
+
+    # 获取 access_token
+    access_token = await get_access_token()
+    if not access_token:
+        return {"error": "No access_token"}
+
+    # 下载音频文件
+    try:
+        resp = requests.get(audio_url, timeout=60, verify=False)
+        audio_content = resp.content
+        result["download_size"] = len(audio_content)
+    except Exception as e:
+        return {"error": f"Download failed: {e}"}
+
+    # 获取上传 URL
+    cloud_path = f"audio/{news_id}.mp3"
+    upload_api_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
+    data = {
+        "env": "prod-d9g7e5osy7b5e7a9c",
+        "path": cloud_path,
+    }
+
+    resp = requests.post(upload_api_url, json=data, timeout=30, verify=False)
+    api_result = resp.json()
+    result["api_response"] = {
+        "errcode": api_result.get("errcode"),
+        "has_url": bool(api_result.get("url")),
+        "has_token": bool(api_result.get("token")),
+        "has_authorization": bool(api_result.get("authorization")),
+    }
+
+    if api_result.get("errcode") != 0:
+        result["error"] = f"API error: {api_result}"
+        return result
+
+    cos_url = api_result.get("url")
+    token = api_result.get("token")
+    authorization = api_result.get("authorization")
+
+    result["cos_url"] = cos_url[:60] + "..."
+    result["token_prefix"] = token[:20] + "..." if token else None
+    result["auth_prefix"] = authorization[:50] + "..." if authorization else None
+
+    # 测试上传方式1：使用 Authorization header
+    headers1 = {
+        "Content-Type": "audio/mpeg",
+        "Authorization": authorization,
+        "x-cos-security-token": token,
+    }
+    resp1 = requests.put(cos_url, data=audio_content, headers=headers1, timeout=60, verify=False)
+    result["upload_auth_header"] = {"status": resp1.status_code, "response": resp1.text[:200]}
+
+    # 测试上传方式2：普通 PUT
+    headers2 = {"Content-Type": "audio/mpeg"}
+    resp2 = requests.put(cos_url, data=audio_content, headers=headers2, timeout=60, verify=False)
+    result["upload_plain"] = {"status": resp2.status_code, "response": resp2.text[:200]}
+
+    return result
+
+
 @router.get("/debug/cloud-url")
 async def debug_cloud_url(
     news_id: str = Query(..., description="新闻ID"),
