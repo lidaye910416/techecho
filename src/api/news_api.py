@@ -351,7 +351,7 @@ async def get_cloud_file_id(news_id: str):
         return {'success': False, 'message': 'No cloud file ID'}
 
 
-# ============ 微信云存储测试接口 ============
+# ============ 微信云存储测试接口（使用官方 COS-SDK 方式）============
 
 @router.get("/debug/wechat-storage")
 async def test_wechat_storage(
@@ -359,17 +359,19 @@ async def test_wechat_storage(
     news_id: str = Query(None, description="新闻ID"),
 ):
     """
-    测试微信云存储上传权限
+    测试微信云存储上传 - 使用官方 COS-SDK 方式
 
-    完整测试流程：
-    1. 调用 tcb/uploadfile 获取上传凭证
-    2. 尝试多种方式上传到 COS
-    3. 返回详细结果用于调试
+    根据微信官方文档：
+    1. 使用 /_/cos/getauth 获取临时秘钥
+    2. 使用临时秘钥初始化 COS-SDK
+    3. 上传时需要添加 x-cos-meta-fileid 元数据
     """
     import requests
-    import tempfile
+    import hashlib
+    import hmac
+    import time
+    import base64
     import urllib.parse
-    from pathlib import Path
     from src.services.wechat_token import get_access_token
     from src.config.settings import WECHAT_CLOUD_ENV
 
@@ -391,7 +393,6 @@ async def test_wechat_storage(
         file_name = "test.txt"
         content_type = "text/plain"
     elif news_id:
-        # 获取新闻的音频
         news = await get_news_by_id(news_id)
         if not news:
             return {"error": "News not found"}
@@ -409,7 +410,6 @@ async def test_wechat_storage(
         except Exception as e:
             return {"error": f"Failed to download audio: {e}"}
     else:
-        # 默认测试数据
         test_data = b"Hello from TechEcho! " + datetime.now().isoformat().encode()
         file_name = "test.txt"
         content_type = "text/plain"
@@ -417,110 +417,112 @@ async def test_wechat_storage(
     result["file_name"] = file_name
     result["file_size"] = len(test_data)
 
-    # 构造 cloud_path
     cloud_path = f"test/{result['test_id']}/{file_name}"
+    result["cloud_path"] = cloud_path
 
-    # 步骤1：获取上传凭证
-    upload_api_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
-    upload_data = {
-        "env": WECHAT_CLOUD_ENV,
-        "path": cloud_path,
-    }
-
+    # 步骤1：获取临时秘钥（官方推荐方式）
     try:
-        resp = requests.post(upload_api_url, json=upload_data, timeout=30, verify=False)
-        step1_result = resp.json()
-        result["step1_api"] = {
-            "errcode": step1_result.get("errcode"),
-            "errmsg": step1_result.get("errmsg"),
-            "has_url": bool(step1_result.get("url")),
-            "has_token": bool(step1_result.get("token")),
-            "has_auth": bool(step1_result.get("authorization")),
-            "file_id": step1_result.get("file_id"),
-        }
+        auth_url = f"https://api.weixin.qq.com/_/cos/getauth?access_token={access_token}"
+        auth_resp = requests.get(auth_url, timeout=30, verify=False)
+        auth_data = auth_resp.json()
+        result["auth_response"] = auth_data
 
-        if step1_result.get("errcode") != 0:
-            result["error"] = f"Step1 failed: {step1_result}"
-            return result
+        if auth_data.get("errcode") == 0:
+            result["has_temp_credentials"] = True
+            tmp_secret_id = auth_data.get("TmpSecretId", "")
+            tmp_secret_key = auth_data.get("TmpSecretKey", "")
+            session_token = auth_data.get("Token", "")
+            expired_time = auth_data.get("ExpiredTime")
 
-        cos_url = step1_result.get("url")
-        token = step1_result.get("token")
-        authorization = step1_result.get("authorization")
-        result["cos_url"] = cos_url
-        result["token"] = token[:30] + "..." if token else None
-        result["authorization"] = authorization[:50] + "..." if authorization else None
+            result["temp_credentials"] = {
+                "TmpSecretId": tmp_secret_id[:20] + "...",
+                "TmpSecretKey": tmp_secret_key[:20] + "...",
+                "Token": session_token[:30] + "...",
+                "ExpiredTime": expired_time,
+            }
+        else:
+            result["has_temp_credentials"] = False
+            return {"error": "Failed to get temp credentials", "auth_data": auth_data}
 
     except Exception as e:
-        result["error"] = f"Step1 exception: {e}"
-        return result
+        return {"error": f"Failed to get auth: {e}"}
 
-    # 步骤2：尝试不同的上传方式
+    # 步骤2：使用临时秘钥上传到 COS
+    # 存储桶配置
+    bucket = "7072-prod-d9g7e5osy7b5e7a9c-1433977056"  # 存储桶ID
+    region = "ap-shanghai"
+    file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+
     upload_tests = {}
 
-    # 方式1：使用 Authorization header
+    # 方式1：使用 COS 原生签名方式上传
+    cos_host = f"{bucket}.cos.{region}.myqcloud.com"
+    cos_url = f"https://{cos_host}/{cloud_path}"
+
+    # 生成 COS 签名
+    start_time = int(time.time())
+    end_time = start_time + 3600  # 1小时后过期
+
+    # 构造签名字符串
+    sign_str = f"a={tmp_secret_id}&k={tmp_secret_key}&e={end_time}&t={start_time}&r={int(time.time())}&f="
+
+    # 使用临时秘钥签名
+    signature = hmac.new(
+        tmp_secret_key.encode(),
+        sign_str.encode(),
+        hashlib.sha1
+    ).digest()
+    signature_b64 = base64.b64encode(signature).decode()
+
+    # 完整签名 = 签名内容 + 签名
+    full_sign = f"{sign_str}{signature_b64}"
+    result_sign = base64.b64encode(full_sign.encode()).decode()
+
     headers1 = {
         "Content-Type": content_type,
-        "Authorization": authorization,
+        "x-cos-security-token": session_token,
+        "x-cos-meta-fileid": file_id,
+        "Authorization": result_sign,
     }
-    if token:
-        headers1["x-cos-security-token"] = token
 
     resp1 = requests.put(cos_url, data=test_data, headers=headers1, timeout=60, verify=False)
-    upload_tests["auth_header"] = {
+    upload_tests["cos_native_sign"] = {
         "status": resp1.status_code,
         "success": resp1.status_code in [200, 201],
         "response": resp1.text[:500] if resp1.text else None,
+        "url": cos_url,
     }
 
-    # 方式2：只使用 Authorization（不带 x-cos-security-token）
+    # 方式2：使用 tcb.qcloud.la 域名
+    tcb_url = f"https://{bucket}.tcb.qcloud.la/{cloud_path}"
     headers2 = {
         "Content-Type": content_type,
-        "Authorization": authorization,
+        "x-cos-meta-fileid": file_id,
+        "Authorization": result_sign,
     }
-    resp2 = requests.put(cos_url, data=test_data, headers=headers2, timeout=60, verify=False)
-    upload_tests["auth_only"] = {
+    resp2 = requests.put(tcb_url, data=test_data, headers=headers2, timeout=60, verify=False)
+    upload_tests["tcb_qcloud_la"] = {
         "status": resp2.status_code,
         "success": resp2.status_code in [200, 201],
         "response": resp2.text[:500] if resp2.text else None,
+        "url": tcb_url,
     }
 
-    # 方式3：在 URL query 中添加 Authorization
-    parsed = urllib.parse.urlparse(cos_url)
-    signed_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{urllib.parse.quote(authorization)}"
-    headers3 = {"Content-Type": content_type}
-    resp3 = requests.put(signed_url, data=test_data, headers=headers3, timeout=60, verify=False)
-    upload_tests["auth_in_url"] = {
+    # 方式3：使用 auth 凭证直接 PUT
+    headers3 = {
+        "Content-Type": content_type,
+        "x-cos-security-token": session_token,
+        "x-cos-meta-fileid": file_id,
+    }
+    resp3 = requests.put(cos_url, data=test_data, headers=headers3, timeout=60, verify=False)
+    upload_tests["cos_with_token"] = {
         "status": resp3.status_code,
         "success": resp3.status_code in [200, 201],
         "response": resp3.text[:500] if resp3.text else None,
     }
 
-    # 方式4：POST 请求
-    headers4 = {
-        "Content-Type": content_type,
-        "Authorization": authorization,
-    }
-    if token:
-        headers4["x-cos-security-token"] = token
-    resp4 = requests.post(cos_url, data=test_data, headers=headers4, timeout=60, verify=False)
-    upload_tests["post_auth_header"] = {
-        "status": resp4.status_code,
-        "success": resp4.status_code in [200, 201],
-        "response": resp4.text[:500] if resp4.text else None,
-    }
-
-    # 方式5：无认证的 PUT（期望失败）
-    headers5 = {"Content-Type": content_type}
-    resp5 = requests.put(cos_url, data=test_data, headers=headers5, timeout=60, verify=False)
-    upload_tests["no_auth"] = {
-        "status": resp5.status_code,
-        "success": resp5.status_code in [200, 201],
-        "response": resp5.text[:500] if resp5.text else None,
-    }
-
     result["upload_tests"] = upload_tests
 
-    # 总结
     success_methods = [k for k, v in upload_tests.items() if v["success"]]
     result["success"] = len(success_methods) > 0
     result["success_methods"] = success_methods
