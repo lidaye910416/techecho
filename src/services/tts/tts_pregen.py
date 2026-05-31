@@ -96,27 +96,48 @@ async def _upload_to_wechat_cloud(
             return None
 
         # 步骤2：上传文件到 COS URL
-        logger.info(f"[TTS] Step2: Uploading to COS URL: {cos_url[:60]}...")
+        logger.info(f"[TTS] Step2: Uploading to COS URL...")
 
         # 尝试不同的上传方式
         upload_success = False
+        token = result.get("token")
+        authorization = result.get("authorization")
 
-        # 方式1：PUT 请求
-        for content_type in ["audio/mpeg", "application/octet-stream", "binary/octet-stream"]:
+        # 方式1：使用 Authorization header（腾讯云 COS 签名）
+        for content_type in ["audio/mpeg", "application/octet-stream"]:
+            headers = {"Content-Type": content_type}
+            if authorization:
+                headers["Authorization"] = authorization
+            if token:
+                headers["x-cos-security-token"] = token
+
             put_response = requests.put(
                 cos_url,
                 data=file_content,
-                headers={"Content-Type": content_type},
+                headers=headers,
                 timeout=60,
                 verify=False
             )
-            logger.info(f"[TTS] PUT response: status={put_response.status_code}")
+            logger.info(f"[TTS] PUT with auth: status={put_response.status_code}")
             if put_response.status_code in [200, 201]:
                 upload_success = True
                 break
 
         if not upload_success:
-            # 方式2：POST 请求
+            # 方式2：普通 PUT 请求
+            put_response = requests.put(
+                cos_url,
+                data=file_content,
+                headers={"Content-Type": "audio/mpeg"},
+                timeout=60,
+                verify=False
+            )
+            logger.info(f"[TTS] PUT plain: status={put_response.status_code}")
+            if put_response.status_code in [200, 201]:
+                upload_success = True
+
+        if not upload_success:
+            # 方式3：POST 请求
             post_response = requests.post(
                 cos_url,
                 data=file_content,
@@ -124,7 +145,7 @@ async def _upload_to_wechat_cloud(
                 timeout=60,
                 verify=False
             )
-            logger.info(f"[TTS] POST response: status={post_response.status_code}")
+            logger.info(f"[TTS] POST: status={post_response.status_code}")
             if post_response.status_code in [200, 201]:
                 upload_success = True
 
