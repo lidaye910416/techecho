@@ -204,9 +204,18 @@ async def pre_generate_tts_for_news(
     client = get_minimax_client()
 
     # 获取 access_token（提前获取，避免重复调用）
+    from src.config.settings import WECHAT_CLOUD_ENV
+    logger.info(f"[TTS] WECHAT_CLOUD_ENV={WECHAT_CLOUD_ENV}")
+
     access_token = await get_access_token()
     if not access_token:
-        logger.warning("[TTS] Cannot get access_token, will skip cloud upload but save backup URL")
+        logger.error("[TTS] CRITICAL: Cannot get access_token, will skip cloud upload but save backup URL")
+        # 打印环境变量帮助调试
+        import os
+        logger.error(f"[TTS] WECHAT_APPID={'set' if os.getenv('WECHAT_APPID') else 'NOT SET'}")
+        logger.error(f"[TTS] WECHAT_SECRET={'set' if os.getenv('WECHAT_SECRET') else 'NOT SET'}")
+    else:
+        logger.info(f"[TTS] Got access_token: {access_token[:20]}...")
 
     for i, news in enumerate(news_list):
         news_id = news.get('id', '')
@@ -245,12 +254,17 @@ async def pre_generate_tts_for_news(
             cloud_file_id = None
 
             if access_token:
+                logger.info(f"[TTS] [{i+1}] Starting cloud upload for {news_id[:24]}...")
                 with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
                     tmp.write(audio_content)
                     tmp_path = Path(tmp.name)
 
                 try:
                     cloud_file_id = await _upload_to_wechat_cloud(tmp_path, cloud_path, access_token)
+                    if cloud_file_id:
+                        logger.info(f"[TTS] [{i+1}] Cloud upload SUCCESS: {cloud_file_id}")
+                    else:
+                        logger.error(f"[TTS] [{i+1}] Cloud upload FAILED: returned None")
                 finally:
                     # 删除本地临时文件
                     try:
