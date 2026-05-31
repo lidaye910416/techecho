@@ -752,6 +752,59 @@ async def debug_cloud_url(
 
 # ============ TTS 测试接口 ============
 
+@router.get("/debug/tts-upload-test")
+async def test_tts_upload_only(
+    news_id: str = Query(None, description="新闻ID，不指定则取最新一条"),
+):
+    """
+    仅测试云存储上传功能
+
+    使用模拟音频数据测试上传流程
+    """
+    from src.services.wechat_token import get_access_token
+    from src.services.tts.tts_pregen import _upload_to_wechat_cloud
+    import tempfile
+    from pathlib import Path
+
+    result = {"steps": []}
+
+    # 1. 获取 access_token
+    access_token = await get_access_token()
+    if not access_token:
+        return {"error": "Cannot get access_token", "steps": ["get_access_token"]}
+
+    result["steps"].append("get_access_token: OK")
+    result["access_token"] = access_token[:20] + "..."
+
+    # 2. 创建测试音频文件
+    test_content = b"FAKE_AUDIO_DATA_FOR_TESTING_ONLY"
+    cloud_path = f"debug/test_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3"
+
+    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+        tmp.write(test_content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        # 3. 上传
+        result["steps"].append(f"upload_start: {cloud_path}")
+        cloud_file_id = await _upload_to_wechat_cloud(tmp_path, cloud_path, access_token)
+
+        if cloud_file_id:
+            result["steps"].append("upload: SUCCESS")
+            result["cloud_file_id"] = cloud_file_id
+            result["success"] = True
+        else:
+            result["steps"].append("upload: FAILED (returned None)")
+            result["success"] = False
+    finally:
+        try:
+            tmp_path.unlink()
+        except Exception:
+            pass
+
+    return result
+
+
 @router.post("/tts-test")
 async def test_tts_pipeline(
     news_id: str = Query(None, description="新闻ID，不指定则取最新一条"),
