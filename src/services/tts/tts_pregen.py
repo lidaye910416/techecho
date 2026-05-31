@@ -42,10 +42,9 @@ async def _upload_to_wechat_cloud(
     """
     上传文件到微信云存储
 
-    完整流程：
-    1. 调用 tcb/uploadfile 获取 file_id 和上传 URL
-    2. 使用 PUT 请求上传文件到返回的 COS URL
-    3. 验证文件上传成功
+    使用腾讯云 COS Python SDK 上传：
+    1. 使用 /_/cos/getauth 获取临时秘钥
+    2. 使用 qcloud_cos SDK 上传文件
 
     Args:
         local_file: 本地文件路径
@@ -53,7 +52,7 @@ async def _upload_to_wechat_cloud(
         access_token: 微信 access_token
 
     Returns:
-        cloud_file_id: 微信返回的 file_id
+        cloud_file_id: 格式 cloud://{env}/{path}
         None: 上传失败
     """
     if not local_file.exists():
@@ -70,95 +69,63 @@ async def _upload_to_wechat_cloud(
         with open(local_file, 'rb') as f:
             file_content = f.read()
 
-        url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
-
         logger.info(f"[TTS] Upload: env={WECHAT_CLOUD_ENV}, path={cloud_path}, size={len(file_content)}")
 
-        # 步骤1：获取上传 URL 和 file_id
-        data = {
-            "env": WECHAT_CLOUD_ENV,
-            "path": cloud_path,
-        }
+        # 步骤1：获取临时秘钥（官方推荐方式）
+        auth_url = f"https://api.weixin.qq.com/_/cos/getauth?access_token={access_token}"
+        auth_resp = requests.get(auth_url, timeout=30, verify=False)
+        auth_data = auth_resp.json()
 
-        response = requests.post(url, json=data, timeout=30, verify=False)
-        result = response.json()
-        logger.info(f"[TTS] Step1 response: errcode={result.get('errcode')}, has_url={bool(result.get('url'))}")
+        tmp_secret_id = auth_data.get("TmpSecretId")
+        tmp_secret_key = auth_data.get("TmpSecretKey")
+        session_token = auth_data.get("Token")
 
-        if result.get("errcode") != 0:
-            logger.error(f"[TTS] Step1 failed: {result}")
+        if not tmp_secret_id or not tmp_secret_key:
+            logger.error(f"[TTS] Failed to get temp credentials: {auth_data}")
             return None
 
-        cos_url = result.get("url")
-        file_id = result.get("file_id")
+        logger.info(f"[TTS] Got temp credentials")
 
-        if not cos_url:
-            logger.error(f"[TTS] No COS URL in response: {result}")
+        # 步骤2：使用腾讯云 COS Python SDK 上传
+        try:
+            from qcloud_cos import CosConfig, CosS3Client
+
+            bucket = "7072-prod-d9g7e5osy7b5e7a9c-1433977056"
+            region = "ap-shanghai"
+
+            config = CosConfig(
+                Region=region,
+                SecretId=tmp_secret_id,
+                SecretKey=tmp_secret_key,
+                Token=session_token,
+            )
+            client = CosS3Client(config)
+
+            response = client.put_object(
+                Bucket=bucket,
+                Body=file_content,
+                Key=cloud_path,
+                ContentType="audio/mpeg",
+                EnableMD5=False
+            )
+
+            logger.info(f"[TTS] COS SDK upload response: {response}")
+
+            # 验证上传成功
+            if response.get("ETag"):
+                cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+                logger.info(f"[TTS] Success! cloud_file_id={cloud_file_id}")
+                return cloud_file_id
+            else:
+                logger.error(f"[TTS] Upload failed: {response}")
+                return None
+
+        except ImportError:
+            logger.error("[TTS] qcloud_cos SDK not installed, please install cos-python-sdk-v5")
             return None
-
-        # 步骤2：上传文件到 COS URL
-        logger.info(f"[TTS] Step2: Uploading to COS URL...")
-
-        # 尝试不同的上传方式
-        upload_success = False
-        token = result.get("token")
-        authorization = result.get("authorization")
-
-        # 方式1：使用 Authorization header（腾讯云 COS 签名）
-        for content_type in ["audio/mpeg", "application/octet-stream"]:
-            headers = {"Content-Type": content_type}
-            if authorization:
-                headers["Authorization"] = authorization
-            if token:
-                headers["x-cos-security-token"] = token
-
-            put_response = requests.put(
-                cos_url,
-                data=file_content,
-                headers=headers,
-                timeout=60,
-                verify=False
-            )
-            logger.info(f"[TTS] PUT with auth: status={put_response.status_code}")
-            if put_response.status_code in [200, 201]:
-                upload_success = True
-                break
-
-        if not upload_success:
-            # 方式2：普通 PUT 请求
-            put_response = requests.put(
-                cos_url,
-                data=file_content,
-                headers={"Content-Type": "audio/mpeg"},
-                timeout=60,
-                verify=False
-            )
-            logger.info(f"[TTS] PUT plain: status={put_response.status_code}")
-            if put_response.status_code in [200, 201]:
-                upload_success = True
-
-        if not upload_success:
-            # 方式3：POST 请求
-            post_response = requests.post(
-                cos_url,
-                data=file_content,
-                headers={"Content-Type": "audio/mpeg"},
-                timeout=60,
-                verify=False
-            )
-            logger.info(f"[TTS] POST: status={post_response.status_code}")
-            if post_response.status_code in [200, 201]:
-                upload_success = True
-
-        if not upload_success:
-            logger.error(f"[TTS] Failed to upload to COS URL after all attempts")
+        except Exception as e:
+            logger.error(f"[TTS] COS SDK upload error: {e}")
             return None
-
-        logger.info(f"[TTS] File uploaded successfully!")
-
-        # 步骤3：构造并返回 cloud_file_id
-        cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-        logger.info(f"[TTS] Success! cloud_file_id={cloud_file_id}")
-        return cloud_file_id
 
     except Exception as e:
         logger.error(f"[TTS] Cloud upload error: {e}")
