@@ -872,9 +872,20 @@ async def test_tts_pipeline(
         result["warning"] = "No access_token"
         return result
 
-    cloud_path = f"audio/{news.get('id')}.mp3"
+    # 创建临时文件
+    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+        tmp.write(audio_content)
+        tmp_path = Path(tmp.name)
 
-    cloud_file_id = await _upload_to_wechat_cloud(tmp_path, cloud_path, access_token)
+    try:
+        cloud_path = f"audio/{news.get('id')}.mp3"
+        cloud_file_id = await _upload_to_wechat_cloud(tmp_path, cloud_path, access_token)
+    finally:
+        # 删除临时文件
+        try:
+            tmp_path.unlink()
+        except Exception:
+            pass
 
     if cloud_file_id:
         result["steps"]["4_wechat_upload"] = {
