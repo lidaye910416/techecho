@@ -371,6 +371,7 @@ async def test_wechat_storage(
     import urllib.parse
     from pathlib import Path
     from src.services.wechat_token import get_access_token
+    from src.config.settings import WECHAT_CLOUD_ENV
 
     result = {
         "env": WECHAT_CLOUD_ENV,
