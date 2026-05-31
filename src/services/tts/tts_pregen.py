@@ -73,18 +73,22 @@ async def _upload_to_wechat_cloud(
 
         # 步骤1：获取临时秘钥（官方推荐方式）
         auth_url = f"https://api.weixin.qq.com/_/cos/getauth?access_token={access_token}"
+        logger.info(f"[TTS] Getting temp credentials from: {auth_url[:60]}...")
         auth_resp = requests.get(auth_url, timeout=30, verify=False)
         auth_data = auth_resp.json()
+
+        logger.info(f"[TTS] Auth response status: {auth_resp.status_code}")
+        logger.info(f"[TTS] Auth response keys: {auth_data.keys() if auth_data else 'None'}")
 
         tmp_secret_id = auth_data.get("TmpSecretId")
         tmp_secret_key = auth_data.get("TmpSecretKey")
         session_token = auth_data.get("Token")
 
         if not tmp_secret_id or not tmp_secret_key:
-            logger.error(f"[TTS] Failed to get temp credentials: {auth_data}")
+            logger.error(f"[TTS] CRITICAL: Failed to get temp credentials! Response: {auth_data}")
             return None
 
-        logger.info(f"[TTS] Got temp credentials")
+        logger.info(f"[TTS] Got temp credentials: SecretId={tmp_secret_id[:20]}...")
 
         # 步骤2：使用腾讯云 COS Python SDK 上传
         try:
@@ -99,8 +103,10 @@ async def _upload_to_wechat_cloud(
                 SecretKey=tmp_secret_key,
                 Token=session_token,
             )
+            logger.info(f"[TTS] Creating COS client with bucket={bucket}, region={region}")
             client = CosS3Client(config)
 
+            logger.info(f"[TTS] Calling put_object...")
             response = client.put_object(
                 Bucket=bucket,
                 Body=file_content,
@@ -114,13 +120,14 @@ async def _upload_to_wechat_cloud(
             # 验证上传成功
             if response.get("ETag"):
                 cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-                logger.info(f"[TTS] Success! cloud_file_id={cloud_file_id}")
+                logger.info(f"[TTS] SUCCESS! cloud_file_id={cloud_file_id}")
                 return cloud_file_id
             else:
-                logger.error(f"[TTS] Upload failed: {response}")
+                logger.error(f"[TTS] Upload failed - no ETag in response: {response}")
                 return None
 
-        except ImportError:
+        except ImportError as e:
+            logger.error(f"[TTS] CRITICAL: qcloud_cos SDK not installed: {e}")
             logger.error("[TTS] qcloud_cos SDK not installed, trying to install...")
             # 尝试安装 SDK
             try:
@@ -161,14 +168,20 @@ async def _upload_to_wechat_cloud(
                     logger.info(f"[TTS] Success after SDK install! cloud_file_id={cloud_file_id}")
                     return cloud_file_id
             except Exception as install_error:
-                logger.error(f"[TTS] Failed to install SDK or upload: {install_error}")
+                logger.error(f"[TTS] CRITICAL: Failed to install SDK or upload: {install_error}")
+                import traceback
+                logger.error(f"[TTS] Traceback: {traceback.format_exc()}")
                 return None
         except Exception as e:
-            logger.error(f"[TTS] COS SDK upload error: {e}")
+            logger.error(f"[TTS] CRITICAL: COS SDK upload error: {e}")
+            import traceback
+            logger.error(f"[TTS] Traceback: {traceback.format_exc()}")
             return None
 
     except Exception as e:
-        logger.error(f"[TTS] Cloud upload error: {e}")
+        logger.error(f"[TTS] CRITICAL: Cloud upload error: {e}")
+        import traceback
+        logger.error(f"[TTS] Traceback: {traceback.format_exc()}")
         return None
 
 
