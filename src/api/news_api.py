@@ -351,6 +351,181 @@ async def get_cloud_file_id(news_id: str):
         return {'success': False, 'message': 'No cloud file ID'}
 
 
+# ============ 微信云存储测试接口 ============
+
+@router.get("/debug/wechat-storage")
+async def test_wechat_storage(
+    test_content: str = Query(None, description="测试内容，不传则测试上传音频"),
+    news_id: str = Query(None, description="新闻ID"),
+):
+    """
+    测试微信云存储上传权限
+
+    完整测试流程：
+    1. 调用 tcb/uploadfile 获取上传凭证
+    2. 尝试多种方式上传到 COS
+    3. 返回详细结果用于调试
+    """
+    import requests
+    import tempfile
+    from pathlib import Path
+
+    result = {
+        "env": WECHAT_CLOUD_ENV,
+        "test_id": f"test_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+    }
+
+    # 获取 access_token
+    access_token = await get_access_token()
+    if not access_token:
+        return {"error": "Cannot get access_token"}
+
+    result["access_token"] = access_token[:20] + "..."
+
+    # 准备测试文件
+    if test_content:
+        test_data = test_content.encode('utf-8')
+        file_name = "test.txt"
+        content_type = "text/plain"
+    elif news_id:
+        # 获取新闻的音频
+        news = await get_news_by_id(news_id)
+        if not news:
+            return {"error": "News not found"}
+
+        audio_url = news.get("audio_url") or news.get("backup_audio_url")
+        if not audio_url or audio_url.startswith("cloud://"):
+            return {"error": "No audio URL available"}
+
+        try:
+            resp = requests.get(audio_url, timeout=30, verify=False)
+            test_data = resp.content
+            file_name = f"test_{news_id[:8]}.mp3"
+            content_type = "audio/mpeg"
+            result["audio_size"] = len(test_data)
+        except Exception as e:
+            return {"error": f"Failed to download audio: {e}"}
+    else:
+        # 默认测试数据
+        test_data = b"Hello from TechEcho! " + datetime.now().isoformat().encode()
+        file_name = "test.txt"
+        content_type = "text/plain"
+
+    result["file_name"] = file_name
+    result["file_size"] = len(test_data)
+
+    # 构造 cloud_path
+    cloud_path = f"test/{result['test_id']}/{file_name}"
+
+    # 步骤1：获取上传凭证
+    upload_api_url = f"https://api.weixin.qq.com/tcb/uploadfile?access_token={access_token}"
+    upload_data = {
+        "env": WECHAT_CLOUD_ENV,
+        "path": cloud_path,
+    }
+
+    try:
+        resp = requests.post(upload_api_url, json=upload_data, timeout=30, verify=False)
+        step1_result = resp.json()
+        result["step1_api"] = {
+            "errcode": step1_result.get("errcode"),
+            "errmsg": step1_result.get("errmsg"),
+            "has_url": bool(step1_result.get("url")),
+            "has_token": bool(step1_result.get("token")),
+            "has_auth": bool(step1_result.get("authorization")),
+            "file_id": step1_result.get("file_id"),
+        }
+
+        if step1_result.get("errcode") != 0:
+            result["error"] = f"Step1 failed: {step1_result}"
+            return result
+
+        cos_url = step1_result.get("url")
+        token = step1_result.get("token")
+        authorization = step1_result.get("authorization")
+        result["cos_url"] = cos_url
+        result["token"] = token[:30] + "..." if token else None
+        result["authorization"] = authorization[:50] + "..." if authorization else None
+
+    except Exception as e:
+        result["error"] = f"Step1 exception: {e}"
+        return result
+
+    # 步骤2：尝试不同的上传方式
+    upload_tests = {}
+
+    # 方式1：使用 Authorization header
+    headers1 = {
+        "Content-Type": content_type,
+        "Authorization": authorization,
+    }
+    if token:
+        headers1["x-cos-security-token"] = token
+
+    resp1 = requests.put(cos_url, data=test_data, headers=headers1, timeout=60, verify=False)
+    upload_tests["auth_header"] = {
+        "status": resp1.status_code,
+        "success": resp1.status_code in [200, 201],
+        "response": resp1.text[:500] if resp1.text else None,
+    }
+
+    # 方式2：只使用 Authorization（不带 x-cos-security-token）
+    headers2 = {
+        "Content-Type": content_type,
+        "Authorization": authorization,
+    }
+    resp2 = requests.put(cos_url, data=test_data, headers=headers2, timeout=60, verify=False)
+    upload_tests["auth_only"] = {
+        "status": resp2.status_code,
+        "success": resp2.status_code in [200, 201],
+        "response": resp2.text[:500] if resp2.text else None,
+    }
+
+    # 方式3：在 URL query 中添加 Authorization
+    import urllib.parse
+    parsed = urllib.parse.urlparse(cos_url)
+    signed_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{urllib.parse.quote(authorization)}"
+    headers3 = {"Content-Type": content_type}
+    resp3 = requests.put(signed_url, data=test_data, headers=headers3, timeout=60, verify=False)
+    upload_tests["auth_in_url"] = {
+        "status": resp3.status_code,
+        "success": resp3.status_code in [200, 201],
+        "response": resp3.text[:500] if resp3.text else None,
+    }
+
+    # 方式4：POST 请求
+    headers4 = {
+        "Content-Type": content_type,
+        "Authorization": authorization,
+    }
+    if token:
+        headers4["x-cos-security-token"] = token
+    resp4 = requests.post(cos_url, data=test_data, headers=headers4, timeout=60, verify=False)
+    upload_tests["post_auth_header"] = {
+        "status": resp4.status_code,
+        "success": resp4.status_code in [200, 201],
+        "response": resp4.text[:500] if resp4.text else None,
+    }
+
+    # 方式5：无认证的 PUT（期望失败）
+    headers5 = {"Content-Type": content_type}
+    resp5 = requests.put(cos_url, data=test_data, headers=headers5, timeout=60, verify=False)
+    upload_tests["no_auth"] = {
+        "status": resp5.status_code,
+        "success": resp5.status_code in [200, 201],
+        "response": resp5.text[:500] if resp5.text else None,
+    }
+
+    result["upload_tests"] = upload_tests
+
+    # 总结
+    success_methods = [k for k, v in upload_tests.items() if v["success"]]
+    result["success"] = len(success_methods) > 0
+    result["success_methods"] = success_methods
+
+    return result
+
+
 # ============ 调试接口 ============
 
 @router.get("/debug/upload-test")
