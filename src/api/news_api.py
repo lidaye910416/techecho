@@ -368,7 +368,9 @@ async def test_wechat_storage(
     """
     import requests
     import tempfile
+    import urllib.parse
     from pathlib import Path
+    from src.services.wechat_token import get_access_token
 
     result = {
         "env": WECHAT_CLOUD_ENV,
@@ -482,7 +484,6 @@ async def test_wechat_storage(
     }
 
     # 方式3：在 URL query 中添加 Authorization
-    import urllib.parse
     parsed = urllib.parse.urlparse(cos_url)
     signed_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{urllib.parse.quote(authorization)}"
     headers3 = {"Content-Type": content_type}
