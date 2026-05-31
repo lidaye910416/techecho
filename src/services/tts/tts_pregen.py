@@ -121,8 +121,48 @@ async def _upload_to_wechat_cloud(
                 return None
 
         except ImportError:
-            logger.error("[TTS] qcloud_cos SDK not installed, please install cos-python-sdk-v5")
-            return None
+            logger.error("[TTS] qcloud_cos SDK not installed, trying to install...")
+            # 尝试安装 SDK
+            try:
+                import subprocess
+                subprocess.run(
+                    ["pip", "install", "-q", "cos-python-sdk-v5"],
+                    capture_output=True,
+                    timeout=60
+                )
+                logger.info("[TTS] SDK installed, retrying upload...")
+                # 重新导入并上传
+                import importlib
+                import qcloud_cos
+                importlib.reload(qcloud_cos)
+                from qcloud_cos import CosConfig, CosS3Client
+
+                bucket = "7072-prod-d9g7e5osy7b5e7a9c-1433977056"
+                region = "ap-shanghai"
+
+                config = CosConfig(
+                    Region=region,
+                    SecretId=tmp_secret_id,
+                    SecretKey=tmp_secret_key,
+                    Token=session_token,
+                )
+                client = CosS3Client(config)
+
+                response = client.put_object(
+                    Bucket=bucket,
+                    Body=file_content,
+                    Key=cloud_path,
+                    ContentType="audio/mpeg",
+                    EnableMD5=False
+                )
+
+                if response.get("ETag"):
+                    cloud_file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
+                    logger.info(f"[TTS] Success after SDK install! cloud_file_id={cloud_file_id}")
+                    return cloud_file_id
+            except Exception as install_error:
+                logger.error(f"[TTS] Failed to install SDK or upload: {install_error}")
+                return None
         except Exception as e:
             logger.error(f"[TTS] COS SDK upload error: {e}")
             return None
