@@ -447,83 +447,135 @@ async def test_wechat_storage(
     except Exception as e:
         return {"error": f"Failed to get auth: {e}"}
 
-    # 步骤2：使用临时秘钥上传到 COS
-    # 存储桶配置
-    bucket = "7072-prod-d9g7e5osy7b5e7a9c-1433977056"  # 存储桶ID
-    region = "ap-shanghai"
-    file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
-
+    # 步骤2：尝试使用腾讯云 COS Python SDK
     upload_tests = {}
 
-    # 方式1：使用 COS 原生签名方式上传
-    cos_host = f"{bucket}.cos.{region}.myqcloud.com"
-    cos_url = f"https://{cos_host}/{cloud_path}"
+    try:
+        # 尝试安装 qcloud-python-sdk
+        import subprocess
+        result_install = subprocess.run(
+            ["pip", "install", "-q", "cos-python-sdk-v5"],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        result["sdk_install"] = "cos-python-sdk-v5 installed" if result_install.returncode == 0 else f"failed: {result_install.stderr}"
+    except Exception as e:
+        result["sdk_install"] = f"error: {e}"
 
-    # 生成 COS 签名
-    start_time = int(time.time())
-    end_time = start_time + 3600  # 1小时后过期
+    # 尝试使用 SDK
+    try:
+        from qcloud_cos import CosConfig, CosS3Client
 
-    # 构造签名字符串
-    sign_str = f"a={tmp_secret_id}&k={tmp_secret_key}&e={end_time}&t={start_time}&r={int(time.time())}&f="
+        # COS 配置
+        bucket = "7072-prod-d9g7e5osy7b5e7a9c-1433977056"
+        region = "ap-shanghai"
 
-    # 使用临时秘钥签名
-    signature = hmac.new(
-        tmp_secret_key.encode(),
-        sign_str.encode(),
-        hashlib.sha1
-    ).digest()
-    signature_b64 = base64.b64encode(signature).decode()
+        # 使用临时秘钥配置
+        config = CosConfig(
+            Region=region,
+            SecretId=tmp_secret_id,
+            SecretKey=tmp_secret_key,
+            Token=session_token,
+        )
+        client = CosS3Client(config)
 
-    # 完整签名 = 签名内容 + 签名
-    full_sign = f"{sign_str}{signature_b64}"
-    result_sign = base64.b64encode(full_sign.encode()).decode()
+        # 上传文件
+        response = client.put_object(
+            Bucket=bucket,
+            Body=test_data,
+            Key=cloud_path,
+            ContentType=content_type,
+            EnableMD5=False
+        )
+        upload_tests["cos_sdk"] = {
+            "success": True,
+            "response": response,
+        }
+    except ImportError:
+        result["sdk_error"] = "SDK not available, using manual signature"
+        upload_tests["sdk_note"] = "Please install cos-python-sdk-v5"
 
-    headers1 = {
-        "Content-Type": content_type,
-        "x-cos-security-token": session_token,
-        "x-cos-meta-fileid": file_id,
-        "Authorization": result_sign,
-    }
+        # 方式：使用临时秘钥 + COS 签名
+        bucket = "7072-prod-d9g7e5osy7b5e7a9c-1433977056"
+        region = "ap-shanghai"
+        file_id = f"cloud://{WECHAT_CLOUD_ENV}/{cloud_path}"
 
-    resp1 = requests.put(cos_url, data=test_data, headers=headers1, timeout=60, verify=False)
-    upload_tests["cos_native_sign"] = {
-        "status": resp1.status_code,
-        "success": resp1.status_code in [200, 201],
-        "response": resp1.text[:500] if resp1.text else None,
-        "url": cos_url,
-    }
+        # 使用腾讯云 COS 临时秘钥签名算法
+        def generate_temp_key_sign(secret_id, secret_key, token, bucket, region, path):
+            """生成腾讯云 COS 临时秘钥签名"""
+            start_time = int(time.time())
+            end_time = start_time + 3600
 
-    # 方式2：使用 tcb.qcloud.la 域名
-    tcb_url = f"https://{bucket}.tcb.qcloud.la/{cloud_path}"
-    headers2 = {
-        "Content-Type": content_type,
-        "x-cos-meta-fileid": file_id,
-        "Authorization": result_sign,
-    }
-    resp2 = requests.put(tcb_url, data=test_data, headers=headers2, timeout=60, verify=False)
-    upload_tests["tcb_qcloud_la"] = {
-        "status": resp2.status_code,
-        "success": resp2.status_code in [200, 201],
-        "response": resp2.text[:500] if resp2.text else None,
-        "url": tcb_url,
-    }
+            # 构造签名串
+            # 多次签名：sign=[签名方法]\n
+            #              [请求方法]\n
+            #              [请求路径]\n
+            #              [请求参数]\n
+            #              [签名时间]\n
+            #              [签名过期时间]\n
 
-    # 方式3：使用 auth 凭证直接 PUT
-    headers3 = {
-        "Content-Type": content_type,
-        "x-cos-security-token": session_token,
-        "x-cos-meta-fileid": file_id,
-    }
-    resp3 = requests.put(cos_url, data=test_data, headers=headers3, timeout=60, verify=False)
-    upload_tests["cos_with_token"] = {
-        "status": resp3.status_code,
-        "success": resp3.status_code in [200, 201],
-        "response": resp3.text[:500] if resp3.text else None,
-    }
+            http_method = "PUT"
+            http_uri = f"/{path}"
+            http_params = ""
+            http_headers = f"x-cos-security-token:{token}\n"
+
+            sign_time = f"{start_time};{end_time}"
+            sign_index = sign_time
+
+            # 组合签名字符串
+            signed_str = f"q-sign-algorithm=sha1\n" \
+                        f"q-ak={secret_id}\n" \
+                        f"q-sign-time={sign_time}\n" \
+                        f"q-key-time={sign_time}\n" \
+                        f"q-header-list=\n" \
+                        f"q-url-param-list=\n" \
+                        f"{http_method}\n" \
+                        f"{http_uri}\n" \
+                        f"{http_params}\n"
+
+            # 使用 secret_key 签名
+            signature = hmac.new(
+                secret_key.encode(),
+                signed_str.encode(),
+                hashlib.sha1
+            ).hexdigest()
+
+            authorization = f"q-sign-algorithm=sha1" \
+                          f";q-ak={secret_id}" \
+                          f";q-sign-time={sign_time}" \
+                          f";q-key-time={sign_time}" \
+                          f";q-header-list=" \
+                          f";q-url-param-list=" \
+                          f";q-signature={signature}"
+
+            return authorization
+
+        # 生成签名
+        auth_header = generate_temp_key_sign(tmp_secret_id, tmp_secret_key, session_token, bucket, region, cloud_path)
+
+        # 上传到 COS
+        cos_url = f"https://{bucket}.cos.{region}.myqcloud.com/{cloud_path}"
+        headers = {
+            "Content-Type": content_type,
+            "x-cos-security-token": session_token,
+            "Authorization": auth_header,
+        }
+
+        resp = requests.put(cos_url, data=test_data, headers=headers, timeout=60, verify=False)
+        upload_tests["cos_manual_sign"] = {
+            "status": resp.status_code,
+            "success": resp.status_code in [200, 201],
+            "response": resp.text[:500] if resp.text else None,
+        }
+
+    except Exception as e:
+        result["sdk_exception"] = str(e)
+        upload_tests["error"] = str(e)
 
     result["upload_tests"] = upload_tests
 
-    success_methods = [k for k, v in upload_tests.items() if v["success"]]
+    success_methods = [k for k, v in upload_tests.items() if v.get("success")]
     result["success"] = len(success_methods) > 0
     result["success_methods"] = success_methods
 
