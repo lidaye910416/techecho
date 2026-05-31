@@ -431,10 +431,18 @@ async def debug_upload_test(
     resp1 = requests.put(cos_url, data=audio_content, headers=headers1, timeout=60, verify=False)
     result["upload_auth_header"] = {"status": resp1.status_code, "response": resp1.text[:200]}
 
-    # 测试上传方式2：普通 PUT
-    headers2 = {"Content-Type": "audio/mpeg"}
-    resp2 = requests.put(cos_url, data=audio_content, headers=headers2, timeout=60, verify=False)
-    result["upload_plain"] = {"status": resp2.status_code, "response": resp2.text[:200]}
+    # 测试上传方式2：在 URL 中添加签名
+    # 解析 COS URL 并添加签名参数
+    import urllib.parse
+    parsed = urllib.parse.urlparse(cos_url)
+    signed_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{authorization}"
+    resp2 = requests.put(signed_url, data=audio_content, headers={"Content-Type": "audio/mpeg"}, timeout=60, verify=False)
+    result["upload_signed_url"] = {"status": resp2.status_code, "response": resp2.text[:200]}
+
+    # 测试上传方式3：普通 PUT
+    headers3 = {"Content-Type": "audio/mpeg"}
+    resp3 = requests.put(cos_url, data=audio_content, headers=headers3, timeout=60, verify=False)
+    result["upload_plain"] = {"status": resp3.status_code, "response": resp3.text[:200]}
 
     return result
 
