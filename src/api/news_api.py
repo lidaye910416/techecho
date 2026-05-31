@@ -425,24 +425,24 @@ async def test_wechat_storage(
         auth_url = f"https://api.weixin.qq.com/_/cos/getauth?access_token={access_token}"
         auth_resp = requests.get(auth_url, timeout=30, verify=False)
         auth_data = auth_resp.json()
-        result["auth_response"] = auth_data
+        result["auth_response"] = {
+            "TmpSecretId": auth_data.get("TmpSecretId", "")[:20] + "..." if auth_data.get("TmpSecretId") else None,
+            "TmpSecretKey": auth_data.get("TmpSecretKey", "")[:20] + "..." if auth_data.get("TmpSecretKey") else None,
+            "Token": auth_data.get("Token", "")[:30] + "..." if auth_data.get("Token") else None,
+            "ExpiredTime": auth_data.get("ExpiredTime"),
+        }
 
-        if auth_data.get("errcode") == 0:
-            result["has_temp_credentials"] = True
-            tmp_secret_id = auth_data.get("TmpSecretId", "")
-            tmp_secret_key = auth_data.get("TmpSecretKey", "")
-            session_token = auth_data.get("Token", "")
-            expired_time = auth_data.get("ExpiredTime")
+        # /_/cos/getauth 不返回 errcode，直接返回凭证
+        tmp_secret_id = auth_data.get("TmpSecretId", "")
+        tmp_secret_key = auth_data.get("TmpSecretKey", "")
+        session_token = auth_data.get("Token", "")
+        expired_time = auth_data.get("ExpiredTime")
 
-            result["temp_credentials"] = {
-                "TmpSecretId": tmp_secret_id[:20] + "...",
-                "TmpSecretKey": tmp_secret_key[:20] + "...",
-                "Token": session_token[:30] + "...",
-                "ExpiredTime": expired_time,
-            }
-        else:
+        if not tmp_secret_id or not tmp_secret_key:
             result["has_temp_credentials"] = False
-            return {"error": "Failed to get temp credentials", "auth_data": auth_data}
+            return {"error": "No temp credentials in response", "auth_data": auth_data}
+
+        result["has_temp_credentials"] = True
 
     except Exception as e:
         return {"error": f"Failed to get auth: {e}"}
